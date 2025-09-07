@@ -16,7 +16,7 @@ The **AppSheet Parser Suite** is a collection of modular Python scripts that ana
 
 The full documentation—including setup, architecture, and phase-by-phase explanations—is hosted here:
 
-👉 [Read the full documentation](https://kirkmasden.com/appsheet_parser_docs/)
+👉 [Read the full documentation](https://files.kirkmasden.com/AppSheet/appsheet-parser-docs-complete.html)
 
 ---
 
@@ -27,4 +27,49 @@ The full documentation—including setup, architecture, and phase-by-phase expla
 ```bash
 git clone https://github.com/KirkMasden/appsheet_parser_and_orphan_detector.git
 cd appsheet_parser_and_orphan_detector
+```
 
+#### 2. Set up a virtual environment and install dependencies
+
+```bash
+python3 -m venv venv
+source venv/bin/activate      # On Windows: venv\Scripts\activate
+pip install beautifulsoup4
+```
+
+#### 3. Run the suite
+
+```bash
+python master_parser_and_orphan_detector.py "MyApp_Data/Application Documentation.html"
+```
+
+This will create a timestamped folder with CSV outputs and offer to launch the interactive dependency analyzer.
+
+---
+
+### 📂 Folder Structure Example
+
+```
+AppSheetAnalysis/
+├── appsheet_parser_and_orphan_detector/  # This repository
+├── MyApp_Data/
+│   ├── Application Documentation.html
+│   ├── actions.txt
+│   ├── views1.txt
+│   ├── views2.txt
+│   └── bot_actions.txt (optional)
+└── venv/
+```
+
+---
+
+### 📄 License
+
+MIT License
+
+---
+
+### 🙋 Author
+
+**Kirk Masden**  
+[GitHub](https://github.com/KirkMasden) ・ [Website](https://kirkmasden.com)
