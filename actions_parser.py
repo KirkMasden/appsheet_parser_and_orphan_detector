@@ -705,7 +705,7 @@ class ActionsParser(BaseParser):
                     
             # Handle "Execute an action on a set of rows" type
             if action_type_plain_english == 'Execute an action on a set of rows':
-                if 'ReferencedAction' in data:
+                if 'ReferencedAction' in data and data['ReferencedAction'] is not None:
                     # Store as a list with single item for consistency
                     parsed['referenced_actions'] = [data['ReferencedAction']]
                     

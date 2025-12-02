@@ -50,6 +50,7 @@ class VirtualColumnOrphanDetector:
                 for row in reader:
                     self.unused_system_views.add(row['view_name'].lower())
             print(f"  ✓ Loaded {len(self.unused_system_views)} unused system views to exclude")
+            print(f"    Note: Columns appearing only on unreachable views will be flagged as potential orphans")
         else:
             print("  ℹ️ No unused system views file found - all views will be considered")
     

@@ -849,19 +849,15 @@ def main():
                 except Exception as e:
                     print(f"\nError running dependency analyzer: {e}")
             else:
-                # Build a path to the hub script relative to the current working directory.
-                # Always wrap in quotes so it works on both Windows and Unix shells.
+                # Build absolute paths so the command works from any directory
                 script_dir = os.path.dirname(os.path.abspath(__file__))
-                hub_path = os.path.relpath(
-                    os.path.join(script_dir, 'dependency_analyzer_hub.py'),
-                    start=os.getcwd()
-                )
-                # Print the parse directory relative to current working directory
-                rel_parse_dir = os.path.relpath(actual_output_dir, start=os.getcwd())
+                hub_path = os.path.join(script_dir, 'dependency_analyzer_hub.py')
+                abs_parse_dir = os.path.abspath(actual_output_dir)
 
-                print("\nYou can run dependency analysis later with:")
-                print(f'  python "{hub_path}" "{rel_parse_dir}"')
-
+                print("\nYou can run dependency analysis later by:")
+                print('  1. Activating your virtual environment if not running (e.g., source venv/bin/activate)')
+                print('  2. Pasting the following command:')
+                print(f'     python "{hub_path}" "{abs_parse_dir}"')
 
         except KeyboardInterrupt:
             print("\n\nExiting...")

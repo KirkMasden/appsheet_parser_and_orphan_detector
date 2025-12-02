@@ -48,6 +48,7 @@ class ActionOrphanDetector:
                 for row in reader:
                     self.unused_system_views.add(row['view_name'].lower())
             print(f"  ✓ Loaded {len(self.unused_system_views)} unused system views to exclude")
+            print(f"    Note: Actions appearing only on unreachable views will be flagged as potential orphans")
         else:
             print("  ℹ️ No unused system views file found - all views will be considered")
 
@@ -249,6 +250,10 @@ class ActionOrphanDetector:
                             return True
                             
             elif view_type == 'table':
+                # Navigation actions can display as overlay in table views
+                action_type = action.get('action_type_plain_english', '')
+                if prominence == 'Display Overlay' and action_type == 'Navigate':
+                    return True
                 if prominence == 'Display Inline' and attach_to_column:
                     # Check if column is visible in view
                     view_columns = [c.strip() for c in view['view_columns'].split('|||') if c.strip()]

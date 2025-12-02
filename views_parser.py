@@ -133,6 +133,9 @@ class ViewsParser(BaseParser):
                         if 'Data:' in next_line and not next_line.startswith('Data:'):
                             # Extract position (everything before 'Data:')
                             position = next_line.split('Data:')[0].strip()
+                            # Remove any Type: suffix from position
+                            if 'Type:' in position:
+                                position = position.split('Type:')[0].strip()
                             
                             # Check if Type is also on this line
                             if 'Type:' in next_line:
@@ -156,6 +159,9 @@ class ViewsParser(BaseParser):
                         # Check for wide screen format (position on separate line)
                         elif any(pos in next_line for pos in ['first', 'middle', 'next', 'later', 'last']) and 'Data:' not in next_line:
                             position = next_line
+                            # Remove any Type: suffix from position
+                            if 'Type:' in position:
+                                position = position.split('Type:')[0].strip()
                             i += 1
                             
                             # Look for Data line
