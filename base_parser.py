@@ -109,6 +109,10 @@ class BaseParser(ABC):
             if not any(ref['raw'] in match.group(0) for ref in references):
                 column_name = match.group(1).strip()
                 
+                # Skip JSON arrays like ["value1","value2"] - they start with a quote
+                if column_name.startswith('"') or column_name.startswith("'"):
+                    continue
+                
                 # Use context table if available
                 actual_table = self.resolve_table_reference(context_table) if context_table else None
                 
@@ -119,6 +123,36 @@ class BaseParser(ABC):
                     'raw': match.group(0),
                     'context_table': context_table
                 })
+        
+        # Pattern 3: USERSETTINGS("ColumnName") references
+        # Maps to _Per User Settings table
+        usersettings_pattern = r'USERSETTINGS\s*\(\s*["\']([^"\']+)["\']\s*\)'
+        
+        for match in re.finditer(usersettings_pattern, text, re.IGNORECASE):
+            column_name = match.group(1).strip()
+            references.append({
+                'type': 'usersettings',
+                'table': '_Per User Settings',
+                'column': column_name,
+                'raw': match.group(0),
+                'context_table': context_table,
+                'is_slice_ref': False
+            })
+        
+        # Pattern 4: [_THISUSER].[ColumnName] references
+        # Alternative syntax for accessing User Settings
+        thisuser_pattern = r'\[_THISUSER\]\.\[([^\]]+)\]'
+        
+        for match in re.finditer(thisuser_pattern, text, re.IGNORECASE):
+            column_name = match.group(1).strip()
+            references.append({
+                'type': 'usersettings',
+                'table': '_Per User Settings',
+                'column': column_name,
+                'raw': match.group(0),
+                'context_table': context_table,
+                'is_slice_ref': False
+            })
                 
         return references
         

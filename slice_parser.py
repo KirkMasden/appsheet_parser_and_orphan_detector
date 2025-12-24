@@ -73,7 +73,7 @@ class SliceParser(BaseParser):
         # Regular tables
         if regular_tables:
             regular_total = sum(regular_tables.values())
-            print(f"  📁 Regular Tables: {len(regular_tables)} ({regular_total:,} columns total)")
+            print(f"\n  📁 Regular Tables: {len(regular_tables)} ({regular_total:,} columns total)")
             for table_name, col_count in sorted(regular_tables.items()):
                 print(f"     ├─ {table_name}: {col_count} columns")
         
@@ -82,7 +82,10 @@ class SliceParser(BaseParser):
             system_total = sum(system_tables.values())
             print(f"\n  📁 System Table: {len(system_tables)} ({system_total:,} columns total)")
             for table_name, col_count in sorted(system_tables.items()):
-                print(f"     └─ {table_name}: {col_count} columns")
+                if table_name == '_Per User Settings':
+                    print(f"     └─ {table_name}: {col_count} columns (will be included in orphan analysis)")
+                else:
+                    print(f"     └─ {table_name}: {col_count} columns")
         
         # Process tables
         if process_tables:

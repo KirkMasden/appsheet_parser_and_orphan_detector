@@ -51,6 +51,7 @@ def get_known_views(views_csv_path):
     """Get set of all known view names from appsheet_views.csv"""
     views_normalized = set()  # For comparison (normalized, lowercase)
     views_original = {}  # Map normalized -> original name
+    views_exact = set()  # For case-sensitive CONTEXT comparison
     
     rows = read_csv(views_csv_path)
     for row in rows:
@@ -60,8 +61,10 @@ def get_known_views(views_csv_path):
             normalized = resolve_view_name(view_name).lower()
             views_normalized.add(normalized)
             views_original[normalized] = view_name
+            # Also store exact name for CONTEXT case-sensitive matching
+            views_exact.add(resolve_view_name(view_name))
     
-    return views_normalized, views_original
+    return views_normalized, views_original, views_exact
 
 def extract_view_references(expression):
     """Extract view references using comprehensive regex patterns"""
@@ -127,7 +130,18 @@ def extract_view_references(expression):
     
     return references
 
-def find_action_phantoms_from_targets(parse_dir, known_views_normalized, indent=""):
+def is_phantom_reference(func_type, view_name, known_views_normalized, known_views_exact):
+    """Check if a view reference is phantom, using case-sensitive matching for CONTEXT"""
+    resolved = resolve_view_name(view_name)
+    
+    if func_type == 'CONTEXT':
+        # CONTEXT() is case-sensitive in AppSheet
+        return resolved not in known_views_exact
+    else:
+        # Other functions are case-insensitive
+        return resolved.lower() not in known_views_normalized
+
+def find_action_phantoms_from_targets(parse_dir, known_views_normalized, known_views_exact, indent=""):
     """Find phantom view references in actions using action_targets.csv"""
     phantoms = []
     action_targets_path = Path(parse_dir) / 'action_targets.csv'
@@ -197,15 +211,14 @@ def find_phantoms(parse_dir, indent=""):
         print(f"{indent}ERROR: Cannot find {views_csv}")
         return []
     
-    known_views_normalized, known_views_original = get_known_views(views_csv)
+    known_views_normalized, known_views_original, known_views_exact = get_known_views(views_csv)
     print(f"{indent}\n{indent}✔ Found {len(known_views_normalized)} known views")
     
     phantoms = []
     total_expressions = 0
     
     # Try to use action_targets.csv for actions
-    action_phantoms = find_action_phantoms_from_targets(parse_dir, known_views_normalized, indent)
-    
+    action_phantoms = find_action_phantoms_from_targets(parse_dir, known_views_normalized, known_views_exact, indent)
     if action_phantoms is not None:
         # Successfully used action_targets.csv
         phantoms.extend(action_phantoms)
@@ -234,8 +247,7 @@ def find_phantoms(parse_dir, indent=""):
                 # Collect phantom references
                 missing_views = []
                 for func_type, view_name in refs:
-                    normalized = resolve_view_name(view_name).lower()
-                    if normalized and normalized not in known_views_normalized:
+                    if is_phantom_reference(func_type, view_name, known_views_normalized, known_views_exact):
                         if view_name not in ['', 'VIEW', 'View']:
                             missing_views.append(view_name)
                 
@@ -281,8 +293,7 @@ def find_phantoms(parse_dir, indent=""):
                     missing_views = []
                     
                     for func_type, view_name in refs:
-                        normalized = resolve_view_name(view_name).lower()
-                        if normalized and normalized not in known_views_normalized:
+                        if is_phantom_reference(func_type, view_name, known_views_normalized, known_views_exact):
                             if view_name not in ['', 'VIEW', 'View']:
                                 missing_views.append(view_name)
                     
@@ -344,8 +355,7 @@ def find_phantoms(parse_dir, indent=""):
                 missing_views = []
                 
                 for func_type, view_name in refs:
-                    normalized = resolve_view_name(view_name).lower()
-                    if normalized and normalized not in known_views_normalized:
+                    if is_phantom_reference(func_type, view_name, known_views_normalized, known_views_exact):
                         if view_name not in ['', 'VIEW', 'View']:
                             missing_views.append(view_name)
                 

@@ -80,6 +80,18 @@ class VirtualColumnOrphanDetector:
                     # Keep the entire row instead of just selected fields
                     virtual_column = row.copy()
                     self.virtual_columns.append(virtual_column)
+    
+    def extract_user_settings_columns(self):
+        """Extract all _Per User Settings columns from appsheet_columns.csv"""
+        columns_file = self.parse_dir / self.csv_files['columns']
+        self.user_settings_columns = []
+        
+        with open(columns_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            
+            for row in reader:
+                if row.get('table_name', '') == '_Per User Settings':
+                    self.user_settings_columns.append(row.copy())
         
     def load_all_ref_columns(self):
         """Load ALL Ref columns, not just virtual ones"""
@@ -215,6 +227,118 @@ class VirtualColumnOrphanDetector:
 
         return potential_orphans, system_generated_count, label_count
     
+    def find_user_settings_orphans(self):
+        """Find User Settings columns that are configured but never referenced via USERSETTINGS()"""
+        
+        # Collect all USERSETTINGS() references from all CSV files
+        usersettings_refs = set()
+        
+        for file_type, filename in self.csv_files.items():
+            file_path = self.parse_dir / filename
+            if file_path.exists():
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        referenced_columns = row.get('referenced_columns', '')
+                        if referenced_columns:
+                            for ref in referenced_columns.split('|||'):
+                                ref = ref.strip()
+                                # Look for _Per User Settings[ColumnName] references
+                                if ref.lower().startswith('_per user settings['):
+                                    # Extract column name (case-insensitive storage)
+                                    col_name = ref[19:-1]  # Remove "_Per User Settings[" and "]"
+                                    usersettings_refs.add(col_name.lower())
+        
+        # Find orphaned User Settings columns
+        orphans = []
+        for col in self.user_settings_columns:
+            column_name = col.get('column_name', '')
+            column_type = col.get('type', '')
+            
+            # Skip system columns (start with underscore)
+            if column_name.startswith('_'):
+                continue
+            
+            # Skip "Show" type columns (used for layout only)
+            if column_type == 'Show':
+                continue
+            
+            # Skip unconfigured default slots (Option 1, Option 2, etc.)
+            if re.match(r'^Option \d+$', column_name):
+                continue
+            
+            # Check if this column is referenced anywhere
+            if column_name.lower() not in usersettings_refs:
+                orphan = col.copy()
+                orphan['orphan_reason'] = 'Configured but never referenced via USERSETTINGS()'
+                orphans.append(orphan)
+        
+        return orphans
+    
+    def find_broken_usersettings_refs(self):
+        """Find USERSETTINGS() references that point to non-existent columns"""
+        
+        # Get valid User Settings column names (case-insensitive)
+        valid_columns = set()
+        for col in self.user_settings_columns:
+            column_name = col.get('column_name', '')
+            if column_name:
+                valid_columns.add(column_name.lower())
+        
+        # Scan all CSV files for USERSETTINGS references
+        broken_refs = []
+        
+        for file_type, filename in self.csv_files.items():
+            file_path = self.parse_dir / filename
+            if not file_path.exists():
+                continue
+                
+            with open(file_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    referenced_columns = row.get('referenced_columns', '')
+                    if not referenced_columns:
+                        continue
+                    
+                    for ref in referenced_columns.split('|||'):
+                        ref = ref.strip()
+                        # Look for _Per User Settings[ColumnName] references
+                        if ref.lower().startswith('_per user settings['):
+                            # Extract column name
+                            col_name = ref[19:-1]  # Remove "_Per User Settings[" and "]"
+                            
+                            # Check if this column exists
+                            if col_name.lower() not in valid_columns:
+                                # Determine component info based on file type
+                                if file_type == 'columns':
+                                    component_name = row.get('unique_identifier', row.get('column_name', ''))
+                                    component_type = 'Column'
+                                elif file_type == 'views':
+                                    component_name = row.get('view_name', '')
+                                    component_type = 'View'
+                                elif file_type == 'actions':
+                                    component_name = row.get('action_name', '')
+                                    component_type = 'Action'
+                                elif file_type == 'format_rules':
+                                    component_name = row.get('rule_name', '')
+                                    component_type = 'Format Rule'
+                                elif file_type == 'slices':
+                                    component_name = row.get('slice_name', '')
+                                    component_type = 'Slice'
+                                else:
+                                    component_name = 'Unknown'
+                                    component_type = file_type
+                                
+                                broken_refs.append({
+                                    'referenced_column': col_name,
+                                    'component_type': component_type,
+                                    'component_name': component_name,
+                                    'table': row.get('table_name', row.get('data_source', '')),
+                                    'full_reference': ref
+                                })
+        
+        return broken_refs
+    
     def write_results_to_csv(self, potential_orphans):
         """Write orphan candidates to CSV file in the parse directory"""
         output_file = self.parse_dir / 'potential_virtual_column_orphans.csv'
@@ -259,6 +383,41 @@ class VirtualColumnOrphanDetector:
         print(f"    ✓ Results written to: potential_virtual_column_orphans.csv")
         return output_file
     
+    def write_user_settings_orphans_to_csv(self, orphans):
+        """Write User Settings orphan candidates to CSV file"""
+        output_file = self.parse_dir / 'potential_usersettings_orphans.csv'
+        
+        fieldnames = [
+            'table_name', 'column_number', 'column_name', 'unique_identifier',
+            'is_virtual', 'type', 'description', 'referenced_columns', 'app_formula',
+            'display_name', 'initial_value', 'orphan_reason'
+        ]
+        
+        with open(output_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore', quoting=csv.QUOTE_ALL)
+            writer.writeheader()
+            writer.writerows(orphans)
+        
+        print(f"    ✓ Results written to: potential_usersettings_orphans.csv")
+        return output_file
+    
+    def write_broken_usersettings_to_csv(self, broken_refs):
+        """Write broken USERSETTINGS references to CSV file"""
+        output_file = self.parse_dir / 'broken_usersettings_references.csv'
+        
+        fieldnames = [
+            'referenced_column', 'component_type', 'component_name',
+            'table', 'full_reference'
+        ]
+        
+        with open(output_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore', quoting=csv.QUOTE_ALL)
+            writer.writeheader()
+            writer.writerows(broken_refs)
+        
+        print(f"    ✓ Results written to: broken_usersettings_references.csv")
+        return output_file
+    
     def run_analysis(self):
         """Main analysis workflow"""
         print("🔍 Starting Virtual Column Orphan Detection...")
@@ -276,9 +435,12 @@ class VirtualColumnOrphanDetector:
         # Extract virtual columns
         print("\n  📊 Extracting virtual columns...")
         self.extract_virtual_columns()
-        self.load_all_ref_columns() 
+        self.load_all_ref_columns()
+        self.extract_user_settings_columns()
         column_text = "virtual column" if len(self.virtual_columns) == 1 else "virtual columns"
         print(f"  ✓ Found {len(self.virtual_columns)} {column_text}")
+        settings_text = "column" if len(self.user_settings_columns) == 1 else "columns"
+        print(f"  ✓ Found {len(self.user_settings_columns)} User Settings {settings_text}")
 
         # Find orphan candidates  
         print("\n  🔍 Searching for potential orphans...")
@@ -305,10 +467,32 @@ class VirtualColumnOrphanDetector:
         print()  
         
         if potential_orphans:
-            print(f"    ⚠️  Potential orphans found: {len(potential_orphans)}")
+            print(f"    ⚠️  Potential virtual column orphans found: {len(potential_orphans)}")
             print(f"\n  ✅ Results saved to: potential_virtual_column_orphans.csv")
         else:
-            print(f"    ✅ No potential orphans detected")
+            print(f"    ✅ No potential virtual column orphans detected")
+        
+        # User Settings orphan detection
+        print("\n  🔍 Searching for User Settings orphans...")
+        usersettings_orphans = self.find_user_settings_orphans()
+        
+        if usersettings_orphans:
+            print(f"\n  💾 Writing User Settings orphan results...")
+            self.write_user_settings_orphans_to_csv(usersettings_orphans)
+            print(f"    ⚠️  Potential User Settings orphans found: {len(usersettings_orphans)}")
+        else:
+            print(f"    ✅ No potential User Settings orphans detected")
+        
+        # Broken USERSETTINGS reference detection
+        print("\n  🔍 Searching for broken USERSETTINGS references...")
+        broken_refs = self.find_broken_usersettings_refs()
+        
+        if broken_refs:
+            print(f"\n  💾 Writing broken USERSETTINGS reference results...")
+            self.write_broken_usersettings_to_csv(broken_refs)
+            print(f"    ⚠️  Broken USERSETTINGS references found: {len(broken_refs)}")
+        else:
+            print(f"    ✅ No broken USERSETTINGS references detected")
         
         return potential_orphans
 

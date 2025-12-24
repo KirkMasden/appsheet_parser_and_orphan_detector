@@ -34,7 +34,11 @@ class ColumnParser(BaseParser):
         self.load_slice_mapping() 
 
     def identify_system_generated_tables(self):
-        """Pre-scan HTML to identify all tables with native data source, excluding _Per User Settings."""
+        """Pre-scan HTML to identify all tables with native data source.
+        
+        Exception: _Per User Settings is kept (not filtered) because it contains
+        user-configured columns that may be referenced by USERSETTINGS() expressions.
+        """
         print("  🔍 Scanning for system-generated tables...")
         
         # Find all table sections (not schema sections)
@@ -64,7 +68,10 @@ class ColumnParser(BaseParser):
                             value_text = cells[1].get_text(strip=True)
                             
                             if 'Data Source' in label_text and value_text.lower() == 'native':
-                                self.system_generated_tables.append(table_name)
+                                # Keep _Per User Settings - it contains user-configured columns
+                                # that may be referenced by USERSETTINGS() expressions
+                                if table_name != '_Per User Settings':
+                                    self.system_generated_tables.append(table_name)
                                 break
         
         print(f"  ✅ Found {len(self.system_generated_tables)} system-generated tables to filter")
