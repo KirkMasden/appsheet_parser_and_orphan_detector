@@ -6,8 +6,11 @@ Ensures parsers are run in the correct order and manages dependencies.
 
 import os
 import sys
+import csv
 import argparse
 from datetime import datetime
+
+csv.field_size_limit(sys.maxsize)
 
 # Import the parsers and orphan detectors
 from slice_parser import SliceParser

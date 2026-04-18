@@ -940,6 +940,7 @@ class ActionsParser(BaseParser):
                     action_info['visible'] = value
         
         # Resolve table reference (could be a slice)
+        actual_table = None
         if source_table:
             actual_table = self.resolve_table_reference(source_table)
             action_info['source_table'] = actual_table
