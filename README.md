@@ -37,7 +37,15 @@ source venv/bin/activate      # On Windows: venv\Scripts\activate
 pip install beautifulsoup4
 ```
 
-#### 3. Run the suite
+#### 3. Getting your app's documentation HTML
+
+This suite parses your AppSheet app's documentation, which the AppSheet editor makes available as a web page. Open that page and save it as HTML — this becomes the `Application Documentation.html` file referenced below. The suite also expects a few supplementary text files (`actions.txt`, `views1.txt`, `views2.txt`, and optionally `bot_actions.txt`), as shown in the folder structure example further down. Place all of these files together in a data folder alongside this repository, as in that example.
+
+👉 See [Downloading the Application Documentation HTML](https://files.kirkmasden.com/AppSheet/appsheet-parser-docs-complete.html#setup) for the full instructions.
+
+👉 For a screenshot showing where to find it in the AppSheet editor, see [this post by Steve on the Google Developer forum](https://discuss.google.dev/t/search-your-app-documentation-for-specific-details-and-where-you-used-certain-expressions-and-more/74029/2).
+
+#### 4. Run the suite
 
 ```bash
 python master_parser_and_orphan_detector.py "MyApp_Data/Application Documentation.html"
