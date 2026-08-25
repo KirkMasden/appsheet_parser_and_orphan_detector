@@ -8,6 +8,7 @@ Includes type_qualifier_formulas extraction for human readability.
 
 import os
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import re
 import json
 from collections import defaultdict

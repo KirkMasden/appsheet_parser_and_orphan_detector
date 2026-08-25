@@ -10,6 +10,7 @@ Version: 2.0 - Fixed false positives in view matching, added json import, refact
 """
 
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import json
 import os
 import sys

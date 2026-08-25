@@ -6,6 +6,7 @@ Handles apps with or without format rules gracefully.
 """
 
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import os
 import re
 import json

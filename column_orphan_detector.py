@@ -13,6 +13,7 @@ Example:
 """
 
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import sys
 import os
 from pathlib import Path

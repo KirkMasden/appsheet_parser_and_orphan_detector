@@ -7,6 +7,7 @@ Enhanced with unified referenced_columns field for dependency tracking.
 
 import re
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import json
 import os
 import sys

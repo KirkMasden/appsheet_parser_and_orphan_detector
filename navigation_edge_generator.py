@@ -11,6 +11,7 @@ This script determines which views can navigate to which other views by:
 """
 
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import json
 import sys
 import os

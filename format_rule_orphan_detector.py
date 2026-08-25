@@ -5,6 +5,7 @@ Identifies format rules that may be orphaned/unused.
 """
 
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import os
 import re
 from collections import defaultdict

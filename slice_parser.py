@@ -6,6 +6,7 @@ Includes improved action separation and FIXED slice column parsing.
 """
 
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import os
 import re
 from base_parser import BaseParser

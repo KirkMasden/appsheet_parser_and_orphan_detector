@@ -10,7 +10,7 @@ import csv
 import argparse
 from datetime import datetime
 
-csv.field_size_limit(sys.maxsize)
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 
 # Import the parsers and orphan detectors
 from slice_parser import SliceParser

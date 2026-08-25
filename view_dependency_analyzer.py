@@ -10,6 +10,7 @@ Authors: Kirk Masden & Claude
 """
 
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import json
 import os
 import sys

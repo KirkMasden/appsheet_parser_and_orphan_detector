@@ -8,6 +8,7 @@ AppSheet action expressions, preparing data for Phase 2 edge generation.
 """
 
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import re
 import sys
 import os

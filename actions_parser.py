@@ -6,6 +6,7 @@ Identifies system-generated vs user-created actions using actions.txt file.
 """
 
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import os
 import re
 import json

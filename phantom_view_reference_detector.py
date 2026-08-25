@@ -7,6 +7,7 @@ Uses pre-parsed action navigation targets while retaining regex parsing for othe
 """
 
 import csv
+import csv_limits  # noqa / intentional: sets csv field size limit on import — do not remove
 import os
 import sys
 import re
