@@ -787,7 +787,7 @@ class ActionsParser(BaseParser):
             print(f"  DEBUG: Final view_names: {view_names}")
         
         # Return unique view names
-        return list(set(view_names))
+        return sorted(set(view_names))
 
     def parse(self):
         """
