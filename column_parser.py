@@ -242,6 +242,24 @@ class ColumnParser(BaseParser):
         else:
             column_info['ref_table'] = ''
 
+        # Which table, slice, or view a List (Related/REF_ROWS) column displays.
+        # type_qualifier is double-JSON-encoded here: ElementTypeQualifier (and,
+        # for a list-of-enum-of-ref, its own nested BaseTypeQualifier) is a string
+        # containing escaped JSON, not a native nested object, so each level must
+        # be re-parsed before the name underneath it is visible.
+        column_info['related_view_source'] = ''
+        if column_info.get('type') == 'List':
+            try:
+                tq = json.loads(column_info.get('type_qualifier', '{}'))
+                element_qualifier = json.loads(tq.get('ElementTypeQualifier', '{}'))
+                related_name = element_qualifier.get('ReferencedTableName', '')
+                if not related_name:
+                    base_qualifier = json.loads(element_qualifier.get('BaseTypeQualifier', '{}'))
+                    related_name = base_qualifier.get('ReferencedTableName', '')
+                column_info['related_view_source'] = related_name.strip()
+            except (json.JSONDecodeError, TypeError):
+                column_info['related_view_source'] = ''
+
 
         # Extract references from formula fields
         formula_fields = ['app_formula', 'initial_value', 'valid_if', 'show_if', 
@@ -447,7 +465,8 @@ class ColumnParser(BaseParser):
             'hidden',
             'read-only',
             'searchable',
-            'ref_table'
+            'ref_table',
+            'related_view_source'
         ]
         
         # Get all fields from the data

@@ -31,7 +31,9 @@ class NavigationEdgeGenerator:
         self.views = {}  # view_name -> view data
         self.columns_by_table = defaultdict(set)  # table -> set of columns
         self.slices = {}  # slice_name -> slice data
-        
+        self.related_view_sources = []  # list of (table_name, column_name, related_view_source)
+        self.related_view_resolutions = {}  # (table_name, column_name) -> resolved view_name
+
         # Lookup indices for performance
         self.targets_by_action = defaultdict(list)  # action_name -> list of target rows
         self.views_by_name_lower = {}  # lowercase name -> canonical name
@@ -131,7 +133,11 @@ class NavigationEdgeGenerator:
                     column_name = row.get('column_name', '')
                     if table_name and column_name:
                         self.columns_by_table[table_name].add(column_name)
-            
+
+                    related_view_source = row.get('related_view_source', '')
+                    if table_name and column_name and related_view_source:
+                        self.related_view_sources.append((table_name, column_name, related_view_source))
+
             print(f"  ✓ Loaded columns for {len(self.columns_by_table)} tables")
             return True
         except Exception as e:
@@ -159,6 +165,25 @@ class NavigationEdgeGenerator:
             print(f"  ⚠️  Warning loading appsheet_slices.csv: {e}")
             return False
     
+    def resolve_related_view_sources(self) -> None:
+        """
+        Resolve each related_view_source value (usually a table or slice name, not a
+        view name) to the single view that displays it, when the data supports that
+        without guessing.
+        """
+        views_by_data_source = defaultdict(list)
+        for view in self.views.values():
+            data_source = view.get('data_source', '')
+            if data_source:
+                views_by_data_source[data_source].append(view['view_name'])
+
+        for table_name, column_name, related_view_source in self.related_view_sources:
+            candidates = views_by_data_source.get(related_view_source, [])
+            if len(candidates) == 1:
+                self.related_view_resolutions[(table_name, column_name)] = candidates[0]
+            # Several candidates: picking one would be a guess. No candidates:
+            # nothing to resolve. Either way, leave this column unresolved.
+
     def get_view_table(self, view: Dict) -> str:
         """Get the underlying table for a view, resolving slices if needed."""
         data_source = view.get('data_source', '') or view.get('source_table', '')
@@ -743,6 +768,58 @@ class NavigationEdgeGenerator:
             self.edges.append(edge)
             self.stats['edges_created'] += 1
     
+    def process_related_view_edges(self, view: Dict) -> None:
+        """Process Related-column display views (a List column's REF_ROWS target view)."""
+        source_table = view.get('source_table', '')
+        if not source_table:
+            return
+
+        view_columns = view.get('view_columns', '').split('|||') if view.get('view_columns') else []
+        view_columns = [c.strip() for c in view_columns if c.strip()]
+        if not view_columns:
+            return
+
+        for table_name, column_name, _ in self.related_view_sources:
+            if table_name != source_table or column_name not in view_columns:
+                continue
+
+            target_view = self.related_view_resolutions.get((table_name, column_name))
+            if not target_view:
+                continue
+
+            edge = {
+                'source_view': view['view_name'],
+                'source_view_type': view.get('view_type', ''),
+                'target_view': target_view,
+                'source_action': '',
+                'parent_action': '',
+                'action_type': '',
+                'action_availability_type': 'related_column',
+                'parent_prominence': '',
+                'child_prominence': '',
+                'event_type': '',
+                'is_self_loop': 'Yes' if view['view_name'] == target_view else 'No',
+                'must_be_in_views': '',
+                'must_not_be_in_views': '',
+                'must_be_viewtype': '',
+                'must_not_be_viewtype': '',
+                'must_be_table': '',
+                'must_not_be_table': '',
+                'available_actions': '',
+                'original_expression': '',
+                # Normalized columns
+                'source_view_normalized': view['view_name'].lower(),
+                'target_view_normalized': target_view.lower(),
+                'source_action_normalized': '',
+                'must_be_in_views_normalized': '',
+                'must_not_be_in_views_normalized': '',
+                'must_be_table_normalized': '',
+                'must_not_be_table_normalized': ''
+            }
+
+            self.edges.append(edge)
+            self.stats['edges_created'] += 1
+
     def process_view(self, view: Dict) -> None:
         """Process all navigation possibilities from a single view."""
         view_name = view['view_name']
@@ -785,6 +862,9 @@ class NavigationEdgeGenerator:
 
         # 4. Process dashboard containment
         self.process_dashboard_containment(view)
+
+        # 5. Process Related-column display views
+        self.process_related_view_edges(view)
     
     def write_edges_csv(self) -> None:
         """Write the generated edges to navigation_edges.csv."""
@@ -840,7 +920,10 @@ class NavigationEdgeGenerator:
     def generate_edges(self) -> Dict:
         """Main method to generate all navigation edges."""
         print("  🎯 Generating navigation edges...")
-        
+
+        # Resolve Related-column display views before processing any view
+        self.resolve_related_view_sources()
+
         # Process each view
         for view_name, view in self.views.items():
             self.process_view(view)
