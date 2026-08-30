@@ -2,6 +2,11 @@
 
 Last updated 2026-08-30. Records what is outstanding in this project between working sessions.
 
+See `APPSHEET_BEHAVIOR.md` for AppSheet's own display rules (positions, deck action
+bars, grouped-action execution) with sources for each. This file stays about defects
+in this code; that one is a specification of the platform's behavior. Don't duplicate
+between them — a platform rule goes there, this code's handling of it stays here.
+
 ## Known defects
 
 ### Orphan detector false positives — view switched at runtime, no navigation link
