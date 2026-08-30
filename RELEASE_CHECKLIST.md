@@ -2,7 +2,11 @@
 
 Everything standing between now and telling Leon the scripts are ready to test.
 Written 2026-08-31. This list is meant to be finite: when every item is done, the
-work stops and testing begins.
+work stops and testing begins. That is phase one, and everything through section E
+below belongs to it. A phase two exists — a related but separate project, described
+at the end of this file — and it begins only after phase one ends at publication and
+a break is taken. Nothing in phase two is pending release work; it should not be
+sequenced into the sections above it.
 
 Not a status file (see `STATUS.md` for defects), not a specification (see
 `APPSHEET_BEHAVIOR.md` for what AppSheet does), not a design (see
@@ -16,7 +20,7 @@ condition is met and recorded in the file named.
 
 ## A. App tests — Kirk's, a few minutes each
 
-These block section C. Each is answerable by putting an action on a view in a
+These block section D. Each is answerable by putting an action on a view in a
 running app and looking. Nothing else can answer them: the rules are facts about
 AppSheet's client, not derivable from the exports.
 
@@ -78,9 +82,44 @@ comparison against the current reference output.
       *Done when:* fixed, or recorded in `STATUS.md` as deliberately left alone
       with the reason.
 
+- [ ] **Audit the six never-examined modules named in `STATUS.md`.**
+      `view_orphan_detector.py`, `view_dependency_analyzer.py`,
+      `slice_orphan_detector.py`, `format_rules_parser.py`,
+      `format_rule_orphan_detector.py`, `column_dependency_analyzer.py`. The
+      seventh, `action_dependency_analyzer.py`, is already known to carry a live
+      bug found the moment anyone looked — that is the reason to look at the
+      others. Read-only: report what each module assumes, not a fix.
+      *Done when:* the audit has been run and its findings are recorded in
+      `STATUS.md`, whether or not anything needs fixing.
+
 ---
 
-## C. Consolidation — `CONSOLIDATION_PLAN.md`
+## C. A second reference parse — Kirk's own current app
+
+Every verification in this project compares a re-parse against one saved reference
+output: Leon's app. That is a single-app test bed, and this week showed exactly what
+it misses — every defect found came from rules Kirk's app never exercised. Kirk's
+app also contains prominence values and view types Leon's does not, so a second
+reference covers different ground rather than merely more of the same.
+
+- [ ] **Produce and save a reference parse of Kirk's current app.**
+      Three reasons, listed separately because they need different work:
+      - *Regression guard:* a saved reference parse of the current app, diffed
+        alongside Leon's on every subsequent change. The consolidation's steps 1
+        and 3 (section D below) claim a zero diff across every output file, and
+        that claim is far stronger verified against two apps than one.
+      - *Source of new findings:* run it, look at what gets flagged, and check
+        the surprising results in the running app. That is how this week's
+        discoveries happened.
+      - *Because the app has changed:* the suite was shaped around this app once;
+        some rules encoded then may no longer match what Kirk builds now.
+      *Done when:* a reference parse of the current app exists at a stable path,
+      that path is recorded in this checklist, and both references are diffed on
+      every subsequent change.
+
+---
+
+## D. Consolidation — `CONSOLIDATION_PLAN.md`
 
 Do not start before section A. Steps 4 and 5 are only judgment calls because the
 answers are unknown; once A is done they become mechanical.
@@ -110,7 +149,7 @@ before trusting any predicted diff.
 
 ---
 
-## D. Before contacting Leon
+## E. Before contacting Leon
 
 - [ ] **Push.** The commits have been local since 2026-08-30.
 
@@ -124,11 +163,12 @@ before trusting any predicted diff.
       what the tool is for.
 
 - [ ] **A `CLAUDE.md` at the repository root**, per the July plan: CSV schemas,
-      which analyzer answers which question, the instruction to call analyzer
-      methods directly rather than driving the interactive menus, and the known
-      blind spots. Ship an `AGENTS.md` with the same content for non-Anthropic
-      tools. Optional for a first test round, but it is what lets a tester's own
-      AI use the suite without reverse-engineering it.
+      which analyzer answers which category of question, the instruction to call
+      analyzer methods directly rather than driving the interactive menus, and
+      the known blind spots. Ship an `AGENTS.md` with the same content for
+      non-Anthropic tools. Required before publication, not optional: a
+      published tool that other people's AI will use needs this to use the
+      suite without reverse-engineering it.
 
 ---
 
@@ -145,7 +185,8 @@ Recorded so they are not mistaken for oversights.
 - Primary's client-dependent display limits, and the unverified report about
   dashboard-embedded views. Both excluded by decision on 2026-08-30 and recorded
   in `APPSHEET_BEHAVIOR.md`.
-- Extending the visibility layer to the backing Google Sheet. A separate project.
+- Extending the visibility layer to the backing Google Sheet. See "Phase two" at
+  the end of this file — a separate project, broader than this one line suggests.
 
 ---
 
@@ -163,3 +204,25 @@ Leon's app is the first evidence of what that costs. A third app would surface
 more. `APPSHEET_BEHAVIOR.md` and its Unknowns section exist so that the next
 surprise can be traced to a documented gap rather than reverse-engineered from
 inconsistent code — which may make it more useful to testers than to Kirk.
+
+---
+
+## Phase two — making the backing Google Sheet visible to AI
+
+Not pending release work. Do not sequence this into phase one above, and do not
+start it before phase one ends at publication and a break is taken.
+
+A related but separate project: making an entire AppSheet app visible to AI,
+including the backing Google Sheets and the computation done in them. The existing
+CSV export layer already does this for the app definition; the sheet side, formulas
+included, is the half AI still cannot see.
+
+`STATUS.md`'s "Next steps" section describes a narrower version of this as
+extending the visibility layer to the backing Google Sheet via an Apps Script dump
+of formulas and displayed values. That framing is narrower than intended here: the
+Apps Script dump is one possible means, not the goal itself. The goal is the whole
+sheet side made visible; how that gets built is still open.
+
+The non-interactive query mode with JSON output, also named in `STATUS.md`'s "Next
+steps", is not part of this project and stays where that file puts it: only if a
+demonstrated need appears.
