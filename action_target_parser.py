@@ -18,7 +18,7 @@ import json
 class NavigationExpressionParser:
     """Parses AppSheet navigation expressions into structured targets."""
 
-    NAV_FUNCTIONS = ('LINKTOVIEW', 'LINKTOROW', 'LINKTOFILTEREDVIEW')
+    NAV_FUNCTIONS = ('LINKTOVIEW', 'LINKTOROW', 'LINKTOFILTEREDVIEW', 'LINKTOFORM')
 
     def _expression_calls_nav_function(self, expression: str) -> bool:
         """Return True if expression calls one of the navigation functions."""
@@ -43,6 +43,7 @@ class NavigationExpressionParser:
             'linktoview': 0,
             'linktorow': 0,
             'linktofilteredview': 0,
+            'linktoform': 0,
             'total': 0
         }
         self.context_counts = {
@@ -355,6 +356,37 @@ class NavigationExpressionParser:
         # calls (e.g. ANY(SELECT(...))), so unlike parse_linktoview's quoted
         # pattern, a closing paren is not required right after the quote.
         quoted_pattern = r'LINKTOFILTEREDVIEW\s*\(\s*"([^"]+)"'
+
+        for match in re.finditer(quoted_pattern, expression, re.IGNORECASE | re.DOTALL):
+            view_name = match.group(1).strip().strip('"').strip("'").strip(chr(8220)).strip(chr(8221))
+            targets.append({
+                'target_view': view_name,
+                'target_row_expr': '',
+                'must_be_in_views': '',
+                'must_not_be_in_views': '',
+                'must_be_viewtype': '',
+                'must_not_be_viewtype': '',
+                'must_be_table': '',
+                'must_not_be_table': '',
+                'view_match_pattern': '',
+                'view_match_type': '',
+                'ifs_branch_index': '',
+                'ifs_branch_text': ''
+            })
+
+        return targets
+
+    def parse_linktoform(self, expression: str) -> List[Dict]:
+        """Parse LINKTOFORM expressions (view name is the quoted first argument; the
+        column/value pairs that follow are ignored)."""
+        targets = []
+
+        # Track LINKTOFORM usage
+        if 'LINKTOFORM' in expression.upper():
+            self.target_counts['linktoform'] += 1
+            self.target_counts['total'] += 1
+
+        quoted_pattern = r'LINKTOFORM\s*\(\s*"([^"]+)"'
 
         for match in re.finditer(quoted_pattern, expression, re.IGNORECASE | re.DOTALL):
             view_name = match.group(1).strip().strip('"').strip("'").strip(chr(8220)).strip(chr(8221))
@@ -737,6 +769,10 @@ class NavigationExpressionParser:
         if 'LINKTOFILTEREDVIEW' in expression.upper():
             return self.parse_linktofilteredview(expression)
 
+        # Check for LINKTOFORM
+        if 'LINKTOFORM' in expression.upper():
+            return self.parse_linktoform(expression)
+
         return []
     
     def process_action(self, row: Dict) -> List[Dict]:
@@ -744,7 +780,7 @@ class NavigationExpressionParser:
         targets = []
         
         # Include navigation actions AND group actions (which may contain navigation)
-        if row['action_type_technical_name'] not in ['go_to_view', 'Navigate', 'execute_group']:
+        if row['action_type_technical_name'] not in ['go_to_view', 'Navigate', 'execute_group', 'new_record_form']:
             return targets
         
         # For group actions, we need to check referenced_actions
@@ -839,6 +875,16 @@ class NavigationExpressionParser:
         
         # Get the navigation expression
         nav_expr = row.get('navigate_target', '').strip()
+
+        # new_record_form actions carry their expression under the
+        # "NavigateTarget" key inside with_these_properties (JSON) instead,
+        # since navigate_target is empty for this action type.
+        if not nav_expr and row['action_type_technical_name'] == 'new_record_form':
+            try:
+                nav_expr = json.loads(row.get('with_these_properties', '')).get('NavigateTarget', '').strip()
+            except Exception:
+                nav_expr = ''
+
         if not nav_expr:
             return targets
         
