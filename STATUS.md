@@ -34,6 +34,11 @@ Of the four false-positive categories originally reported, three are fixed (see 
 
 - `action_display_mode` is present for every view type in the export, but `navigation_edge_generator.py` reads it only inside `is_action_visible_in_deck_view` — see the open question under "Manual action lists" in `APPSHEET_BEHAVIOR.md`. Not investigated.
 
+### `navigation_edge_generator.py` tests for a prominence string that never occurs in the export, and contradicts itself about it
+
+- The editor's "Primary" Position is stored in the export as `Display_Overlay`, not as the string `'Primary'` — confirmed against an app-editor screenshot and cross-checked against `appsheet_actions.csv` (see the new mapping table in `APPSHEET_BEHAVIOR.md`). The literal string `'Primary'` occurs zero times in `appsheet_actions.csv`, so every code branch testing for it is dead.
+- `is_action_visible_in_table_view` (lines 302–303) has such a dead branch: `if prominence == 'Primary': return True` — never reached. Nine lines later, the same function's `else` branch (314–317) rejects `Display_Overlay` on table views with the comment "Table views don't support Display_Prominently or Display_Overlay." These two branches concern the same editor Position and give opposite answers about it: the dead branch says table views support it, the live branch (the one that actually runs, since real Primary actions arrive as `Display_Overlay`) says they don't. Not yet fixed. When the visibility logic is unified (see `CONSOLIDATION_PLAN.md`), the dead `'Primary'` branches should be removed outright rather than merged with the `Display_Overlay` handling, since they were never testing anything real.
+
 ### December 2025 User Settings work is unverified
 
 The `USERSETTINGS()` parsing, User Settings orphan detection and broken-reference detection shipped 2025-12-24 with an explicit public caveat that more testing was needed. That testing has not happened.

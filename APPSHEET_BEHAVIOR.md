@@ -17,32 +17,58 @@ it. Nothing here is a claim about this repository's code — see STATUS.md for t
 
 ## Position (prominence) values
 
-Source: Google's official page, "Actions: The Essentials",
-<https://support.google.com/appsheet/answer/10107706>.
+The editor's Position names and the export's `action_prominence` strings are
+different vocabularies, and one pair is not guessable:
 
-- **Primary** — "Display independently of scrolling, such as floating buttons on
-  mobile devices and at the top of a view on desktop browsers." No view type is named
-  in the documentation; the placement is described as scroll-independent, not
-  view-type-specific.
-- **Prominent** — "Display in detail views as a button at the top of the screen (most
-  common)." Detail is the only view type the documentation names for this position.
-- **Inline** — "Display alongside the associated column," so it requires a view that
-  renders columns. Documented caveat for table views specifically: "the action
-  replaces the column content instead of displaying alongside it" — an inline action
-  in a table does not appear beside its column, it takes the column's place.
-- **Hide** — "Don't display in any view." (This suite's data calls this value
-  `Do_Not_Display`.)
+| Editor Position | Export `action_prominence` string | Count in this app |
+|---|---|---|
+| Primary | `Display_Overlay` | 93 |
+| Prominent | `Display_Prominently` | 160 |
+| Inline | `Display_Inline` | 303 |
+| Hide | `Do_Not_Display` | 414 |
+
+Source: editor Position names from Google's documentation; export strings verified
+against `appsheet_actions.csv` (970 actions total, exactly these four values and no
+others); the Primary/`Display_Overlay` pair confirmed from an app-editor screenshot,
+2026-08-31. Corroborating evidence: of the 93 `Display_Overlay` actions, 48 are
+system-generated, and the sample is dominated by AppSheet's own "Edit" (26) and "Add"
+(22) buttons — the floating buttons that hover over a view, which is exactly what the
+documentation below describes Primary as.
+
+This matters because the documentation below states its rules in editor vocabulary
+and the code reads export vocabulary; without this mapping a reader cannot connect a
+documented rule to the code branch that implements it. The code itself should keep
+using the export strings throughout — the editor names belong in documentation,
+comments, and user-facing text, not as an internal translation layer that could drift
+out of sync with this table.
+
+Source for the four definitions below: Google's official page, "Actions: The
+Essentials", <https://support.google.com/appsheet/answer/10107706>.
+
+- **Primary** (export: `Display_Overlay`) — "Display independently of scrolling, such
+  as floating buttons on mobile devices and at the top of a view on desktop browsers."
+  No view type is named in the documentation; the placement is described as
+  scroll-independent, not view-type-specific.
+- **Prominent** (export: `Display_Prominently`) — "Display in detail views as a
+  button at the top of the screen (most common)." Detail is the only view type the
+  documentation names for this position.
+- **Inline** (export: `Display_Inline`) — "Display alongside the associated column,"
+  so it requires a view that renders columns. Documented caveat for table views
+  specifically: "the action replaces the column content instead of displaying
+  alongside it" — an inline action in a table does not appear beside its column, it
+  takes the column's place.
+- **Hide** (export: `Do_Not_Display`) — "Don't display in any view."
 
 ## Observed behavior
 
 Source: observed in Leon's app, 2026-08-30, by Kirk.
 
-- An action set to **Prominent does NOT display on a Deck view.** Confirmed by direct
-  test: action "Go to ObservationActivity" (table `MyPlants`, prominence Prominent,
-  condition `OR(CONTEXT("ViewType")="Deck", CONTEXT("ViewType")="Map")`) never
-  appeared on the deck. This agrees with the documentation above naming only detail
-  views for Prominent — it is confirmation of the documented rule's boundary, not a
-  new rule.
+- An action set to **Prominent (export: `Display_Prominently`) does NOT display on a
+  Deck view.** Confirmed by direct test: action "Go to ObservationActivity" (table
+  `MyPlants`, prominence Prominent, condition `OR(CONTEXT("ViewType")="Deck",
+  CONTEXT("ViewType")="Map")`) never appeared on the deck. This agrees with the
+  documentation above naming only detail views for Prominent — it is confirmation of
+  the documented rule's boundary, not a new rule.
 - **A navigation action whose target names a view that does not exist does nothing
   when tapped.** No error message, no fallback to a default view. This is why a
   phantom view reference is invisible to app users and can only be found by static
@@ -99,13 +125,15 @@ or external action in the group runs, and running it ends the group.
 
 Source: Kirk's decision, 2026-08-30. Recorded so these are not re-litigated.
 
-- **Primary has documented client-dependent display limits** — a maximum of six
-  primary actions on the new mobile framework, four on the legacy mobile design (per
-  the Position documentation above). The suite will NOT model or flag this. Actions
-  are assumed valid; app users can discover such cases themselves.
-- **One unverified community report** holds that a Primary action does not display
-  when its view is embedded as a reference view inside a dashboard. Recorded as
-  unverified, and out of scope for the same reason as the limit above.
+- **Primary (export: `Display_Overlay`) has documented client-dependent display
+  limits** — a maximum of six primary actions on the new mobile framework, four on the
+  legacy mobile design (per the Position documentation above). The suite will NOT
+  model or flag this. Actions are assumed valid; app users can discover such cases
+  themselves.
+- **One unverified community report** holds that a Primary (export: `Display_Overlay`)
+  action does not display when its view is embedded as a reference view inside a
+  dashboard. Recorded as unverified, and out of scope for the same reason as the limit
+  above.
 - The general principle these two share, since it will come up again: **some display
   rules depend on the client or on the containing view, rather than on the view's own
   type** — and a prominence-by-view-type table, however complete, cannot express
@@ -113,10 +141,10 @@ Source: Kirk's decision, 2026-08-30. Recorded so these are not re-litigated.
 
 ## Unknowns
 
-What Prominent does on **map, card, gallery, calendar, or dashboard** views is
-unestablished — named nowhere in the documentation read for this file, and not yet
-tested. This is not silence by omission; it is the current honest boundary of what is
-known.
+What Prominent (export: `Display_Prominently`) does on **map, card, gallery,
+calendar, or dashboard** views is unestablished — named nowhere in the documentation
+read for this file, and not yet tested. This is not silence by omission; it is the
+current honest boundary of what is known.
 
 The **map cell is currently consequential**, not merely unknown: the suite emits
 edges to Map views for the "Go to ObservationActivity" action described above (see
