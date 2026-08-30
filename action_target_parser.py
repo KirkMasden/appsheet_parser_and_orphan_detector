@@ -17,7 +17,14 @@ import json
 
 class NavigationExpressionParser:
     """Parses AppSheet navigation expressions into structured targets."""
-    
+
+    NAV_FUNCTIONS = ('LINKTOVIEW', 'LINKTOROW', 'LINKTOFILTEREDVIEW')
+
+    def _expression_calls_nav_function(self, expression: str) -> bool:
+        """Return True if expression calls one of the navigation functions."""
+        expr_upper = expression.upper()
+        return any(func in expr_upper for func in self.NAV_FUNCTIONS)
+
     def __init__(self):
         self.parsed_targets = []
         self.unparseable = []
@@ -35,6 +42,7 @@ class NavigationExpressionParser:
             'direct': 0,
             'linktoview': 0,
             'linktorow': 0,
+            'linktofilteredview': 0,
             'total': 0
         }
         self.context_counts = {
@@ -329,7 +337,42 @@ class NavigationExpressionParser:
                 'ifs_branch_index': '',
                 'ifs_branch_text': ''
             })
-        
+
+        return targets
+
+    def parse_linktofilteredview(self, expression: str) -> List[Dict]:
+        """Parse LINKTOFILTEREDVIEW expressions (view name is the quoted first argument)."""
+        targets = []
+
+        # Track LINKTOFILTEREDVIEW usage
+        if 'LINKTOFILTEREDVIEW' in expression.upper():
+            self.target_counts['linktofilteredview'] += 1
+            self.target_counts['total'] += 1
+
+        # LINKTOFILTEREDVIEW("View Name", filter-condition) — the view name is
+        # the quoted first argument, and a second argument always follows.
+        # That second argument can span multiple lines and contain nested
+        # calls (e.g. ANY(SELECT(...))), so unlike parse_linktoview's quoted
+        # pattern, a closing paren is not required right after the quote.
+        quoted_pattern = r'LINKTOFILTEREDVIEW\s*\(\s*"([^"]+)"'
+
+        for match in re.finditer(quoted_pattern, expression, re.IGNORECASE | re.DOTALL):
+            view_name = match.group(1).strip().strip('"').strip("'").strip(chr(8220)).strip(chr(8221))
+            targets.append({
+                'target_view': view_name,
+                'target_row_expr': '',
+                'must_be_in_views': '',
+                'must_not_be_in_views': '',
+                'must_be_viewtype': '',
+                'must_not_be_viewtype': '',
+                'must_be_table': '',
+                'must_not_be_table': '',
+                'view_match_pattern': '',
+                'view_match_type': '',
+                'ifs_branch_index': '',
+                'ifs_branch_text': ''
+            })
+
         return targets
 
     def count_only_if_contexts(self, only_if_condition: str):
@@ -500,8 +543,8 @@ class NavigationExpressionParser:
         # If no CONTEXT condition found, check if branches contain navigation
         if not context_type:
             # Check if branches contain navigation
-            has_nav_true = ('LINKTOVIEW' in true_expr.upper() or 'LINKTOROW' in true_expr.upper())
-            has_nav_false = ('LINKTOVIEW' in false_expr.upper() or 'LINKTOROW' in false_expr.upper())
+            has_nav_true = self._expression_calls_nav_function(true_expr)
+            has_nav_false = self._expression_calls_nav_function(false_expr)
             
             if has_nav_true or has_nav_false:
                 # This is a data-dependent condition with navigation outcomes
@@ -689,7 +732,11 @@ class NavigationExpressionParser:
         # Check for LINKTOROW
         if 'LINKTOROW' in expression.upper():
             return self.parse_linktorow(expression)
-        
+
+        # Check for LINKTOFILTEREDVIEW
+        if 'LINKTOFILTEREDVIEW' in expression.upper():
+            return self.parse_linktofilteredview(expression)
+
         return []
     
     def process_action(self, row: Dict) -> List[Dict]:
