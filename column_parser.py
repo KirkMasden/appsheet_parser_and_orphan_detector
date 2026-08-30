@@ -282,7 +282,10 @@ class ColumnParser(BaseParser):
                     if json_field in type_data and type_data[json_field]:
                         if self.debug_mode and 'language' in str(type_data[json_field]).lower():
                             print(f"  DEBUG: Found potential slice reference in {json_field}: {type_data[json_field][:100]}...")
-                            
+
+                        if json_field == 'Suggested_Values':
+                            column_info['suggested_values'] = type_data[json_field]
+
                         refs = self.extract_references_from_text(type_data[json_field], table_name)
                         all_refs.extend(refs)
                         
