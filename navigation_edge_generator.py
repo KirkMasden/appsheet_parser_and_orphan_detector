@@ -340,18 +340,22 @@ class NavigationEdgeGenerator:
                 return False
         
         # Check must_be_viewtype
+        # Normalized (lowercase, trimmed) the same way action_target_parser.py's
+        # normalize_value() does, since AppSheet's CONTEXT("ViewType") values are
+        # written proper-case (e.g. "Deck") but appsheet_views.csv's view_type
+        # column is always lowercase (e.g. "deck") — compare case-insensitively.
         must_be_type = target_row.get('must_be_viewtype', '')
         if must_be_type:
-            allowed_types = [t.strip() for t in must_be_type.split('|||') if t.strip()]
-            if allowed_types and view_type not in allowed_types:
+            allowed_types = [t.strip().lower() for t in must_be_type.split('|||') if t.strip()]
+            if allowed_types and view_type.lower().strip() not in allowed_types:
                 self.stats['edges_blocked_by_conditions'] += 1
                 return False
-        
+
         # Check must_not_be_viewtype
         must_not_be_type = target_row.get('must_not_be_viewtype', '')
         if must_not_be_type:
-            blocked_types = [t.strip() for t in must_not_be_type.split('|||') if t.strip()]
-            if view_type in blocked_types:
+            blocked_types = [t.strip().lower() for t in must_not_be_type.split('|||') if t.strip()]
+            if view_type.lower().strip() in blocked_types:
                 self.stats['edges_blocked_by_conditions'] += 1
                 return False
         
