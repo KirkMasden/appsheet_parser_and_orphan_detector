@@ -159,9 +159,10 @@ Source: Kirk's decision, 2026-08-30. Recorded so these are not re-litigated.
 ## Unknowns
 
 What Prominent (export: `Display_Prominently`) does on **map, card, gallery,
-calendar, or dashboard** views is unestablished — named nowhere in the documentation
-read for this file, and not yet tested. This is not silence by omission; it is the
-current honest boundary of what is known.
+calendar, dashboard, or form** views is unestablished — named nowhere in the
+documentation read for this file, and not yet tested. `form` is the largest omission
+by count: 92 of Leon's 319 views, the largest single view type after `detail`. This
+is not silence by omission; it is the current honest boundary of what is known.
 
 The **map cell is currently consequential**, not merely unknown: the suite emits
 edges to Map views for the "Go to ObservationActivity" action described above (see
