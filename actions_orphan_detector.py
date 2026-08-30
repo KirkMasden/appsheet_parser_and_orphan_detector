@@ -251,9 +251,10 @@ class ActionOrphanDetector:
                             return True
                             
             elif view_type == 'table':
-                # Navigation actions can display as overlay in table views
-                action_type = action.get('action_type_plain_english', '')
-                if prominence == 'Display Overlay' and action_type == 'Navigate':
+                # Display_Overlay (editor Position "Primary") displays on table
+                # views regardless of action type, confirmed by live app test
+                # 2026-08-31 — see APPSHEET_BEHAVIOR.md's "Observed behavior" section.
+                if prominence == 'Display Overlay':
                     return True
                 if prominence == 'Display Inline' and attach_to_column:
                     # Check if column is visible in view

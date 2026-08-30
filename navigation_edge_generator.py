@@ -283,37 +283,37 @@ class NavigationEdgeGenerator:
 
     def is_action_visible_in_table_view(self, action: Dict, view: Dict) -> bool:
         """Check if an action is visible in a table view.
-        
+
         Table views do NOT have action bars, so they only support:
-        - Primary actions (row-level actions)
+        - Display_Overlay (editor Position "Primary"), as a floating button over the rows
         - Display_Inline actions attached to visible columns
         - Event-triggered actions (handled separately)
         """
         prominence = action.get('action_prominence', '')
         attach_to_column = action.get('attach_to_column', '')
         action_name = action.get('source_action', '')
-        
+
         # Do_Not_Display actions are never visible
         if prominence == 'Do_Not_Display':
             self.stats['edges_blocked_by_visibility'] += 1
             return False
-        
-        # Table views only support Primary (row actions) and Display_Inline (column actions)
-        if prominence == 'Primary':
-            # Primary actions appear as row-level actions in tables
+
+        # Display_Overlay (editor Position "Primary") displays on table views as a
+        # floating button, confirmed by live app test 2026-08-31 — see
+        # APPSHEET_BEHAVIOR.md's "Observed behavior" section.
+        if prominence == 'Display_Overlay':
             return True
         elif prominence == 'Display_Inline' and attach_to_column:
             # Inline actions must be attached to a visible column
             view_columns = view.get('view_columns', '').split('|||') if view.get('view_columns') else []
             view_columns = [c.strip() for c in view_columns if c.strip()]
-            
+
             if attach_to_column not in view_columns:
                 self.stats['edges_blocked_by_visibility'] += 1
                 return False
             return True
         else:
-            # Table views don't support Display_Prominently or Display_Overlay
-            # These would require an action bar, which tables don't have
+            # Table views don't support Display_Prominently
             self.stats['edges_blocked_by_visibility'] += 1
             return False
 

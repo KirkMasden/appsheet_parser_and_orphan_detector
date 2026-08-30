@@ -69,6 +69,23 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   CONTEXT("ViewType")="Map")`) never appeared on the deck. This agrees with the
   documentation above naming only detail views for Prominent — it is confirmation of
   the documented rule's boundary, not a new rule.
+- **Primary (export: `Display_Overlay`) DOES display on table views.** Source:
+  observed in Kirk's own app, 2026-08-31, using a purpose-made External action set to
+  Primary — "Go to web" (table `NurseryDetails`, effect External: go to a website) —
+  built specifically to test this. It displayed on a table view, confirmed visually in
+  the app editor's preview, rendering as a floating button over the table's rows. This
+  agrees with the Position documentation above, which describes Primary as
+  scroll-independent and names no view type at all; table views were never excluded by
+  the documentation, only by this suite's own code. This confirms the documentation
+  rather than extending it: the Position page describes Primary purely by placement —
+  scroll-independent, floating on mobile, top of view on desktop — and names no view
+  type at all, unlike Prominent, which the same page ties explicitly to detail views.
+  The absence of a named restriction was already consistent with Primary working on
+  any view type, including tables; this observation resolves what the documentation
+  had left implicit rather than adding a new fact to it. The test action's effect was
+  External, not Navigate — worth noting because it shows Display_Overlay's
+  eligibility to display on a table view does not depend on the action being a
+  navigation action specifically.
 - **A navigation action whose target names a view that does not exist does nothing
   when tapped.** No error message, no fallback to a default view. This is why a
   phantom view reference is invisible to app users and can only be found by static
