@@ -175,11 +175,16 @@ class NavigationEdgeGenerator:
         prominence = action.get('action_prominence', '')
         attach_to_column = action.get('attach_to_column', '')
         view_type = view.get('view_type', '').lower()
-        
-        # Do_Not_Display actions are never visible
+
+        # Do_Not_Display actions are never visible, except when this specific view's
+        # own custom-canvas Layout binds the action directly via an onClick handler
+        # (the action is the button, so it has no separate on-screen prominence).
         if prominence == 'Do_Not_Display':
-            self.stats['edges_blocked_by_visibility'] += 1
-            return False
+            onclick_actions = view.get('onclick_actions', '').split('|||') if view.get('onclick_actions') else []
+            onclick_actions = [a.strip() for a in onclick_actions if a.strip()]
+            if action_name not in onclick_actions:
+                self.stats['edges_blocked_by_visibility'] += 1
+                return False
         
         # Check if action is in available_actions
         available_actions = view.get('available_actions', '').split('|||') if view.get('available_actions') else []

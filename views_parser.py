@@ -598,6 +598,7 @@ class ViewsParser(BaseParser):
             'referenced_columns': '',
             'referenced_actions': '',
             'event_actions': '',
+            'onclick_actions': '',
             'dashboard_view_entries': '',
             'show_if': '',
             'display_mode': '',
@@ -799,7 +800,28 @@ class ViewsParser(BaseParser):
                             event_actions.append(event_action)
                 if event_actions:
                     info['event_actions'] = '|||'.join(event_actions)
-                    
+
+                # Extract onClick action bindings from anywhere in the Layout tree
+                # (custom-canvas views bind an action to a container's onClick handler,
+                # which can be nested arbitrarily deep and isn't captured by ActionBarEntries/Events)
+                onclick_actions = set()
+
+                def collect_onclick_actions(node):
+                    if isinstance(node, dict):
+                        if node.get('type') == 'action':
+                            value = node.get('value')
+                            if isinstance(value, str) and value:
+                                onclick_actions.add(value)
+                        for child in node.values():
+                            collect_onclick_actions(child)
+                    elif isinstance(node, list):
+                        for item in node:
+                            collect_onclick_actions(item)
+
+                collect_onclick_actions(config)
+                if onclick_actions:
+                    info['onclick_actions'] = '|||'.join(sorted(onclick_actions))
+
             except (json.JSONDecodeError, TypeError):
                 # Already extracted references above
                 pass
@@ -1081,7 +1103,7 @@ class ViewsParser(BaseParser):
             # View Position & Display
             'position', 'ref_parent', 'display_mode', 'use_card_layout',
             # Actions (with show_action_bar moved here)
-            'show_action_bar', 'action_display_mode', 'referenced_actions', 'event_actions', 'available_actions',
+            'show_action_bar', 'action_display_mode', 'referenced_actions', 'event_actions', 'onclick_actions', 'available_actions',
             # Columns
             'view_columns', 'available_columns', 'hidden_columns', 'referenced_columns',
             # Other View Settings
