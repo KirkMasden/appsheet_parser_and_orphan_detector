@@ -48,25 +48,41 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   phantom view reference is invisible to app users and can only be found by static
   analysis of the export.
 
-## Deck view action bar
+## Manual action lists
 
-Source: Google's official page, "Customize deck and table views",
-<https://support.google.com/appsheet/answer/10106514>.
+Source: known behaviour, stated by Kirk from experience building AppSheet apps,
+2026-08-30. **When a view's actions are set manually, any action not included in that
+list is ignored.** This is not deck-specific — it holds for any view type that offers
+a manual action-list setting.
 
-The deck view's `Actions` setting is documented as: "Action buttons to display in the
-action bar. The actions are ordered automatically by AppSheet." The page then
-describes overriding that automatic order: "To manually control the action order, do
-any of the following: Click **Add** to add actions that you want to display in the
-order you want them to appear... If you changed the action order, click **Reset** to
-switch back to the AppSheet automatic order."
+The "Go to ObservationActivity" / "MyPlants Food forest Deck" case recorded under
+"Observed behavior" above does **not** establish this rule on its own, and should not
+be cited as if it did: that action was also Prominent, and Prominent does not display
+on a deck view for an entirely separate, already-documented reason. Either fact alone
+would have produced the same non-display, so that single case cannot isolate which
+rule is doing the work. The rule above rests on Kirk's stated experience, not on that
+observation.
 
-The page does not use the words "excluded" or "hidden," but the field is defined as
-*the* list of actions to display — so an action not added to it, once the list has
-been manually built, does not display there regardless of its Position. This reading
-is confirmed by the observed case above: "Go to ObservationActivity" is absent from
-"MyPlants Food forest Deck"'s manually-built action list (`action_display_mode` =
-Manual there), and it does not display on that deck — independently of, and prior to,
-the Prominent/Deck incompatibility also confirmed there.
+Deck-specific documentation, source: Google's official page, "Customize deck and
+table views", <https://support.google.com/appsheet/answer/10106514>. The deck view's
+`Actions` setting is documented as: "Action buttons to display in the action bar. The
+actions are ordered automatically by AppSheet." The page then describes overriding
+that automatic order: "To manually control the action order, do any of the following:
+Click **Add** to add actions that you want to display in the order you want them to
+appear... If you changed the action order, click **Reset** to switch back to the
+AppSheet automatic order." The page does not use the words "excluded" or "hidden";
+it names deck views only. The rule at the top of this section is the general form
+Kirk gave it, of which this page's `Actions` field is one documented instance.
+
+### Open question this raises about the code
+
+`action_display_mode` (manual vs. automatic) is present in the exported view data for
+every view type, but `navigation_edge_generator.py` never reads that field at all —
+confirmed by search. The manual-list exclusion above is enforced only inside
+`is_action_visible_in_deck_view`, hard-coded to the `deck` view type. If a manual
+action list can exist on other view types, the suite is currently treating an action
+absent from that list as visible there anyway. Not investigated or fixed here; see the
+matching entry under "Known defects" in STATUS.md.
 
 ## Grouped actions
 
