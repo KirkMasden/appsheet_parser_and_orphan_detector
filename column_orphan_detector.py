@@ -351,7 +351,7 @@ class VirtualColumnOrphanDetector:
             'display_name', 'initial_value', 'type_qualifier_formulas', 'type_qualifier', 
             'show_if', 'required_if', 'editable_if', 'valid_if', 'reset_if', 
             'suggested_values', 'formula_context_table', 'key', 'label', 'hidden', 
-            'read-only', 'searchable', 'ref_table', 'component_type', 
+            'read-only', 'searchable', 'ref_table', 'related_view_source', 'component_type',
             'editable_initial_value', 'fixed_definition', 'localename', 
             'nfc_scannable', 'part_of_key', 'raw_references', 'reset_on_edit', 
             'scannable', 'sensitive_data', 'spreadsheet_formula', 'system_defined',
