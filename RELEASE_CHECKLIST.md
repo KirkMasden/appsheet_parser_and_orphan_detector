@@ -147,6 +147,24 @@ comparison against the current reference output.
       seventh, `action_dependency_analyzer.py`, is already known to carry a live
       bug found the moment anyone looked — that is the reason to look at the
       others. Read-only: report what each module assumes, not a fix.
+      **Search the 2025 development archive first.** Kirk holds roughly 211
+      dated, descriptively-named `.docx` session records from the suite's
+      original July–August 2025 build, at `/Users/kirkmasden/Documents/Research
+      projects/201228 My project/250608 2132 Orphan columns/`. That work
+      predates this project's use of Claude Code and its current documentation
+      practice, so its reasoning was never carried into code comments or into
+      any current document — this archive is the only likely record of WHY a
+      2025 design choice was made, and these six modules date from exactly that
+      period. It is referenced by no other current project document. A
+      2026-08-31 search of it already produced two specific hypotheses, both
+      about modules on this list, recorded here as hypotheses from an
+      undocumented archive rather than as findings:
+      - `view_orphan_detector.py` may not parse `CONTEXT("View")` conditions at
+        all, unlike sibling files that do. Named as a "should do this" next
+        step in two separate 2025 documents and never shown as done.
+      - `view_dependency_analyzer.py`'s exact/table-aware matching fix, applied
+        in 2025 to format rules, slices and actions, was explicitly planned for
+        views and explicitly not completed.
       *Done when:* the audit has been run and its findings are recorded in
       `STATUS.md`, whether or not anything needs fixing.
 
@@ -198,6 +216,13 @@ answers are unknown; once A is done they become mechanical.
 - [ ] **Step 5: Prominent-on-Deck exclusion, applied everywhere.**
       Note the direction: this can *increase* orphan counts, unlike every fix so
       far. An increase here is expected, not a regression.
+
+- [ ] **Step 6: Deck/`Display_Overlay` parity, added to the plan 2026-09-01.**
+      Not blocked — Overlay-on-Deck is already settled by direct observation
+      (`APPSHEET_BEHAVIOR.md`'s Established behavior section, Deck+Overlay
+      entry), unlike Step 5's Prominent-on-Deck, which rests on documentation
+      alone. See `CONSOLIDATION_PLAN.md` section 5's step 6 and `STATUS.md`'s
+      matching known-defects entry.
 
 - [ ] **The 120-view "other" bucket.** No longer blocked — section A closed
       2026-08-31 (by documentation research, not app testing; see section A's
@@ -268,6 +293,20 @@ Recorded so they are not mistaken for oversights.
   in `APPSHEET_BEHAVIOR.md`.
 - Extending the visibility layer to the backing Google Sheet. See "Phase two" at
   the end of this file — a separate project, broader than this one line suggests.
+- **A check for expressions AppSheet accepts but that cannot do what the author
+  intended** — malformed `CONTEXT()` arguments, dead-by-construction
+  prominence/condition combinations, and the other instances
+  `APPSHEET_BEHAVIOR.md`'s "AppSheet validates shape, not meaning" section
+  records. An idea from this week's work, explicitly NOT phase one — recorded
+  here as a candidate for after publication. Scoping constraint that makes it
+  tractable: the target is not general expression validation, which would mean
+  reimplementing AppSheet's own evaluator, but a specific list of
+  closed-vocabulary and named-entity lookups against data the suite already
+  parses. Caution: each candidate check needs its ambiguity assessed before it
+  goes on that list — a check that fires on something genuinely ambiguous
+  produces exactly the false positives this round of work exists to remove.
+  The `#page=map` deep links, above in this same section, are the existing
+  example of a case deliberately left unresolved for that reason.
 
 ---
 
