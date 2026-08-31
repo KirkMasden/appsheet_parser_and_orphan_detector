@@ -285,59 +285,83 @@ class NavigationExpressionParser:
         if 'LINKTOROW' in expression.upper():
             self.target_counts['linktorow'] += 1
             self.target_counts['total'] += 1
-        # Find LINKTOROW and capture everything in parentheses
-        linktorow_match = re.search(r'LINKTOROW\s*\((.*)\)', expression, re.IGNORECASE | re.DOTALL)
-        if not linktorow_match:
-            return targets
-        
-        content = linktorow_match.group(1)
-        
-        # Find the last comma that separates row_expr from view_name
-        # We need to track parentheses depth to handle nested functions
-        paren_depth = 0
-        quote_char = None
-        last_comma_pos = -1
-        
-        for i, char in enumerate(content):
-            if quote_char:
-                if char == quote_char and (i == 0 or content[i-1] != '\\'):
-                    quote_char = None
-            elif char in ['"', "'", chr(8220), chr(8221)]:  # Include smart quotes
-                quote_char = char
-            elif char == '(':
-                paren_depth += 1
-            elif char == ')':
-                paren_depth -= 1
-            elif char == ',' and paren_depth == 0:
-                last_comma_pos = i
-        
-        if last_comma_pos > 0:
-            row_expr = content[:last_comma_pos].strip()
-            view_name = content[last_comma_pos+1:].strip()
-            
-            # Remove delimiter quotes (both regular and smart)
-            view_name = view_name.strip('"').strip("'").strip(chr(8220)).strip(chr(8221))
-            
-            # Check for self-referential forced sync pattern
-            # LINKTOROW([_THISROW], CONTEXT("View")) is just a sync trigger, not navigation
-            if '[_THISROW]' in row_expr.upper() and 'CONTEXT' in view_name.upper():
-                # This is a forced sync, not real navigation - skip it
-                return targets
-            
-            targets.append({
-                'target_view': view_name,
-                'target_row_expr': row_expr,
-                'must_be_in_views': '',
-                'must_not_be_in_views': '',
-                'must_be_viewtype': '',
-                'must_not_be_viewtype': '',
-                'must_be_table': '',
-                'must_not_be_table': '',
-                'view_match_pattern': '',
-                'view_match_type': '',
-                'ifs_branch_index': '',
-                'ifs_branch_text': ''
-            })
+        # Find each LINKTOROW( call and scan forward to its own matching
+        # close paren, so a block holding several calls (e.g. inside a
+        # SWITCH) yields one target per call instead of the first call's
+        # opening paren greedily matching the last closing paren in the
+        # whole block.
+        for call_match in re.finditer(r'LINKTOROW\s*\(', expression, re.IGNORECASE):
+            start = call_match.end()
+            paren_depth = 1
+            quote_char = None
+            end = None
+
+            for i in range(start, len(expression)):
+                char = expression[i]
+                if quote_char:
+                    if char == quote_char and (i == 0 or expression[i-1] != '\\'):
+                        quote_char = None
+                elif char in ['"', "'", chr(8220), chr(8221)]:  # Include smart quotes
+                    quote_char = char
+                elif char == '(':
+                    paren_depth += 1
+                elif char == ')':
+                    paren_depth -= 1
+                    if paren_depth == 0:
+                        end = i
+                        break
+
+            if end is None:
+                continue
+
+            content = expression[start:end]
+
+            # Find the last comma that separates row_expr from view_name
+            # We need to track parentheses depth to handle nested functions
+            paren_depth = 0
+            quote_char = None
+            last_comma_pos = -1
+
+            for i, char in enumerate(content):
+                if quote_char:
+                    if char == quote_char and (i == 0 or content[i-1] != '\\'):
+                        quote_char = None
+                elif char in ['"', "'", chr(8220), chr(8221)]:  # Include smart quotes
+                    quote_char = char
+                elif char == '(':
+                    paren_depth += 1
+                elif char == ')':
+                    paren_depth -= 1
+                elif char == ',' and paren_depth == 0:
+                    last_comma_pos = i
+
+            if last_comma_pos > 0:
+                row_expr = content[:last_comma_pos].strip()
+                view_name = content[last_comma_pos+1:].strip()
+
+                # Remove delimiter quotes (both regular and smart)
+                view_name = view_name.strip('"').strip("'").strip(chr(8220)).strip(chr(8221))
+
+                # Check for self-referential forced sync pattern
+                # LINKTOROW([_THISROW], CONTEXT("View")) is just a sync trigger, not navigation
+                if '[_THISROW]' in row_expr.upper() and 'CONTEXT' in view_name.upper():
+                    # This is a forced sync, not real navigation - skip it
+                    continue
+
+                targets.append({
+                    'target_view': view_name,
+                    'target_row_expr': row_expr,
+                    'must_be_in_views': '',
+                    'must_not_be_in_views': '',
+                    'must_be_viewtype': '',
+                    'must_not_be_viewtype': '',
+                    'must_be_table': '',
+                    'must_not_be_table': '',
+                    'view_match_pattern': '',
+                    'view_match_type': '',
+                    'ifs_branch_index': '',
+                    'ifs_branch_text': ''
+                })
 
         return targets
 
