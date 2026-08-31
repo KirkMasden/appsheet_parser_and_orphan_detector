@@ -94,6 +94,28 @@ comparison against the current reference output.
       this item's brief did not name. See `STATUS.md`'s "Recently fixed" entry for
       full verification detail.
 
+- [x] **`parse_navigation_expression`'s first-match-only dispatch.**
+      The four-function tail (`LINKTOVIEW`, `LINKTOROW`, `LINKTOFILTEREDVIEW`,
+      `LINKTOFORM`) was a chain of early returns, so an expression mixing more than
+      one navigation function resolved to whichever function the chain checked
+      first, silently dropping the rest. Named in `Level 0 - Go to`
+      (`LINKTOVIEW("Nursery_Form")` alongside two `LINKTOFORM("MyPlants_Form", ...)`
+      calls in one `SWITCH` case) and in the `parse_linktorow` item above (the 3
+      `LINKTOFORM` calls it left dropped).
+      *Done when:* fixed in `43d9167`, verified by full re-parse against
+      `20260831_151553_AppsheetFarmyApp_for_Kirk_parse`, and the `STATUS.md` defect
+      entry moved to "Recently fixed" with its commit hash.
+      *Confirmed:* `action_targets.csv` 458 → 463 (+5, 0 removed, 0 modified), across
+      exactly the two actions predicted — `Level 0 - Go to` (+3, including one more
+      instance of the same defect in a different branch than the one originally
+      named) and `Take Image Form Save Where to next` (+2 of its 3 `LINKTOFORM`
+      calls; the third was already reachable pre-fix). The control, `Go to
+      LinkToView` (~30 single-function `SWITCH` branches), is byte-for-byte
+      unchanged. All 5 recovered target views exist; all five orphan-count files
+      unchanged. `SWITCH` still isn't decomposed as a branching construct —
+      recovered `SWITCH` targets carry no `ifs_branch_index`/`ifs_branch_text` —
+      and that gap remains open.
+
 - [ ] **Map fall-through in `is_action_visible_in_view`.**
       Every view type without an explicit branch returns `True` unconditionally.
       Depends on item A's map result — and possibly on the form and card results
