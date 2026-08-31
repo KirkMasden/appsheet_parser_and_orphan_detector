@@ -1,6 +1,6 @@
 # Project status
 
-Last updated 2026-08-30. Records what is outstanding in this project between working sessions.
+Last updated 2026-08-31. Records what is outstanding in this project between working sessions.
 
 See `APPSHEET_BEHAVIOR.md` for AppSheet's own display rules (positions, deck action
 bars, grouped-action execution) with sources for each. This file stays about defects
@@ -36,6 +36,87 @@ Of the four false-positive categories originally reported, three are fixed (see 
 ### December 2025 User Settings work is unverified
 
 The `USERSETTINGS()` parsing, User Settings orphan detection and broken-reference detection shipped 2025-12-24 with an explicit public caveat that more testing was needed. That testing has not happened. The caveat itself could not be verified from this repository or its git history — no commit message or file records it — so treat "explicit public caveat" as asserted, not established, until a source is found.
+
+### Two defects found by the first parse of a second app
+
+Both entries below were found 2026-08-31, in the first parse of a second app — Kirk's
+own app, Kankaku (260411 Kankaku V18). Every earlier parse in this project was of
+Farmy, which is **Leon's app**, in Kirk's frozen copy — Farmy is not Kirk's app.
+Neither defect below appears in Farmy at all; both are the first findings that justify
+keeping a second reference app. Baseline parse:
+`20260831_182306_260831_1809_Kankaku_V18_baseline_parse`.
+
+#### `phantom_view_reference_detector.py` matches view names case-sensitively, producing false positives
+
+- Symptom: `potential_phantom_view_references.csv` flags 2 rows, both columns on the
+  `Kankaku` table — "Card status" and "Card status J", field
+  `type_qualifier_formulas`. Both carry a `Show_If` with a branch testing
+  `Context("View")="Card Stats"`. The app's actual view is named "Card stats"
+  (lowercase s), confirmed in the app editor 2026-08-31; no view named "Card Stats"
+  exists.
+- Why this is the tool's error and not the app's: AppSheet's `=` operator is
+  case-insensitive on text, so the expression matches the view correctly in the
+  running app. Source, recorded as observation rather than documentation: Kirk
+  evaluated the expression `"Card Stats"="card stats"` directly in AppSheet's
+  expression tester on 2026-08-31, and it returned `Y`. Corroborating: Google's
+  `IN()` page states its match is case-insensitive and gives `([Email] = "@")` as an
+  equivalent of `IN("@", LIST([Email]))`; and an AppSheet engineer, replying to a
+  2019 report that `LINKTOFORM` column-name references were case-sensitive
+  (<https://discuss.google.dev/t/case-sensitivity/78971>), treated that as a bug and
+  shipped a fix — indicating case-insensitive comparison is the intended standard
+  and exceptions are defects.
+- Evidence internal to the same expression, worth recording because it isolates the
+  mechanism: the same `Show_If` also tests `Context("View")="Card stats 2"`, which
+  matches an existing view exactly and was NOT flagged. Two branches in one
+  expression, differing only in the case of one letter, got different verdicts.
+- Class: the third instance of the same class in this project. `748e329` fixed
+  case-sensitive view-TYPE comparison in `check_context_conditions`; the `f4d931a`
+  entry below records `LINKTOVIEW("Water tanks")` resolving through already-existing
+  case-insensitive matching. Case handling is inconsistent across modules.
+- Severity: a false phantom is worse than a missing one, because it sends a user
+  hunting for a button that is not broken — the same reasoning that already governs
+  how this file treats the genuine phantom references surfaced under "Five actions in
+  the app itself target views that do not exist" above, just cutting the other way
+  here: those are real and correctly surfaced, these two are not real and should not
+  have been.
+- Not fixed. Read-only finding.
+
+#### Navigation expressions using typographic (curly) quotes around a view name are not parsed
+
+- Symptom: 6 rows in `action_targets_unparseable.csv`, all with `parse_failure_reason`
+  "Unknown pattern". Five are `LINKTOROW` calls whose view-name argument is wrapped in
+  curly quotes (`“…”`) rather than straight quotes: "Go to card stats" and "Go to card
+  stats 2" (table `Kankaku`), "View Ref (Show WD stats) 2" (`Kankaku`), and "Go to
+  long-term statistics" and "Go to short-term statistics" (table `Stats`), the last
+  two each wrapping two such `LINKTOROW` calls inside an `IF`. The sixth is different
+  and is recorded separately, not folded in: "Force sync" (table `Settings`) uses
+  `LINKTOROW([_THISROW], CONTEXT(VIEW))` — the target is an expression rather than a
+  literal view name — wrapped in `CONCATENATE` with an `&at=` suffix.
+- These curly quotes are produced by AppSheet's own editor, not typed by the app
+  author, and the actions work correctly in the running app.
+- Why this is worth flagging now rather than later: `496d5ed` rewrote
+  `parse_linktorow` on 2026-08-31, replacing the greedy regex with a paren-depth scan
+  explicitly described in its own entry below as respecting quoted strings "including
+  the smart quotes the existing code already handled." These five expressions still
+  fail. Open question, not yet investigated: either dispatch never reaches that
+  scanner for them, or the smart-quote handling does not cover quotes wrapping the
+  view-name argument specifically.
+- Consequence: these five actions produce no navigation edge, so their target views
+  are unreachable as far as the graph is concerned. Kankaku's 3 potential view
+  orphans and 2 phantom references (the entry directly above) are downstream of this
+  and should not be read as findings about the app until it is resolved.
+- Not fixed. Read-only finding.
+
+### Two smaller anomalies from the Kankaku run — not parsing defects
+
+- `format_rule_orphan_detector.py` does not write `potential_format_rule_orphans.csv`
+  at all when zero orphans are found, unlike sibling detectors, which write a
+  header-only file. A missing file and an empty file are different things to anyone
+  diffing parse output directories mechanically.
+- `master_parser_and_orphan_detector.py` raises `EOFError` on its trailing
+  interactive "Would you like to explore dependencies now? (y/n)" prompt when run
+  without stdin. All output is already written by then, so it is not a parse
+  failure, but it will affect anyone running the suite from a script.
 
 ## Recently fixed
 
