@@ -97,6 +97,37 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   External, not Navigate — worth noting because it shows Display_Overlay's
   eligibility to display on a table view does not depend on the action being a
   navigation action specifically.
+- **Primary (export: `Display_Overlay`) displays on Deck views.** Source: observed in
+  Kirk's own app, 2026-08-31, in the app editor's preview of the "Beds Deck" view
+  (table `Beds Veggies`) — a floating overlay button rendered over the deck's rows.
+  Three caveats limit what this observation establishes, and are recorded here
+  explicitly: (a) the button seen is most likely AppSheet's system-generated Add
+  action rather than an author-created one; (b) the action's prominence was not read
+  directly off the editor at the time, only inferred from the button's floating
+  placement; (c) the deck's "Show action bar" setting state was not recorded, so this
+  observation does not by itself establish that an overlay button displays on a deck
+  whose action bar is disabled.
+
+  Corroborating documentation, both new to this file: "Explore the desktop design",
+  <https://support.google.com/appsheet/answer/12407883>, states that primary actions
+  for a view appear in the top navigation bar of the panel and, for the legacy desktop
+  design, as overlay (floating) icons; the panels it describes are defined in the same
+  passage as the collection views — card, deck, gallery, or table — and detail views,
+  displayed in separate panels. Deck is named in that set. "About the new mobile
+  framework", <https://support.google.com/appsheet/answer/15831909>, presents primary
+  actions under "Floating navigation buttons" as a framework-level UI element, naming
+  no view type.
+
+  Consequence: the deck action bar and a Primary button are two different UI elements,
+  and all three of this suite's implementations currently gate the second on the
+  first — see STATUS.md's known-defects list for the code-level detail; this file is
+  about AppSheet, not about this code.
+
+  Because the collection-view passage names card, gallery and table alongside deck,
+  Display_Overlay is documented to display on all four collection view types plus
+  detail. This does **not** extend to form, map, calendar or dashboard: that passage
+  covers collection and detail panels only, and forms are separately documented above
+  as not displaying action buttons.
 - **A navigation action whose target names a view that does not exist does nothing
   when tapped.** No error message, no fallback to a default view. This is why a
   phantom view reference is invisible to app users and can only be found by static
@@ -168,6 +199,17 @@ AppSheet automatic order." The page does not use the words "excluded" or "hidden
 it names deck views only. The rule at the top of this section is the general form
 Kirk gave it, of which this page's `Actions` field is one documented instance.
 
+The same page — titled "Deck and table view types" —
+(<https://support.google.com/appsheet/answer/10106514>) scopes that `Actions` setting
+to a specific element: the "Show action bar" setting is described as showing action
+buttons at the bottom of each row, and the "Actions" setting immediately below it is
+described as the action buttons to display in that action bar. The action bar is
+therefore a per-row element, and the manual list governs its membership. A Primary
+(`Display_Overlay`) action is a view-level floating button, not a member of that
+row-level bar, so the manual-list exclusion cannot govern it — as the observation
+recorded above under "Established behavior" shows. The same page's table-view options
+contain no action bar setting at all.
+
 ### Open question this raises about the code
 
 `action_display_mode` (manual vs. automatic) is present in the exported view data for
@@ -194,10 +236,13 @@ or external action in the group runs, and running it ends the group.
 Source: Kirk's decision, 2026-08-30. Recorded so these are not re-litigated.
 
 - **Primary (export: `Display_Overlay`) has documented client-dependent display
-  limits** — a maximum of six primary actions on the new mobile framework, four on the
-  legacy mobile design (per the Position documentation above). The suite will NOT
-  model or flag this. Actions are assumed valid; app users can discover such cases
-  themselves.
+  limits.** Source: "About the new mobile framework",
+  <https://support.google.com/appsheet/answer/15831909> — not the Position
+  documentation above, which names no such limits. The new mobile framework supports
+  up to 6 primary actions and shows a More menu once there are 3 or more; the current
+  (legacy) framework overlays action buttons on content to a maximum of 4. The suite
+  will NOT model or flag this. Actions are assumed valid; app users can discover such
+  cases themselves.
 - **One unverified community report** holds that a Primary (export: `Display_Overlay`)
   action does not display when its view is embedded as a reference view inside a
   dashboard. Recorded as unverified, and out of scope for the same reason as the limit
@@ -231,5 +276,7 @@ anyone acting on it should know what it does and does not rest on.
 
 Calendar and dashboard are each answerable by one test in a running app. Form,
 card and gallery were closed by documentation; map rests on Kirk's stated
-inference; deck rests on documentation alone. Those are three different grades of
-evidence and this file does not treat them as one.
+inference. Deck is no longer a single grade: Prominent-on-Deck still rests on
+documentation alone, with no isolating observational test, while Overlay-on-Deck is
+now settled by direct observation (see "Established behavior" above). Those are
+several different grades of evidence and this file does not treat them as one.
