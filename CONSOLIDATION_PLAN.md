@@ -485,6 +485,28 @@ do exact `in` membership tests, so there may be no live disagreement here — I 
 not find a case in the reference data where this distinction changes an answer, and
 did not go looking exhaustively; recorded as unconfirmed rather than asserted safe.
 
+**Decision, Kirk, 2026-09-01: name matching in the consolidated logic is
+case-INSENSITIVE unless a specific mechanism has been tested and found otherwise.**
+Reasoning: case-insensitive is the permissive choice — it resolves more names,
+produces more edges, and reports fewer orphans, so its errors are the silent kind
+rather than the complaint-generating kind, the same asymmetry argument already made
+in `RELEASE_CHECKLIST.md` section D. Its one known cost is the `Water Tanks` shape
+recorded in `APPSHEET_BEHAVIOR.md`'s Case sensitivity section — a possible false
+negative, a view cleared as reachable that AppSheet itself might not actually
+resolve — and that cost is accepted.
+
+Two exclusions, so this rule is not over-applied later:
+
+- **`FIND()`** is tested and found case-sensitive (`APPSHEET_BEHAVIOR.md`'s Case
+  sensitivity section), but it is a text search inside content, not name matching —
+  a different category, unaffected by this decision.
+- **The `Do_Not_Display` case bug fixed in step 2 below is NOT a case-insensitivity
+  problem**, and this decision does not apply to it. The code transforms a
+  controlled export string into a spelling (`'Do Not Display'`) that never occurs in
+  the data it is compared against (`'Do not display'`); the fix is to stop
+  transforming it, not to compare loosely. Applying case-insensitive comparison
+  there would paper over the real bug rather than fix it.
+
 ## 5. Proposed sequence
 
 Mirroring the two-edits-then-verify shape of `48eead1` and `f4d931a`, in ascending
@@ -557,6 +579,25 @@ view was only reachable through such an edge — the opposite direction from eve
 in the last two sessions, and worth calling out to whoever reviews the diff so an
 increase isn't mistaken for a regression.
 
+**Step 6 — Remove the action-bar gate entirely for `Display_Overlay` on deck views,
+in all three files** (STATUS.md's "All three visibility implementations gate
+`Display_Overlay` on a deck's action bar" entry; section 2's Deck views entry). This
+is the deck-side counterpart of the fix `e0530c8` already applied to Table+
+`Display_Overlay`: treat Primary/`Display_Overlay` as a view-level floating button,
+ungated by `referenced_actions`, `show_action_bar`, or `action_display_mode`, for the
+deck view type too. **Not covered by step 4 above.** Step 4 addresses only Gallery's
+bar-gated prominences and explicitly excludes `Display_Overlay`, leaving Deck's
+current (wrong) behavior untouched by design — its own text says
+"`Display_Overlay` edges on either view type must not change at all." This step is
+the route step 4 deliberately does not take. **Predicted diff, by analogy to
+`e0530c8` rather than by measurement:** likely to add edges to `navigation_edges.csv`
+for `Display_Overlay` actions currently blocked on deck views wherever
+`referenced_actions` membership or `show_action_bar` currently fails, and — following
+the same pattern `e0530c8` found on table views, where 82 new edges cleared zero
+orphans because every affected target was already reachable another way — may clear
+no orphan at all. This is a guess by analogy, not a number, and should be verified by
+a full re-parse exactly as `e0530c8` was, not assumed.
+
 **Deliberately deferred, not sequenced here:** the "other" bucket's permissive-vs-restrictive
 default (section 2's second cross-cutting finding, 120 views, the single largest
 number in this plan) and the Automatic-mode `referenced_actions` completeness
@@ -620,6 +661,8 @@ section"), which now carries that correction directly and more currently — inc
 the Table+`Display_Overlay` resolution this note used to describe as still open; that
 resolution (`e0530c8` moved NEG and AOD to `True`, leaving only ADA wrong) is stated
 in section 2 and, for section 6's claim, directly in section 6 above. What is not said
-elsewhere, and is kept here for that reason: the five-step sequence in section 5 never
-depended on distinguishing `Primary` from `Display_Overlay`, since none of its steps
-singled out `Primary`'s handling for a fix, so it is unaffected by any of this.
+elsewhere, and is kept here for that reason: the sequence in section 5 (five steps
+when this note was written, six as of the step added 2026-09-01 for Deck+`Display_Overlay`)
+never depended on distinguishing `Primary` from `Display_Overlay`, since none of its
+steps singled out the literal `Primary` string's handling for a fix — that string is
+dead code (section 6 above) — so it is unaffected by any of this.
