@@ -105,71 +105,245 @@ silently).
 
 ## 2. Where do the three disagree, cell by cell?
 
-View types are grouped as: the three types at least one file branches on explicitly
-(`detail`, `table`, `deck`), `gallery` (branched on by two of three, folded into deck's
-branch), and "**other**" — every view type none of the three names explicitly
-(`map`, `card`, `calendar`, `dashboard`, `form`; **120 of the app's 319 views**: 92
-form + 17 card + 7 map + 3 dashboard + 1 calendar, verified by count against
-`appsheet_views.csv`). Prominence columns use the five values actually present
-in the export (`appsheet_actions.csv`, confirmed by count below); "Primary" is
-included even though it occurs **zero times** in this app's real data — its code
-paths are entirely untested by this app.
+Audited read-only against the working tree on 2026-08-31: `navigation_edge_generator.py`
+(NEG), `actions_orphan_detector.py` (AOD), `action_dependency_analyzer.py` (ADA). Every
+verdict below was derived from the code as it currently stands, not from the previous
+version of this section, several of whose claims were wrong.
 
-Legend: **T** = returns/contributes `True`; **F** = returns/contributes `False`;
-"list-gated" = outcome depends on `available_actions`/`referenced_actions`/
-`action_display_mode`, not on prominence at all; UNRESOLVED = `APPSHEET_BEHAVIOR.md`
-records no rule for this cell, so no rule is asserted here either.
+### Changes from the previous version of this section
 
-| View type | Prominence | `navigation_edge_generator.py` | `actions_orphan_detector.py` | `action_dependency_analyzer.py` | `APPSHEET_BEHAVIOR.md` |
-|---|---|---|---|---|---|
-| Detail | Primary | **T** (unconditional) | **F** (not in allow-list) | **F** (not in allow-list) | UNRESOLVED — no view type named |
-| Detail | Prominent | **T** | **T** | **T** | **T** — the one documented case |
-| Detail | Inline | T/F on column match | T/F on column match **+ column exists in `appsheet_columns.csv`** | T/F on **exact** column match | UNRESOLVED (doc names only Table's caveat) |
-| Detail | Overlay | **T** | **T** | **T** | UNRESOLVED — "Overlay" is not one of the four documented Position values at all |
-| Detail | Hide | **F** (not in allow-list; the onclick exception below never reaches this branch — see note) | **F** | **F** | **F** — matches |
-| Table | Primary | **T** ("Primary actions appear as row-level actions") | **F** (no branch) | **F** (no branch) | UNRESOLVED |
-| Table | Prominent | **F** (explicit comment: not supported) | **F** (no branch) | **F** (no branch) | UNRESOLVED, though all three happen to agree |
-| Table | Inline | T/F on column match | T/F on column match + exists-check | T/F on exact column match | **T, with a caveat** — Inline *replaces* the column rather than sitting beside it; none of the three files' logic distinguishes this from ordinary display |
-| Table | Overlay | **F** (explicit comment: not supported) | **T only if `action_type_plain_english == 'Navigate'`** | **F** (no branch) | UNRESOLVED — three-way split, the most divergent cell in the table |
-| Table | Hide | **F** (explicit check) | **F** (no branch; case-bug below does not reach here) | **F** (no branch) | **F** — matches |
-| Deck | Primary | list-gated (prominence not read at all) | list-gated/Automatic (prominence not read, since Primary ≠ `'Do not display'`) | list-gated/Automatic, same as AOD | UNRESOLVED |
-| Deck | Prominent | list-gated — **would say T if the action happened to be on the list**, since prominence isn't checked | list-gated/Automatic — same gap | list-gated/Automatic — same gap | **F, observed directly** (2026-08-30) — the original finding. None of the three files would produce F from prominence alone. |
-| Deck | Inline | list-gated | list-gated/Automatic | list-gated/Automatic | UNRESOLVED |
-| Deck | Overlay | list-gated | list-gated/Automatic | list-gated/Automatic | UNRESOLVED |
-| Deck | Hide | onclick-bound **and** on the list → T, else **F** (correctly excludes) | **bug: `prominence != 'Do not display'` is always true (see §3) — never excludes Hide** | same bug as AOD | **F** — universal. AOD/ADA's actual behavior contradicts this documented rule. |
-| Gallery | Primary | **T, unconditional** (gallery has no explicit branch in this file — falls to `else: return True`) | list-gated (grouped with deck) | list-gated (grouped with deck) | UNRESOLVED |
-| Gallery | Prominent | **T, unconditional** | list-gated (same deck-mechanism gap as above) | list-gated | UNRESOLVED (named in doc's own Unknowns list) |
-| Gallery | Inline | **T, unconditional** | list-gated | list-gated | UNRESOLVED |
-| Gallery | Overlay | **T, unconditional** | list-gated | list-gated | UNRESOLVED |
-| Gallery | Hide | onclick-bound → T, else F (via the shared pre-gate, then falls to the unconditional-True branch) | same case-bug as Deck/Hide | same case-bug | **F** — same contradiction as Deck/Hide |
-| Other (map/card/calendar/dashboard/form) | any of the 5 | **T, unconditional**, for every one of the 5 prominence values (Hide still needs onclick-binding first) | **F**, for every one of the 5 (no branch matches, loop just continues) | **F**, for every one of the 5 (falls to final `return False`) | UNRESOLVED for map/card/calendar/dashboard/gallery (doc's own "Unknowns" list); **`form` is not even named in that list** — an omission in `APPSHEET_BEHAVIOR.md` itself, worth fixing there separately from this plan |
+Recorded so a reader who remembers the old table knows what moved and why, rather than
+assuming the differences are typos.
 
-Two disagreements are not cells in this table because they cut across every cell in a
-row or block, and deserve their own statement:
+- **Five prominence columns are now four.** `Primary` is not an export value and cannot
+  occur in the data. It appears here only as a footnote about dead code.
+- **The 120-view "other" bucket is decomposed.** It could not take a single verdict: on
+  form views NEG is wrong and the other two right; on card views the reverse. No default
+  is correct for both.
+- **The fourth column carries evidence grades.** `APPSHEET_BEHAVIOR.md` now distinguishes
+  observed, documented and inferred, and the old binary UNRESOLVED flattened them.
+- **Table+Overlay is no longer a three-way split.** Commit `e0530c8` moved NEG and AOD to
+  True. What remains is ADA alone, already recorded as a known defect.
+- **Deck+Overlay is a new finding: all three files are wrong.** Established after the
+  previous version was written.
+- **Deck+Prominent is no longer "F, observed directly."** The observation once cited for
+  it has been withdrawn in `APPSHEET_BEHAVIOR.md` as non-isolating.
 
-- **Deck vs. Gallery inside `navigation_edge_generator.py` itself.** The same file
-  treats these two view types by completely different mechanisms — Deck is
-  list-gated, Gallery is unconditionally permissive — despite AppSheet almost
-  certainly treating them as siblings at the UI level (both are collection views with
-  an action bar). `actions_orphan_detector.py` and `action_dependency_analyzer.py`
-  both explicitly group them (`elif view_type in ['deck', 'gallery']:`). This looks
-  like an omission in `navigation_edge_generator.py` — Gallery was never added when
-  Deck's list-gating was written — rather than a considered choice; I could not find
-  a comment explaining it, so I record it as unexplained rather than intentional.
-- **Automatic-mode completeness is itself unresolved**, independent of prominence.
-  `views_parser.py` (lines 770–792) populates a view's `referenced_actions` from
-  `ActionColumns` + `ActionBarEntries` + non-auto `Events` only. In `Automatic` mode,
-  `ActionBarEntries` is absent or empty, so `referenced_actions` may legitimately be
-  incomplete relative to what AppSheet's automatic ordering would actually display —
-  meaning `navigation_edge_generator.py`'s Deck check (which requires
-  `referenced_actions` membership unconditionally, Automatic or not) could
-  **under-count** on an Automatic deck. `actions_orphan_detector.py` and
-  `action_dependency_analyzer.py` instead return `True` unconditionally for any
-  non-excluded prominence in Automatic mode, without checking `referenced_actions` at
-  all — which could **over-count**, since an Automatic deck's actual auto-ordering
-  behavior (which actions it includes, and in what order) is not established anywhere
-  in `APPSHEET_BEHAVIOR.md` or the code. I flag this as unresolved rather than
-  guessing which of the two is closer to correct.
+### Prominence values
+
+The export contains exactly four `action_prominence` strings — `Do_Not_Display`,
+`Display_Inline`, `Display_Prominently`, `Display_Overlay` — verified by count against
+Leon's app (970 actions). The editor's Position names map onto these per the table in
+`APPSHEET_BEHAVIOR.md`; only the Primary/`Display_Overlay` pair is confirmed by direct
+evidence, the other three being literal-looking but unverified.
+
+The literal string `'Primary'` occurs zero times in the data. It survives in one place in
+the code: `is_action_visible_in_detail_view`'s allow-list, line 239. Commit `e0530c8`
+deleted the other occurrence, in `is_action_visible_in_table_view`, but not this one. It
+is dead code and is deliberately not given rows in the tables below. Step 1 will preserve
+it; that is correct behavior-preservation and should not be mistaken for a rule.
+
+### Pre-gates, applied before any view-type branch
+
+Stated once here rather than repeated into every cell.
+
+- **NEG** — `Do_Not_Display` is rejected unless the action is in *this* view's
+  `onclick_actions`; if it is, it proceeds and is judged by the view-type branch like any
+  other prominence. Every view type additionally requires membership in
+  `available_actions`, compared case-sensitively.
+- **AOD** — `only_if_condition == 'false'` returns False outright, the only place any of
+  the three reads that field. Then, per view: skip unused system views, skip views with
+  `show_if == 'false'`, require `available_actions` membership (case-insensitive), and
+  require the action's `source_table` to equal the view's source when both are non-empty.
+- **ADA** — `show_if == 'false'` returns False. The `available_actions` gate is **in the
+  caller** (line 597), not in the function — so an extraction that pulls the pre-gate into
+  the shared function changes ADA's function boundary even if it changes no verdict.
+
+### Legend
+
+**T** / **F** = returns or contributes that value. "list-gated" = outcome turns on
+`referenced_actions` membership, not prominence. "bar + mode gated" = requires
+`show_action_bar` true, then Manual mode requires `referenced_actions` membership while
+Automatic mode returns True unconditionally. Behavior grades: **[observed]** in a running
+app, **[documented]** from Google's pages, **[inferred]** reasoned but untested,
+**[none]** no rule established.
+
+---
+
+### Detail views
+
+| Prominence | NEG | AOD | ADA | AppSheet behavior |
+|---|---|---|---|---|
+| `Do_Not_Display` | **F** — reaches the branch when onclick-bound, then fails the allow-list | **F** | **F** | **F** [documented] |
+| `Display_Inline` | **T** if `attach_to_column` is empty; else T only if it is in `view_columns` | T only if attach is non-empty, in `view_columns`, **and** exists in `appsheet_columns.csv` | T only if attach is non-empty and exactly in `view_columns` | **T** [documented] — requires a view that renders columns |
+| `Display_Prominently` | **T** | **T** | **T** | **T** [documented] — the only view type the docs name for this position |
+| `Display_Overlay` | **T** | **T** | **T** | **T** [documented] — collection and detail panels both carry primary actions |
+
+The Inline row is a genuine three-way disagreement, not a phrasing difference: NEG returns
+**True** for an Inline action with no attached column; AOD and ADA return False.
+
+### Table views
+
+| Prominence | NEG | AOD | ADA | AppSheet behavior |
+|---|---|---|---|---|
+| `Do_Not_Display` | **F** — explicit check, overriding the onclick exception | **F** | **F** | **F** [documented] |
+| `Display_Inline` | T only if attach is non-empty and in `view_columns` | T only if attach is non-empty, in `view_columns`, and the column exists | T only if attach is non-empty and exactly in `view_columns` | **T with a caveat** [documented] — the action *replaces* the column content rather than sitting beside it; none of the three model this |
+| `Display_Prominently` | **F** — explicit `else`, comment says unsupported | **F** — no branch | **F** — no branch | **Not established** [documented, weak] — docs name only detail for Prominent. All three agree on F, but on documentation, not observation |
+| `Display_Overlay` | **T** | **T** | **F** — no branch, falls to `return False` | **T — observed**, Leon's app, 2026-08-31, purpose-built External action |
+
+`e0530c8` moved two of the three to T. What remains is a two-against-one split where the
+odd file out is ADA, already recorded as a known defect and listed in checklist section B.
+Calling Table+Overlay "the most divergent cell in the table" is no longer true; that
+description now fits Deck+`Do_Not_Display`.
+
+Note also the within-NEG asymmetry: Inline with an empty `attach_to_column` is True on
+detail and False on table, in the same file, from the same input.
+
+### Deck views
+
+NEG does not read prominence in this branch at all. Its rule is membership in
+`referenced_actions` and absence from `event_actions`. It never reads `show_action_bar`
+or `action_display_mode`.
+
+| Prominence | NEG | AOD | ADA | AppSheet behavior |
+|---|---|---|---|---|
+| `Do_Not_Display` | T only if onclick-bound **and** in `referenced_actions` **and** not an event action | **T** — the case bug never excludes it | **T** — same bug | **F** [documented], universal |
+| `Display_Inline` | list-gated | bar + mode gated | bar + mode gated | **[none]** |
+| `Display_Prominently` | list-gated — T if listed | bar + mode gated | bar + mode gated | **Not established** [documented, weak] |
+| `Display_Overlay` | list-gated — **wrong** | bar + mode gated — **wrong** | bar + mode gated — **wrong** | **T** [observed], independent of the action bar |
+
+**Deck+Overlay is the cell where all three files are wrong, and it is the newest finding
+in this section.** The deck's action bar is a per-row strip of buttons, enabled by
+`Show action bar` and populated by the `Actions` setting; a Primary action is a view-level
+floating button. They are different UI elements, and every one of the three files gates
+the second on the first. Observed 2026-08-31 in Leon's app: a floating overlay button
+displaying over the rows of the `Beds Deck` view in the editor preview. Corroborated by
+documentation, which places primary actions in the panel for collection views — card,
+deck, gallery and table by name — and describes them under floating navigation buttons
+with no view type attached.
+
+Consequence for AOD and ADA specifically: their `show_action_bar` requirement means a
+Primary action on a deck with the action bar switched off is invisible to them, blocked by
+a setting that governs a different element. Leon's app contains one such deck.
+
+**Deck+Prominent has lost its observational support.** The previous version of this
+section, and of section 5's step 5, called this the best-evidenced rule in the plan,
+citing a direct 2026-08-30 observation. `APPSHEET_BEHAVIOR.md` has since withdrawn it:
+the deck used was in Manual mode with the action absent from its list, so the
+manual-list rule accounts for the non-display by itself and the case isolates
+nothing. The rule now rests on Google's Position page naming only detail. It may
+still be right. Section 5's step 5 has been corrected to cite that documentation
+instead; the step itself and its predicted direction are unchanged, and it remains
+the one step in this plan that raises orphan counts.
+
+### Gallery views
+
+| Prominence | NEG | AOD | ADA | AppSheet behavior |
+|---|---|---|---|---|
+| `Do_Not_Display` | T if onclick-bound, via the unconditional-True branch | **T** — case bug | **T** — case bug | **F** [documented] |
+| `Display_Inline` | **T, unconditional** — no branch exists | bar + mode gated | bar + mode gated | **[none]** |
+| `Display_Prominently` | **T, unconditional** | bar + mode gated | bar + mode gated | **Not established** [documented, weak] |
+| `Display_Overlay` | **T**, but by the unconditional `else`, not by a rule | bar + mode gated — **wrong** | bar + mode gated — **wrong** | **T** [documented] — same collection class as deck; not observed on gallery specifically |
+
+Step 4's premise is now stronger than the plan states: gallery being a sibling of deck and
+table is supported by documentation, not only by two files agreeing. But step 4 as
+originally written would introduce a defect — making gallery list-gated like deck is right
+for the bar-gated prominences and wrong for `Display_Overlay`, which should not be
+list-gated on either view type. NEG currently gets Gallery+Overlay right for the wrong
+reason, and step 4 would break it.
+
+### The former "other" bucket, decomposed
+
+All three files behave identically across every prominence for every type below. **NEG
+returns T unconditionally** via `else: return True`; **AOD contributes F** because no
+branch matches and the loop continues; **ADA returns F** at the final statement. Only the
+platform's actual behavior differs, so this is one row per view type.
+
+| View type | Views | AppSheet behavior | Which files are wrong |
+|---|---|---|---|
+| `form` | 92 | **F** — documented. Actions don't display as buttons on forms | NEG |
+| `card` | 17 | **Displays actions** — documented; `Display_Overlay` **T** [documented] as a collection view. Which other positions apply is unstated | AOD, ADA |
+| `map` | 7 | **[inferred]** (Kirk, 2026-08-31) — needs designation, analogous to a deck action bar. Not tested | NEG, probably; but the rule is a designation gate, not a flat F, so AOD and ADA are not right either |
+| `dashboard` | 3 | **[none]** | undetermined |
+| `calendar` | 1 | **[none]** | undetermined |
+
+Two notes for whoever implements this bucket.
+
+A restrictive default for `form` is **safe with respect to event routes**. In NEG the Form
+Saved path is served by `process_event_actions`, which never calls
+`is_action_visible_in_view` — the visibility function's only call sites are lines 524 and
+853. Making form return False removes prominence-based display without touching the event
+binding that `APPSHEET_BEHAVIOR.md` identifies as the real navigation route out of a form.
+The same holds for `dashboard`: containment edges come from
+`process_dashboard_containment`, also independent of this function.
+
+The `map` cell cannot be filled by a boolean at all if Kirk's inference is right. "Needs
+designation" is deck's mechanism, and deck's mechanism is not a prominence rule — which
+means the honest table has a cell type this legend does not provide.
+
+---
+
+### Disagreements that are not cells
+
+**Case sensitivity of action-name comparisons.** AOD lowercases both sides for
+`available_actions` and `referenced_actions`. NEG and ADA compare case-sensitively.
+`748e329` already fixed this class of bug once, for view types in
+`check_context_conditions`; the same class is still live for action names in two of three
+files. Not in the previous version of this section.
+
+**Event actions.** NEG's deck branch excludes an action that is in `referenced_actions` if
+it is also in `event_actions`, on the stated grounds that events are handled elsewhere.
+AOD and ADA apply no such exclusion. So an action that is both an event action and on a
+deck's manual list gets three different treatments, and a naive unification would have to
+pick one.
+
+**Automatic-mode completeness, unresolved and independent of prominence.**
+`views_parser.py` populates `referenced_actions` from `ActionColumns` plus
+`ActionBarEntries` plus non-auto `Events`. In Automatic mode `ActionBarEntries` is absent
+or empty, so `referenced_actions` may be legitimately incomplete relative to what
+AppSheet's automatic ordering displays. NEG requires membership unconditionally and so may
+**under-count**; AOD and ADA return True unconditionally in Automatic mode and so may
+**over-count**. Which is closer to correct is not established anywhere.
+
+**`show_action_bar` is read by two files and not the third.** Folded into "list-gated" in
+the previous version, which made NEG and the other two look closer than they are.
+
+---
+
+### What this section does not establish
+
+- The view-type counts (92 form, 17 card, 7 map, 3 dashboard, 1 calendar, of 319) are
+  carried over from the previous version, which computed them against a superseded parse.
+  There is no reason to think they moved — `e0530c8` left every parser output file
+  byte-identical, and `appsheet_views.csv` is a parser output — but they are the only
+  figures here not derived from the code, and should be recounted with a real CSV parser
+  rather than trusted.
+- That exactly four prominence values exist was verified against Leon's app when this
+  section was written. The 2026-08-31 baseline parse of Kirk's own app (Kankaku) has since
+  confirmed the same four and no others in a second app.
+- Three of the four editor-to-export prominence mappings are unverified. They are
+  literal-looking, and nothing in this section depends on them, but the fourth column is
+  stated in editor vocabulary and reaches the code through that mapping.
+- The blast radius of the `Do_Not_Display` case bug — how many of the 414 such actions it
+  actually changes an answer for — is unmeasured. The mechanism is confirmed; the count is
+  a verification step, not a finding.
+- Deck+Overlay is observed with the action bar's state unrecorded, and the button seen was
+  most likely a system-generated Add action rather than an author-created one. Neither
+  weakens the conclusion much, but the entry says what was seen rather than what it
+  implies.
+
+### Sources for the behavior column
+
+- Actions: The Essentials — https://support.google.com/appsheet/answer/10107706
+- Deck and table view types — https://support.google.com/appsheet/answer/10106514
+- Explore the desktop design — https://support.google.com/appsheet/answer/12407883
+- About the new mobile framework — https://support.google.com/appsheet/answer/15831909
+- Card view type — https://support.google.com/appsheet/answer/11908538
+- Map view type — https://support.google.com/appsheet/answer/10106601
+
+The third and fourth are new to this project and are what settled Deck+Overlay. The fourth
+is also the correct source for the six-on-new-framework and four-on-legacy limits on
+primary actions.
 
 ## 3. What data does each implementation read? Is the prominence-string mismatch real?
 
@@ -347,20 +521,33 @@ change here means the extraction was not actually behavior-preserving, and step 
 should be treated as failed and re-examined before continuing, not patched forward.
 
 **Step 4 — Decide and apply the Gallery-vs-Deck fix inside
-`navigation_edge_generator.py`** (section 2's first cross-cutting finding): make
-Gallery list-gated like Deck, since two of three files already treat them as siblings
-and no rationale for the current asymmetry was found. **Predicted diff:** `deck`-view
-edges are unaffected; `gallery`-view edges (2 views in this app) may drop if either
-gallery view is not in Manual mode with the relevant actions listed, or if it's
-Automatic and the newly-required `referenced_actions` check removes previously-True
-answers. Because there are only 2 gallery views in this app, the predicted diff should
-be small and fully enumerable by hand before accepting it — if it touches more than a
-handful of `navigation_edges.csv` rows, stop and re-examine rather than assume it's
-correct because the CSV differs.
+`navigation_edge_generator.py`, excluding `Display_Overlay`** (section 2's Gallery
+views entry): make Gallery list-gated like Deck for the bar-gated prominences —
+`Do_Not_Display`, `Display_Inline`, `Display_Prominently` — since two of three files
+already treat them as siblings and no rationale for the current asymmetry was found.
+**`Display_Overlay` must be excluded from this change.** It is a view-level floating
+button, not a row-level action-bar entry, so list-gating it on Gallery the way Deck is
+list-gated would introduce the same defect Deck+`Display_Overlay` already has
+(section 2), not fix a parity gap — NEG's current unconditional-True answer for
+Gallery+`Display_Overlay` is coincidentally correct and step 4 must not touch it.
+**Predicted diff:** `deck`-view edges are unaffected; `gallery`-view edges (2 views in
+this app) may drop, for the three bar-gated prominences only, if either gallery view
+is not in Manual mode with the relevant actions listed, or if it's Automatic and the
+newly-required `referenced_actions` check removes previously-True answers;
+`Display_Overlay` edges on either view type must not change at all. Because there are
+only 2 gallery views in this app, the predicted diff should be small and fully
+enumerable by hand before accepting it — if it touches more than a handful of
+`navigation_edges.csv` rows, or touches any `Display_Overlay` row, stop and re-examine
+rather than assume it's correct because the CSV differs.
 
-**Step 5 — Apply the Prominent-on-Deck exclusion everywhere**, since it is now the
-best-evidenced single rule in this whole plan (direct observation, cited in
-`APPSHEET_BEHAVIOR.md`). **Predicted diff:** could remove edges from
+**Step 5 — Apply the Prominent-on-Deck exclusion everywhere**, per Google's Position
+documentation, which names only Detail for `Display_Prominently`
+(`APPSHEET_BEHAVIOR.md`). The direct observation once cited to justify this step has
+since been withdrawn there: the deck used was in Manual mode with the action absent
+from its list, so the manual-list rule accounts for the non-display on its own and
+the case isolates nothing. The rule now rests on documentation alone, not on an
+isolating test — it may still be right, but is no longer the best-evidenced rule in
+this plan. **Predicted diff:** could remove edges from
 `navigation_edges.csv` for any `Display_Prominently` action currently reaching a deck
 or gallery through list membership; per section 3's table, this app has 160
 `Display_Prominently` actions total, and the number actually on a deck/gallery's
@@ -411,39 +598,27 @@ running app, the same way the Deck case was settled.
   same way. This means every step's "predicted diff: zero" claims are only as good as
   actually running the parse, not as good as the code review that produced the
   prediction.
-- **This app has zero `Primary`-prominence actions**, so every claim in section 2
-  about `Primary`'s behavior is a claim about *code that has never executed against
-  real data in this project*. Any consolidation touching Primary's handling should be
-  treated as unverified by this app regardless of how confidently the three files
-  currently agree or disagree about it.
+- **This app has zero actions carrying the literal export string `'Primary'`** — that
+  string never occurs in the data; `93` of this app's actions carry the real export
+  value, `Display_Overlay`, and are exercised throughout. Claims in section 2 about
+  the `'Primary'` string specifically are claims about dead code; its `Display_Overlay`
+  claims are not. The three files also no longer disagree three ways here:
+  `e0530c8` moved NEG and AOD to `True` for Table+`Display_Overlay`, leaving only ADA
+  wrong — a known defect (STATUS.md), not a live contradiction.
 - **`APPSHEET_BEHAVIOR.md` itself has a gap this plan surfaced but was not asked to
   fix**: `form` is absent from its "Unknowns" list even though no code file names it
   either, and it is 92 of the app's 319 views — the single largest view type by count
   after `detail`. Worth a follow-up to that file, separately from this plan.
 
-## Note added 2026-08-31
+## Note added 2026-08-31 (superseded 2026-08-31)
 
-A screenshot of Leon's app editor established that the editor's Position names and
-the export's `action_prominence` strings are two different vocabularies — see the new
-mapping table in `APPSHEET_BEHAVIOR.md`. Editor "Primary" is stored as
-`Display_Overlay`, not as the string `'Primary'`. This corrects three things above:
-
-- Section 2's `Primary` row describes a string that never occurs in the data (0 of
-  970 actions). Every verdict recorded there for `Primary` is really a claim about
-  dead code, not about how the editor's actual Primary actions are handled — those are
-  the rows currently labeled `Overlay`/`Display_Overlay`.
-- The Table+Overlay "three-way split," flagged in section 2 as the single most
-  divergent cell in the whole table, is really a contradiction about Primary
-  specifically: `navigation_edge_generator.py`'s dead `'Primary'` branch says table
-  views support it, while the same file's live `Display_Overlay` branch says they
-  don't (see the new `STATUS.md` entry for the exact lines).
-- Section 6's claim that "this app has zero `Primary`-prominence actions" is wrong.
-  The app has 93, under the export name `Display_Overlay`. Section 6's underlying
-  point — that a claim about a prominence value is only as trustworthy as the string
-  actually being tested — still stands, and is now the stronger reason to distrust the
-  three files' `'Primary'` branches specifically, rather than a reason to distrust
-  their `Display_Overlay` handling, which is exercised 93 times over.
-
-The five-step sequence in section 5 is unaffected: it never depended on distinguishing
-`Primary` from `Display_Overlay`, since none of its steps singled out `Primary`'s
-handling for a fix.
+Originally written to patch the old section 2 with the Primary/`Display_Overlay`
+vocabulary correction, found via a screenshot of Leon's app editor. Section 2 has
+since been replaced entirely (see its own "Changes from the previous version of this
+section"), which now carries that correction directly and more currently — including
+the Table+`Display_Overlay` resolution this note used to describe as still open; that
+resolution (`e0530c8` moved NEG and AOD to `True`, leaving only ADA wrong) is stated
+in section 2 and, for section 6's claim, directly in section 6 above. What is not said
+elsewhere, and is kept here for that reason: the five-step sequence in section 5 never
+depended on distinguishing `Primary` from `Display_Overlay`, since none of its steps
+singled out `Primary`'s handling for a fix, so it is unaffected by any of this.
