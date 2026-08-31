@@ -240,9 +240,12 @@ or external action in the group runs, and running it ends the group.
 
 ## Case sensitivity
 
-Two separate case-insensitivity facts, established independently on 2026-08-31. Do
-not conflate them — one is about comparing two strings, the other is about whether
-two names can coexist at all.
+Several independent case-(in)sensitivity facts, established on 2026-08-31 and
+expanded 2026-09-01. Do not conflate them — each is a different mechanism, and this
+section's own history is why: one AppSheet expert's single sentence lumped two
+functions together as "the only case-sensitive places," and testing found that claim
+holds for one of them and not the other. Each mechanism named below has been tested
+on its own; none is inferred from a sibling.
 
 - **AppSheet's `=` operator is case-insensitive on text.** Source, observation: Kirk
   evaluated the expression `"Card Stats"="card stats"` directly in AppSheet's
@@ -252,9 +255,31 @@ two names can coexist at all.
   report that `LINKTOFORM` column-name references were case-sensitive
   (<https://discuss.google.dev/t/case-sensitivity/78971>), treated that as a bug and
   shipped a fix — indicating case-insensitive comparison is the intended standard and
-  exceptions are defects. **What this does not establish:** it says nothing about
-  view-name *lookup* inside `LINKTOVIEW`/`LINKTOROW`/`LINKTOFORM`, which is a
-  different mechanism from an `=` comparison and remains untested.
+  exceptions are defects.
+- **`CONTEXT()`'s argument is case-insensitive, in both its bare and quoted forms —
+  but only within its closed vocabulary.** Source, observation: Kirk tested in
+  Kankaku's expression tester, 2026-09-01. `CONTEXT(view)`, `Context(View)`,
+  `Context("view")`, and `Context("View")` all worked, regardless of case or quoting.
+  But the argument is otherwise unforgiving of anything outside its recognized
+  keywords: `CONTEXT(vew)` — a misspelling — silently stopped matching, with no error
+  raised; `Context(View Type)` — a space inserted into the keyword — also failed,
+  where `Context(ViewType)` (no space) worked. Case is forgiven; spelling and shape
+  are not.
+- **`FIND()` IS case-sensitive.** Source, observation: Kirk tested
+  `FIND("a","ABC")>0` (returned false) against `FIND("A","ABC")>0` (returned true) in
+  Kankaku's expression tester, 2026-09-01.
+- **What this means for sourcing claims in this section:** an AppSheet expert
+  (Steve, March 2020, <https://discuss.google.dev/t/case-sensitivity/78971>) stated
+  that `CONTEXT()` and `FIND()` were the only two case-sensitive places in AppSheet.
+  `FIND()` still holds; `CONTEXT()` does not, at least as tested in 2026. Whether the
+  2020 claim was wrong or the behavior has changed since cannot be told from here, and
+  this file records that as an open question rather than picking a side. The same
+  thread shows the list growing under further, uncorroborated hands: later replies
+  added `LOOKUP()` (Feb 2023) and unspecified "references" (Jul 2023) — the list is
+  community-maintained, not authoritative, and neither addition has been tested here.
+  The governing principle, restated because this thread demonstrates it directly:
+  each mechanism must be tested on its own, not inferred from a sibling — the two
+  functions named in one expert's one sentence turned out to behave differently.
 - **AppSheet's view namespace is case-insensitive at creation.** Source, observation:
   Kirk created a view named "help" in an app that already had a view named "Help" on
   2026-08-31; the editor immediately and silently renamed the new view to "help 2". So
@@ -264,6 +289,44 @@ two names can coexist at all.
   namespaces, which are separate. Consequence worth stating: a case-insensitive
   view-name match cannot be ambiguous, since two spellings can never denote two
   different views.
+- **Untested, and it bears on this suite's code: whether a view name inside
+  `LINKTOVIEW`/`LINKTOROW`/`LINKTOFORM` resolves case-insensitively.** The only
+  evidence pointing either way is the same thread's Jul 2023 reply that "references"
+  are case-sensitive — a one-line reply with no detail, which may not even be about
+  view names. This is not an idle gap: see STATUS.md's `f4d931a` entry, which records
+  the view `Water Tanks` clearing through this suite's own case-insensitive matching
+  of the app's wrong-case `LINKTOVIEW("Water tanks")` call. If AppSheet itself would
+  not resolve that call at runtime, the tool cleared a view that is actually
+  unreachable — the code-level detail belongs in STATUS.md, not here; this file only
+  records that the platform fact needed to judge it is currently unknown.
+
+## AppSheet validates shape, not meaning
+
+AppSheet rejects most malformed expressions at save time, so this suite's real
+opportunity is narrower and more specific than "catching what AppSheet misses":
+AppSheet validates an expression's SHAPE — is this a well-formed call, is this a
+valid string literal — but not whether the NAMES inside it denote anything. A
+well-formed call with a valid string literal passes, whatever the literal actually
+says. From AppSheet's own point of view nothing is wrong in any of the cases below,
+which is exactly why its validation cannot be expected to catch them, and exactly why
+this is a job for static analysis specifically.
+
+Three instances are established in this project so far, all failing with no error
+and no visible symptom:
+
+- **A `CONTEXT()` argument outside its closed vocabulary.** `CONTEXT(vew)`,
+  `Context("View Type")` — see "Case sensitivity" above. Neither raised an error;
+  neither ever matches (observed 2026-09-01).
+- **A navigation action naming a view that does not exist does nothing when
+  tapped.** Already recorded above under "Established behavior"; not restated here.
+- **An action whose prominence and whose own `CONTEXT("ViewType")` condition cannot
+  both be satisfied is dead by construction.** [Inferred, not independently tested.]
+  Example: a condition requiring `CONTEXT("ViewType")="Deck"` paired with Prominent
+  prominence, which the Position documentation above names only for detail views —
+  the condition can be true only on a view type where, per that documentation, the
+  prominence would never display anyway. This follows logically from two facts
+  already established above (Position values; `CONTEXT()`'s behavior), not from a
+  new observation of its own.
 
 ## Scope decisions — deliberate exclusions
 
