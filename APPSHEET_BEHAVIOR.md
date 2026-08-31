@@ -220,15 +220,16 @@ The map cell's consequence for this suite's output — the edges it emits to Map
 for the "Go to ObservationActivity" action (see STATUS.md) — is addressed in the map
 bullet under "Established behavior" above; not repeated here.
 
-Prominent-on-Deck is no longer tracked as a separate unknown here. The Position
-documentation above already named only Detail for Prominent, and the gallery/deck/
-table sibling grouping recorded under "Established behavior" corroborates that
-Google's pages delineate view-type eligibility deliberately when they name one at
-all — evidence that the silence about deck is the same kind of deliberate omission,
-not an oversight. See the Deck bullet under "Established behavior" for the full
-reasoning; it still rests on documentation alone, not on an isolating observational
-test, and that distinction is why it isn't marked resolved-by-observation there.
+Prominent-on-Deck is not listed separately here because it is recorded in full
+under "Established behavior" above, not because it has been settled. It rests on
+Google's Position documentation naming only Detail for Prominent — documentation
+alone, with no isolating observational test. An isolating test would put a
+`Display_Prominently` action on a deck whose `action_display_mode` is `Automatic`,
+or on a Manual deck whose action list includes that action, and look. Section D's
+step 5 applies this rule across all three files and can raise orphan counts, so
+anyone acting on it should know what it does and does not rest on.
 
-Each unknown remaining here — calendar and dashboard — is answerable by one test in
-a running app, the same way form, card, gallery, map, and deck were each closed
-without one.
+Calendar and dashboard are each answerable by one test in a running app. Form,
+card and gallery were closed by documentation; map rests on Kirk's stated
+inference; deck rests on documentation alone. Those are three different grades of
+evidence and this file does not treat them as one.
