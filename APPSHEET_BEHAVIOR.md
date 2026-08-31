@@ -59,7 +59,11 @@ Essentials", <https://support.google.com/appsheet/answer/10107706>.
   takes the column's place.
 - **Hide** (export: `Do_Not_Display`) — "Don't display in any view."
 
-## Observed behavior
+## Established behavior
+
+Each entry names how it was established. Direct observation, documentation, and
+reasoned inference are not interchangeable, and an entry's strength is the strength
+of its source.
 
 Source: observed in Leon's app, 2026-08-30, by Kirk.
 
@@ -98,6 +102,46 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   phantom view reference is invisible to app users and can only be found by static
   analysis of the export.
 
+- **Actions do not display as buttons on form views.** Source: Google's "Actions: The
+  Essentials" page, which states that a button is shown for each action in the detail
+  view and that actions can be applied in bulk in table, deck and gallery views; form
+  views are named nowhere in its account of where actions display. Corroborated by
+  Kirk's own experience building AppSheet apps, 2026-08-31, and by community
+  workarounds that add pseudo-buttons to forms using Enum columns plus a Form Saved
+  grouped action — a workaround nobody would need if actions displayed on forms.
+  **A form can still invoke an action**, via the Form Saved event, which per Google's
+  "Run actions based on view events" page replaces the default navigation behavior
+  when the action navigates. So a navigation route out of a form view is real when it
+  rests on an event binding and false when it rests on prominence. 92 of Leon's 319
+  views are forms.
+
+- **Card views display actions.** Source: Google's "Card view type" page, which
+  describes the card view as displaying content and actions for a single element, and
+  specifies how many each layout holds — up to four on the full card (two as text,
+  two as icons) and up to three on the compact card. 17 of Leon's 319 views are cards.
+  The per-layout action cap is a client display limit of the same kind as Primary's
+  documented maximum, and is out of scope by the decision recorded under "Scope
+  decisions" below.
+
+- **Gallery views are treated as siblings of deck and table views.** Source: two
+  Google pages agree. "Actions: The Essentials" groups table, deck and gallery
+  together for bulk actions; "Run actions based on view events" states that the Row
+  Selected event fires when a user taps a record in a deck, gallery or table view.
+  This supports the two files that group gallery with deck, and is evidence against
+  `navigation_edge_generator.py`'s unconditional permissiveness for gallery.
+  Documentation, not observation: no gallery view has been tested directly.
+
+- **Map views: inference, not established.** Google's "Map view type" page describes
+  information about the selected row appearing in a deck-view row at the bottom of
+  the screen, and notes a built-in driving-directions action on each map view. Kirk's
+  inference from this, 2026-08-31: an action will not appear on a map view unless it
+  is properly designated for it, in the same way a deck view requires an action to be
+  on its action bar. **This is a reasoned guess, not a test.** Kirk's own app does not
+  use actions on map views, and testing it in Leon's app was judged not worth the
+  effort relative to its value. The suite acts on this inference; it should be
+  re-tested by anyone using the suite on an app with actions on map views. 7 of
+  Leon's 319 views are maps.
+
 ## Manual action lists
 
 Source: known behaviour, stated by Kirk from experience building AppSheet apps,
@@ -106,7 +150,7 @@ list is ignored.** This is not deck-specific — it holds for any view type that
 a manual action-list setting.
 
 The "Go to ObservationActivity" / "MyPlants Food forest Deck" case recorded under
-"Observed behavior" above does **not** establish this rule on its own, and should not
+"Established behavior" above does **not** establish this rule on its own, and should not
 be cited as if it did: that action was also Prominent, and Prominent does not display
 on a deck view for an entirely separate, already-documented reason. Either fact alone
 would have produced the same non-display, so that single case cannot isolate which
@@ -165,23 +209,26 @@ Source: Kirk's decision, 2026-08-30. Recorded so these are not re-litigated.
 
 ## Unknowns
 
-What Prominent (export: `Display_Prominently`) does on **map, card, gallery,
-calendar, dashboard, or form** views is unestablished — named nowhere in the
-documentation read for this file, and not yet tested. `form` is the largest omission
-by count: 92 of Leon's 319 views, the largest single view type after `detail`. This
+What Prominent (export: `Display_Prominently`) does on **calendar** and **dashboard**
+views remains genuinely unestablished — named nowhere in the documentation read for
+this file, and not tested. These are the only two view types left from the original
+six-type list once tracked here; `form`, `card`, `gallery`, and `map` are now
+addressed under "Established behavior" above, each entry naming its own source. This
 is not silence by omission; it is the current honest boundary of what is known.
 
-The **map cell is currently consequential**, not merely unknown: the suite emits
-edges to Map views for the "Go to ObservationActivity" action described above (see
-STATUS.md). If Prominent does not render on maps, those edges are false, in the same
-way the deck edges would have been false had "Go to ObservationActivity" been on that
-deck's action list.
+The map cell's consequence for this suite's output — the edges it emits to Map views
+for the "Go to ObservationActivity" action (see STATUS.md) — is addressed in the map
+bullet under "Established behavior" above; not repeated here.
 
-**Prominent on a Deck view is unresolved by observation**, not merely unlisted. An
-isolating test would put a `Display_Prominently` action on a deck whose
-`action_display_mode` is `Automatic`, or on a Manual deck whose action list includes
-that action, and look. Only under those conditions does non-display point at
-prominence rather than at the list.
+Prominent-on-Deck is no longer tracked as a separate unknown here. The Position
+documentation above already named only Detail for Prominent, and the gallery/deck/
+table sibling grouping recorded under "Established behavior" corroborates that
+Google's pages delineate view-type eligibility deliberately when they name one at
+all — evidence that the silence about deck is the same kind of deliberate omission,
+not an oversight. See the Deck bullet under "Established behavior" for the full
+reasoning; it still rests on documentation alone, not on an isolating observational
+test, and that distinction is why it isn't marked resolved-by-observation there.
 
-Each unknown here is answerable by one test in a running app, and the Deck case now
-needs one too.
+Each unknown remaining here — calendar and dashboard — is answerable by one test in
+a running app, the same way form, card, gallery, map, and deck were each closed
+without one.
