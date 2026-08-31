@@ -605,10 +605,11 @@ running app, the same way the Deck case was settled.
   claims are not. The three files also no longer disagree three ways here:
   `e0530c8` moved NEG and AOD to `True` for Table+`Display_Overlay`, leaving only ADA
   wrong — a known defect (STATUS.md), not a live contradiction.
-- **`APPSHEET_BEHAVIOR.md` itself has a gap this plan surfaced but was not asked to
-  fix**: `form` is absent from its "Unknowns" list even though no code file names it
-  either, and it is 92 of the app's 319 views — the single largest view type by count
-  after `detail`. Worth a follow-up to that file, separately from this plan.
+- **The gap this plan originally surfaced in `APPSHEET_BEHAVIOR.md`'s "Unknowns" list
+  — `form` named nowhere in it — was closed in an earlier session.** That section now
+  names `form`, `card`, `gallery` and `map` as addressed under "Established behavior,"
+  each with its own source; only `calendar` and `dashboard` remain genuinely
+  unestablished there. No further follow-up is needed on this point.
 
 ## Note added 2026-08-31 (superseded 2026-08-31)
 
