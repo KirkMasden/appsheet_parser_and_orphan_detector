@@ -35,7 +35,7 @@ what was originally asked survives.
 - [x] **Does Prominent (`Display_Prominently`) display on a form view?**
       92 of Leon's 319 views are forms — the single largest block of the
       undecided bucket.
-      *Done when:* the answer is recorded under "Observed behavior" in
+      *Done when:* the answer is recorded under "Established behavior" in
       `APPSHEET_BEHAVIOR.md`, with the date and how it was tested.
 
 - [x] **Does Prominent display on a card view?** (17 views)
@@ -57,7 +57,7 @@ what was originally asked survives.
       was in Manual mode with the action absent from its action list, so the manual-list
       rule explains the non-display by itself. Test on an Automatic-mode deck, or on a
       Manual deck whose list includes the action.
-      *Done when:* recorded in `APPSHEET_BEHAVIOR.md` under "Observed behavior".
+      *Done when:* recorded in `APPSHEET_BEHAVIOR.md` under "Established behavior".
       Blocks section D step 5, which is billed on this rule and can raise orphan counts.
 
 Optional, only if convenient: confirm the manual-action-list exclusion on a
