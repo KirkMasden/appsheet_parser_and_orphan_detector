@@ -63,12 +63,19 @@ Essentials", <https://support.google.com/appsheet/answer/10107706>.
 
 Source: observed in Leon's app, 2026-08-30, by Kirk.
 
-- An action set to **Prominent (export: `Display_Prominently`) does NOT display on a
-  Deck view.** Confirmed by direct test: action "Go to ObservationActivity" (table
-  `MyPlants`, prominence Prominent, condition `OR(CONTEXT("ViewType")="Deck",
-  CONTEXT("ViewType")="Map")`) never appeared on the deck. This agrees with the
-  documentation above naming only detail views for Prominent — it is confirmation of
-  the documented rule's boundary, not a new rule.
+- **Prominent (export: `Display_Prominently`) on a Deck view: not established by
+  observation.** The documentation above names only detail views for Prominent, and
+  nothing here contradicts it — but the test once cited as confirming it does not
+  isolate the rule. Action "Go to ObservationActivity" (table `MyPlants`, prominence
+  Prominent, condition `OR(CONTEXT("ViewType")="Deck", CONTEXT("ViewType")="Map")`)
+  never appeared on "MyPlants Food forest Deck". Checked against the export
+  2026-08-31: that deck's `action_display_mode` is `Manual` and the action is absent
+  from its `referenced_actions`, though present in its `available_actions`. The
+  manual-list rule below therefore accounts for the non-display on its own, exactly as
+  prominence would. Either rule alone explains what was seen, so the case establishes
+  neither — this is the same reasoning already applied to it under "Manual action
+  lists" below, now applied in both directions. Until an isolating test is run, treat
+  Prominent-on-Deck as resting on Google's documentation alone.
 - **Primary (export: `Display_Overlay`) DOES display on table views.** Source:
   observed in Kirk's own app, 2026-08-31, using a purpose-made External action set to
   Primary — "Go to web" (table `NurseryDetails`, effect External: go to a website) —
@@ -170,5 +177,11 @@ STATUS.md). If Prominent does not render on maps, those edges are false, in the 
 way the deck edges would have been false had "Go to ObservationActivity" been on that
 deck's action list.
 
-Each unknown here is answerable by one test in a running app, the same way the Deck
-case above was settled.
+**Prominent on a Deck view is unresolved by observation**, not merely unlisted. An
+isolating test would put a `Display_Prominently` action on a deck whose
+`action_display_mode` is `Automatic`, or on a Manual deck whose action list includes
+that action, and look. Only under those conditions does non-display point at
+prominence rather than at the list.
+
+Each unknown here is answerable by one test in a running app, and the Deck case now
+needs one too.
