@@ -24,27 +24,35 @@ These block section D. Each is answerable by putting an action on a view in a
 running app and looking. Nothing else can answer them: the rules are facts about
 AppSheet's client, not derivable from the exports.
 
-- [ ] **Does Prominent (`Display_Prominently`) display on a form view?**
+**Closed 2026-08-31 — by documentation research, not app testing.** All five items
+below were resolved from Google's official documentation (four items) and one
+reasoned inference from Kirk (the map item), not by running the app tests this
+section originally called for. See `APPSHEET_BEHAVIOR.md`'s "Established behavior"
+section for each item's specific source and the strength of that source. The items
+are left below, unmodified and checked off rather than deleted, so the record of
+what was originally asked survives.
+
+- [x] **Does Prominent (`Display_Prominently`) display on a form view?**
       92 of Leon's 319 views are forms — the single largest block of the
       undecided bucket.
       *Done when:* the answer is recorded under "Observed behavior" in
       `APPSHEET_BEHAVIOR.md`, with the date and how it was tested.
 
-- [ ] **Does Prominent display on a card view?** (17 views)
+- [x] **Does Prominent display on a card view?** (17 views)
       *Done when:* recorded in `APPSHEET_BEHAVIOR.md`.
 
-- [ ] **Does Prominent display on a map view?** (7 views)
+- [x] **Does Prominent display on a map view?** (7 views)
       Consequential: the suite currently emits edges to Map views for
       "Go to ObservationActivity", and if the answer is no, those edges are false.
       *Done when:* recorded in `APPSHEET_BEHAVIOR.md`, and the "map cell is
       currently consequential" note in that file is resolved either way.
 
-- [ ] **Is Gallery treated like Deck?**
+- [x] **Is Gallery treated like Deck?**
       `navigation_edge_generator.py` treats gallery as unconditionally permissive
       while two other files group it with deck. No rationale exists in the code.
       *Done when:* recorded in `APPSHEET_BEHAVIOR.md`.
 
-- [ ] **Does Prominent display on a deck view, tested without the manual-list confound?**
+- [x] **Does Prominent display on a deck view, tested without the manual-list confound?**
       The 2026-08-30 observation cited for this rule does not isolate it: the deck used
       was in Manual mode with the action absent from its action list, so the manual-list
       rule explains the non-display by itself. Test on an Automatic-mode deck, or on a
@@ -183,15 +191,25 @@ answers are unknown; once A is done they become mechanical.
       *Done when:* all three callers use the shared module, each step verified,
       each committed separately.
 
-- [ ] **Step 4: Gallery/Deck parity.** Blocked on item A.
+- [ ] **Step 4: Gallery/Deck parity.** No longer blocked — section A closed
+      2026-08-31 (by documentation research, not app testing; see section A's
+      closure note above).
 
 - [ ] **Step 5: Prominent-on-Deck exclusion, applied everywhere.**
       Note the direction: this can *increase* orphan counts, unlike every fix so
       far. An increase here is expected, not a regression.
 
-- [ ] **The 120-view "other" bucket.** Blocked on item A. This is the largest
-      single gap in the suite and the one most likely to generate exactly the
-      false positives Leon reported.
+- [ ] **The 120-view "other" bucket.** No longer blocked — section A closed
+      2026-08-31 (by documentation research, not app testing; see section A's
+      closure note above). This is the largest single gap in the suite and the
+      one most likely to generate exactly the false positives Leon reported.
+      *Asymmetry worth weighing when choosing the default:* a too-permissive rule
+      emits edges that do not exist, so real orphans go unreported and nobody ever
+      complains — the error is silent. A too-restrictive rule reports orphans that
+      are not orphans, which is what Leon reported and how this whole round of
+      fixes began. Only restrictive errors generate the feedback that corrects
+      them. A permissive default buys quiet at the price of never learning it was
+      wrong.
 
 **Caution for whoever runs these:** the plan's predictions were computed against
 `20260830_linktoform_verify/20260830_212632_AppsheetFarmyApp_for_Kirk_parse`, which
