@@ -37,14 +37,20 @@ Of the four false-positive categories originally reported, three are fixed (see 
 
 The `USERSETTINGS()` parsing, User Settings orphan detection and broken-reference detection shipped 2025-12-24 with an explicit public caveat that more testing was needed. That testing has not happened. The caveat itself could not be verified from this repository or its git history — no commit message or file records it — so treat "explicit public caveat" as asserted, not established, until a source is found.
 
-### Two defects found by the first parse of a second app
+### Two defects found by the section C reference parse of Kankaku
 
-Both entries below were found 2026-08-31, in the first parse of a second app — Kirk's
-own app, Kankaku (260411 Kankaku V18). Every earlier parse in this project was of
-Farmy, which is **Leon's app**, in Kirk's frozen copy — Farmy is not Kirk's app.
-Neither defect below appears in Farmy at all; both are the first findings that justify
-keeping a second reference app. Baseline parse:
-`20260831_182306_260831_1809_Kankaku_V18_baseline_parse`.
+Both entries below were found 2026-08-31, by the section C reference parse of Kirk's
+own app, Kankaku (260411 Kankaku V18) — see `RELEASE_CHECKLIST.md` section C. Baseline
+parse: `20260831_182306_260831_1809_Kankaku_V18_baseline_parse`.
+
+Note the counting, since this file uses "second app" elsewhere with the opposite
+sense (see "Seven modules..." above): Kankaku is the app the suite's display rules
+were originally derived from; Farmy — Leon's app, in Kirk's frozen copy — is the
+second app, the one whose stress-testing exposed the 2026-08-30/31 fixes below. What
+is new here is not a second app but a current one. Kankaku was last parsed in
+September 2025 at version 17, and every parse since has been of Farmy; this is the
+first time Kankaku's current version has been parsed by the current suite, and the
+first time it has been saved as a regression baseline alongside Farmy's.
 
 #### `phantom_view_reference_detector.py` matches view names case-sensitively, producing false positives
 
@@ -79,6 +85,10 @@ keeping a second reference app. Baseline parse:
   the app itself target views that do not exist" above, just cutting the other way
   here: those are real and correctly surfaced, these two are not real and should not
   have been.
+- Whether this also affects Farmy is NOT established. Farmy's 56 phantom references
+  (`potential_phantom_view_references.csv`) have not been checked for case-mismatch
+  false positives. Do not describe this defect as Kankaku-specific until that check
+  is done.
 - Not fixed. Read-only finding.
 
 #### Navigation expressions using typographic (curly) quotes around a view name are not parsed
@@ -105,6 +115,9 @@ keeping a second reference app. Baseline parse:
   are unreachable as far as the graph is concerned. Kankaku's 3 potential view
   orphans and 2 phantom references (the entry directly above) are downstream of this
   and should not be read as findings about the app until it is resolved.
+- Confirmed absent from Farmy: its `action_targets_unparseable.csv` holds 13 rows,
+  all `#page=map` (see the `f4d931a` entry below, which records that same 13-row,
+  all-`#page=map` set as unchanged by that fix) — no curly-quote rows there.
 - Not fixed. Read-only finding.
 
 ### Two smaller anomalies from the Kankaku run — not parsing defects
