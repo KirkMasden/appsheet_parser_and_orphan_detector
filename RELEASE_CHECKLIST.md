@@ -171,6 +171,11 @@ Leon-app parse on disk is
 Both sit outside the repository, since `*_parse/` is gitignored. Re-parse against the
 current code before trusting any predicted diff.
 
+Count CSV rows with a real CSV parser rather than `wc -l` or line-splitting: several
+fields in these outputs contain embedded newlines, and naive counting gives wrong
+answers. This was confirmed on 2026-08-31, when a `wc -l` count of
+`navigation_edges.csv` disagreed with the true row count.
+
 ---
 
 ## E. Before contacting Leon
