@@ -44,6 +44,14 @@ AppSheet's client, not derivable from the exports.
       while two other files group it with deck. No rationale exists in the code.
       *Done when:* recorded in `APPSHEET_BEHAVIOR.md`.
 
+- [ ] **Does Prominent display on a deck view, tested without the manual-list confound?**
+      The 2026-08-30 observation cited for this rule does not isolate it: the deck used
+      was in Manual mode with the action absent from its action list, so the manual-list
+      rule explains the non-display by itself. Test on an Automatic-mode deck, or on a
+      Manual deck whose list includes the action.
+      *Done when:* recorded in `APPSHEET_BEHAVIOR.md` under "Observed behavior".
+      Blocks section D step 5, which is billed on this rule and can raise orphan counts.
+
 Optional, only if convenient: confirm the manual-action-list exclusion on a
 non-deck view type, which would close the open question already recorded under
 "Manual action lists" in `APPSHEET_BEHAVIOR.md`.
@@ -63,8 +71,20 @@ comparison against the current reference output.
       `potential_phantom_view_references.csv`, via the action
       "Take Image Form Save Where to next". A false phantom is worse than a
       missing one — it sends a user hunting for a button that isn't broken.
-      *Done when:* both bogus entries are gone, no other output changes, and the
-      `STATUS.md` defect entry moves to "Recently fixed" with its commit hash.
+      *Done when:* the bogus `action_targets.csv` row and the false
+      `potential_phantom_view_references.csv` entry are both gone, every added row is
+      accounted for individually, and the `STATUS.md` defect entry moves to "Recently
+      fixed" with its commit hash.
+      *Predicted direction, not a row count:* rows will be ADDED, not merely removed.
+      That expression holds 8 `LINKTOROW` and 3 `LINKTOFORM` calls, counted against the
+      export 2026-08-31, yet currently yields only 2 rows in `action_targets.csv`, one
+      of them the bogus one — because `parse_linktorow` uses `re.search` rather than
+      `re.finditer` and so returns at most one target per expression however the regex
+      is written. Expect up to 8 LINKTOROW targets to appear. The 3 `LINKTOFORM` calls
+      in the same block will still be dropped afterwards; they are lost to the separate
+      first-match-only dispatch defect, which is its own later item. New phantom entries
+      are possible if a recovered target names a view that does not exist. Stop and
+      re-examine if the counts move in any other direction.
 
 - [ ] **Map fall-through in `is_action_visible_in_view`.**
       Every view type without an explicit branch returns `True` unconditionally.
@@ -144,8 +164,12 @@ answers are unknown; once A is done they become mechanical.
       false positives Leon reported.
 
 **Caution for whoever runs these:** the plan's predictions were computed against
-a reference output that is now several commits old. Re-parse against the latest
-before trusting any predicted diff.
+`20260830_linktoform_verify/20260830_212632_AppsheetFarmyApp_for_Kirk_parse`, which
+predates `e0530c8` and the 82 `navigation_edges.csv` rows it added. The most recent
+Leon-app parse on disk is
+`20260831_primary_overlay_verify/20260831_081316_AppsheetFarmyApp_for_Kirk_parse`.
+Both sit outside the repository, since `*_parse/` is gitignored. Re-parse against the
+current code before trusting any predicted diff.
 
 ---
 
