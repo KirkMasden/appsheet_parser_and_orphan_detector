@@ -20,6 +20,22 @@ Of the four false-positive categories originally reported, three are fixed (see 
 
 - `Seeds Form` (the actual view is `Seeds_Form`), `ActivityForm - Transplant`, `ActivityForm - Germination`, and `ActivityForm Observation` are named by `LINKTOFORM` calls in the app (actions `Add Seeds to Order`; `Go to TransplantActivity`; `Go to Germination - From MyPlants Direct Sow`; `Go to ObservationActivity` and `Go to ObservationActivity 2`), but no view by these names exists in `appsheet_views.csv`. A fifth, `NurseryForm2b`, is named by a `LINKTOROW` call in the Sync action `Sync | Order (Complete)` on table `Nursery`; no such view exists either, and the nearest existing names are `Nursery_Form`, `NurseryDetails_Form`, and `Nursery Creating_Form`. Unlike the other four, this one is not a `new_record_form`/`LINKTOFORM` case, and it did not surface until `496d5ed`'s `parse_linktorow` fix stopped the greedy-regex bug from swallowing it into a bogus row first (see "Recently fixed" above) — the fix didn't create this phantom, it stopped hiding it. All five look like stale names left after view renames — a defect in the app being analyzed, not in this tool. `f4d931a` (for the first four) and `496d5ed` (for the fifth) emit them as targets rather than silently correcting or dropping them, so they now surface correctly in `potential_phantom_view_references.csv`. Not verified by observation in the running app.
 
+### All three visibility implementations gate `Display_Overlay` on a deck's action bar, the wrong element
+
+- `navigation_edge_generator.py`'s `is_action_visible_in_deck_view` requires membership
+  in `referenced_actions`; `actions_orphan_detector.py` and
+  `action_dependency_analyzer.py` require `show_action_bar` to be true and then branch
+  on `action_display_mode`. All three therefore make a Primary/`Display_Overlay`
+  action's visibility depend on the deck's row-level action bar.
+- Per `APPSHEET_BEHAVIOR.md`'s Deck+Overlay entry, a Primary action is a view-level
+  floating button and not a member of that bar, so none of these gates should apply to
+  it. See `CONSOLIDATION_PLAN.md` section 2's Deck views entry for the cell-by-cell
+  detail; the platform reasoning is not restated here.
+- Consequence worth stating: on a deck whose action bar is switched off, a Primary
+  action is invisible to AOD and ADA, blocked by a setting governing a different
+  element. Leon's app contains one such deck.
+- Not fixed.
+
 ### Manual action-list exclusion may not be enforced outside deck views
 
 - `action_display_mode` is present for every view type in the export, but `navigation_edge_generator.py` reads it only inside `is_action_visible_in_deck_view` — see the open question under "Manual action lists" in `APPSHEET_BEHAVIOR.md`. Not investigated.
@@ -62,15 +78,8 @@ first time it has been saved as a regression baseline alongside Farmy's.
   exists.
 - Why this is the tool's error and not the app's: AppSheet's `=` operator is
   case-insensitive on text, so the expression matches the view correctly in the
-  running app. Source, recorded as observation rather than documentation: Kirk
-  evaluated the expression `"Card Stats"="card stats"` directly in AppSheet's
-  expression tester on 2026-08-31, and it returned `Y`. Corroborating: Google's
-  `IN()` page states its match is case-insensitive and gives `([Email] = "@")` as an
-  equivalent of `IN("@", LIST([Email]))`; and an AppSheet engineer, replying to a
-  2019 report that `LINKTOFORM` column-name references were case-sensitive
-  (<https://discuss.google.dev/t/case-sensitivity/78971>), treated that as a bug and
-  shipped a fix — indicating case-insensitive comparison is the intended standard
-  and exceptions are defects.
+  running app. See `APPSHEET_BEHAVIOR.md`'s "Case sensitivity" section for the
+  platform rule and its sources.
 - Evidence internal to the same expression, worth recording because it isolates the
   mechanism: the same `Show_If` also tests `Context("View")="Card stats 2"`, which
   matches an existing view exactly and was NOT flagged. Two branches in one
