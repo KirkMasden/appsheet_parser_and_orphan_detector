@@ -63,7 +63,7 @@ non-deck view type, which would close the open question already recorded under
 Each is a Claude Code task with a predicted diff, verified by full re-parse and
 comparison against the current reference output.
 
-- [ ] **`parse_linktorow` greedy regex.**
+- [x] **`parse_linktorow` greedy regex.**
       `LINKTOROW\s*\((.*)\)` with DOTALL matches from the first opening paren to
       the last closing paren in a block, so a block containing several
       `LINKTOROW` calls yields a garbage view name. Currently produces one bogus
@@ -85,6 +85,14 @@ comparison against the current reference output.
       first-match-only dispatch defect, which is its own later item. New phantom entries
       are possible if a recovered target names a view that does not exist. Stop and
       re-examine if the counts move in any other direction.
+      *Confirmed, with one addition the prediction did not anticipate:* fixed in
+      `496d5ed`. The predicted direction held — rows added, not merely removed — but
+      the real root cause was broader than "multiple `LINKTOROW` calls in one block":
+      it was the regex running past each call's own closing paren, which a single
+      call followed by trailing string concatenation can trigger too. That second
+      trigger surfaced a second affected action, `Sync | Order (Complete)`, that
+      this item's brief did not name. See `STATUS.md`'s "Recently fixed" entry for
+      full verification detail.
 
 - [ ] **Map fall-through in `is_action_visible_in_view`.**
       Every view type without an explicit branch returns `True` unconditionally.
@@ -182,14 +190,18 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
 
 - [ ] **Push.** The commits have been local since 2026-08-30.
 
-- [ ] **Report the four broken form views in Leon's app.**
+- [ ] **Report the five broken view references in Leon's app.**
       `Seeds Form` (the real view is `Seeds_Form`), `ActivityForm - Transplant`,
-      `ActivityForm - Germination`, `ActivityForm Observation`. Named by
-      actions, absent from the app. Confirmed 2026-08-31 that a navigation
+      `ActivityForm - Germination`, `ActivityForm Observation`, and `NurseryForm2b`.
+      Named by actions, absent from the app. Confirmed 2026-08-31 that a navigation
       action pointing at a nonexistent view does nothing at all when tapped —
       no error, no fallback — so these are invisible to users and findable only
       by static analysis. Worth saying so: it is the clearest demonstration of
       what the tool is for.
+      Note for the report to Leon: the first four are `LINKTOFORM` references in
+      form actions, but `NurseryForm2b` is a `LINKTOROW` reference in a Sync action
+      (`Sync | Order (Complete)`, table `Nursery`) — don't describe all five as
+      form-view problems.
 
 - [ ] **A `CLAUDE.md` at the repository root**, per the July plan: CSV schemas,
       which analyzer answers which category of question, the instruction to call
