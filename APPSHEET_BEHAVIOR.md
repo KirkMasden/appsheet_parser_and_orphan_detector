@@ -81,8 +81,9 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   lists" below, now applied in both directions. Until an isolating test is run, treat
   Prominent-on-Deck as resting on Google's documentation alone.
 - **Primary (export: `Display_Overlay`) DOES display on table views.** Source:
-  observed in Kirk's own app, 2026-08-31, using a purpose-made External action set to
-  Primary — "Go to web" (table `NurseryDetails`, effect External: go to a website) —
+  observed in Leon's app, in Kirk's frozen copy, 2026-08-31, using a purpose-made
+  External action set to Primary — "Go to web" (table `NurseryDetails`, effect
+  External: go to a website) —
   built specifically to test this. It displayed on a table view, confirmed visually in
   the app editor's preview, rendering as a floating button over the table's rows. This
   agrees with the Position documentation above, which describes Primary as
@@ -98,8 +99,9 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   eligibility to display on a table view does not depend on the action being a
   navigation action specifically.
 - **Primary (export: `Display_Overlay`) displays on Deck views.** Source: observed in
-  Kirk's own app, 2026-08-31, in the app editor's preview of the "Beds Deck" view
-  (table `Beds Veggies`) — a floating overlay button rendered over the deck's rows.
+  Leon's app, in Kirk's frozen copy, 2026-08-31, in the app editor's preview of the
+  "Beds Deck" view (table `Beds Veggies`) — a floating overlay button rendered over
+  the deck's rows.
   Three caveats limit what this observation establishes, and are recorded here
   explicitly: (a) the button seen is most likely AppSheet's system-generated Add
   action rather than an author-created one; (b) the action's prominence was not read
@@ -154,11 +156,15 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   documented maximum, and is out of scope by the decision recorded under "Scope
   decisions" below.
 
-- **Gallery views are treated as siblings of deck and table views.** Source: two
-  Google pages agree. "Actions: The Essentials" groups table, deck and gallery
-  together for bulk actions; "Run actions based on view events" states that the Row
-  Selected event fires when a user taps a record in a deck, gallery or table view.
-  This supports the two files that group gallery with deck, and is evidence against
+- **Gallery views are treated as siblings of deck and table views.** Source: three
+  Google pages agree, one of them structural rather than behavioral and stronger for
+  it. "Explore the desktop design", already cited above under the Deck+Overlay entry,
+  groups card, deck, gallery and table together as the collection views that share one
+  panel treatment — a claim about UI structure, not about a shared feature the way the
+  other two are. "Actions: The Essentials" groups table, deck and gallery together for
+  bulk actions; "Run actions based on view events" states that the Row Selected event
+  fires when a user taps a record in a deck, gallery or table view. Together these
+  support the two files that group gallery with deck, and are evidence against
   `navigation_edge_generator.py`'s unconditional permissiveness for gallery.
   Documentation, not observation: no gallery view has been tested directly.
 
@@ -168,7 +174,9 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   inference from this, 2026-08-31: an action will not appear on a map view unless it
   is properly designated for it, in the same way a deck view requires an action to be
   on its action bar. **This is a reasoned guess, not a test.** Kirk's own app does not
-  use actions on map views, and testing it in Leon's app was judged not worth the
+  use actions on map views — confirmed more strongly by the 2026-08-31 Kankaku
+  baseline parse: its view types are detail 140, form 35, table 12, deck 9, dashboard
+  1, with no map views at all — and testing it in Leon's app was judged not worth the
   effort relative to its value. The suite acts on this inference; it should be
   re-tested by anyone using the suite on an app with actions on map views. 7 of
   Leon's 319 views are maps.
@@ -188,8 +196,8 @@ would have produced the same non-display, so that single case cannot isolate whi
 rule is doing the work. The rule above rests on Kirk's stated experience, not on that
 observation.
 
-Deck-specific documentation, source: Google's official page, "Customize deck and
-table views", <https://support.google.com/appsheet/answer/10106514>. The deck view's
+Deck-specific documentation, source: Google's official page, "Deck and table view
+types", <https://support.google.com/appsheet/answer/10106514>. The deck view's
 `Actions` setting is documented as: "Action buttons to display in the action bar. The
 actions are ordered automatically by AppSheet." The page then describes overriding
 that automatic order: "To manually control the action order, do any of the following:
@@ -199,9 +207,8 @@ AppSheet automatic order." The page does not use the words "excluded" or "hidden
 it names deck views only. The rule at the top of this section is the general form
 Kirk gave it, of which this page's `Actions` field is one documented instance.
 
-The same page — titled "Deck and table view types" —
-(<https://support.google.com/appsheet/answer/10106514>) scopes that `Actions` setting
-to a specific element: the "Show action bar" setting is described as showing action
+The same page scopes that `Actions` setting to a specific element: the "Show action
+bar" setting is described as showing action
 buttons at the bottom of each row, and the "Actions" setting immediately below it is
 described as the action buttons to display in that action bar. The action bar is
 therefore a per-row element, and the manual list governs its membership. A Primary
@@ -230,6 +237,33 @@ external action is executed, even if you specify more than one. It also ends the
 execution of the grouped action." A grouped action naming several navigation actions
 does not make several destinations reachable through it — only the first navigation
 or external action in the group runs, and running it ends the group.
+
+## Case sensitivity
+
+Two separate case-insensitivity facts, established independently on 2026-08-31. Do
+not conflate them — one is about comparing two strings, the other is about whether
+two names can coexist at all.
+
+- **AppSheet's `=` operator is case-insensitive on text.** Source, observation: Kirk
+  evaluated the expression `"Card Stats"="card stats"` directly in AppSheet's
+  expression tester on 2026-08-31, and it returned `Y`. Corroborating: Google's
+  `IN()` page states its match is case-insensitive and gives `([Email] = "@")` as an
+  equivalent of `IN("@", LIST([Email]))`; and an AppSheet engineer, replying to a 2019
+  report that `LINKTOFORM` column-name references were case-sensitive
+  (<https://discuss.google.dev/t/case-sensitivity/78971>), treated that as a bug and
+  shipped a fix — indicating case-insensitive comparison is the intended standard and
+  exceptions are defects. **What this does not establish:** it says nothing about
+  view-name *lookup* inside `LINKTOVIEW`/`LINKTOROW`/`LINKTOFORM`, which is a
+  different mechanism from an `=` comparison and remains untested.
+- **AppSheet's view namespace is case-insensitive at creation.** Source, observation:
+  Kirk created a view named "help" in an app that already had a view named "Help" on
+  2026-08-31; the editor immediately and silently renamed the new view to "help 2". So
+  two views whose names differ only by case cannot coexist. **What this does not
+  cover:** it was observed at creation time in the current editor, and says nothing
+  about renames that would create a collision, nor about the action, slice or column
+  namespaces, which are separate. Consequence worth stating: a case-insensitive
+  view-name match cannot be ambiguous, since two spellings can never denote two
+  different views.
 
 ## Scope decisions — deliberate exclusions
 
