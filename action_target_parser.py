@@ -781,23 +781,31 @@ class NavigationExpressionParser:
         if expression.upper().startswith('=IF') or expression.upper().startswith('IF'):
             return self.parse_if_expression(expression)
                 
+        # Call every extractor whose function name appears in the expression
+        # and concatenate their results. An expression can mix more than one
+        # navigation function (e.g. several branches of a SWITCH), and each
+        # one present should contribute its targets rather than only
+        # whichever function is checked first.
+        expr_upper = expression.upper()
+        targets = []
+
         # Check for LINKTOVIEW
-        if 'LINKTOVIEW' in expression.upper():
-            return self.parse_linktoview(expression)
-        
+        if 'LINKTOVIEW' in expr_upper:
+            targets.extend(self.parse_linktoview(expression))
+
         # Check for LINKTOROW
-        if 'LINKTOROW' in expression.upper():
-            return self.parse_linktorow(expression)
+        if 'LINKTOROW' in expr_upper:
+            targets.extend(self.parse_linktorow(expression))
 
         # Check for LINKTOFILTEREDVIEW
-        if 'LINKTOFILTEREDVIEW' in expression.upper():
-            return self.parse_linktofilteredview(expression)
+        if 'LINKTOFILTEREDVIEW' in expr_upper:
+            targets.extend(self.parse_linktofilteredview(expression))
 
         # Check for LINKTOFORM
-        if 'LINKTOFORM' in expression.upper():
-            return self.parse_linktoform(expression)
+        if 'LINKTOFORM' in expr_upper:
+            targets.extend(self.parse_linktoform(expression))
 
-        return []
+        return targets
     
     def process_action(self, row: Dict) -> List[Dict]:
         """Process a single action row and generate target records."""
