@@ -319,7 +319,7 @@ answers are unknown; once A is done they become mechanical.
       *Done when:* met — see above.
 
 - [x] **Step 3b: remove the dead methods from `navigation_edge_generator.py`.**
-      Done `d88941d`. Deleted `is_action_visible_in_view` and its three
+      Done `3b06a08`. Deleted `is_action_visible_in_view` and its three
       per-view-type helpers (`is_action_visible_in_detail_view`,
       `is_action_visible_in_deck_view`, `is_action_visible_in_table_view`),
       retained through step 3 only so the differential script could call old
