@@ -100,45 +100,85 @@ first time it has been saved as a regression baseline alongside Farmy's.
   is done.
 - Not fixed. Read-only finding.
 
-#### Navigation expressions using typographic (curly) quotes around a view name are not parsed
-
-- Symptom: 6 rows in `action_targets_unparseable.csv`, all with `parse_failure_reason`
-  "Unknown pattern". Five are `LINKTOROW` calls whose view-name argument is wrapped in
-  curly quotes (`“…”`) rather than straight quotes: "Go to card stats" and "Go to card
-  stats 2" (table `Kankaku`), "View Ref (Show WD stats) 2" (`Kankaku`), and "Go to
-  long-term statistics" and "Go to short-term statistics" (table `Stats`), the last
-  two each wrapping two such `LINKTOROW` calls inside an `IF`. The sixth is different
-  and is recorded separately, not folded in: "Force sync" (table `Settings`) uses
-  `LINKTOROW([_THISROW], CONTEXT(VIEW))` — the target is an expression rather than a
-  literal view name — wrapped in `CONCATENATE` with an `&at=` suffix.
-- These curly quotes are produced by AppSheet's own editor, not typed by the app
-  author, and the actions work correctly in the running app.
-- Why this is worth flagging now rather than later: `496d5ed` rewrote
-  `parse_linktorow` on 2026-08-31, replacing the greedy regex with a paren-depth scan
-  explicitly described in its own entry below as respecting quoted strings "including
-  the smart quotes the existing code already handled." These five expressions still
-  fail. Open question, not yet investigated: either dispatch never reaches that
-  scanner for them, or the smart-quote handling does not cover quotes wrapping the
-  view-name argument specifically.
-- Consequence: these five actions produce no navigation edge, so their target views
-  are unreachable as far as the graph is concerned. Kankaku's 3 potential view
-  orphans and 2 phantom references (the entry directly above) are downstream of this
-  and should not be read as findings about the app until it is resolved.
-- Confirmed absent from Farmy: its `action_targets_unparseable.csv` holds 13 rows,
-  all `#page=map` (see the `f4d931a` entry below, which records that same 13-row,
-  all-`#page=map` set as unchanged by that fix) — no curly-quote rows there.
-- Not fixed. Read-only finding.
-
 ### Two smaller anomalies from the Kankaku run — not parsing defects
 
 - `format_rule_orphan_detector.py` does not write `potential_format_rule_orphans.csv`
-  at all when zero orphans are found, unlike sibling detectors, which write a
-  header-only file. A missing file and an empty file are different things to anyone
-  diffing parse output directories mechanically.
+  at all when zero orphans are found. A missing file and an empty file are different
+  things to anyone diffing parse output directories mechanically. This is not unique
+  to this detector — see "`view_orphan_detector.py` also writes no
+  `potential_view_orphans.csv` on a zero result" below for the shared class and how
+  far it reaches.
 - `master_parser_and_orphan_detector.py` raises `EOFError` on its trailing
   interactive "Would you like to explore dependencies now? (y/n)" prompt when run
   without stdin. All output is already written by then, so it is not a parse
   failure, but it will affect anyone running the suite from a script.
+
+### `view_orphan_detector.py` also writes no `potential_view_orphans.csv` on a zero result
+
+- Confirmed by reading `write_results_to_csv` (lines 367–390): `if orphan_candidates:`
+  gates the entire write, exactly the shape already recorded above for
+  `format_rule_orphan_detector.py` — zero orphans means no file, not a header-only
+  one. That entry's "unlike sibling detectors, which write a header-only file"
+  framing is therefore wrong for at least this sibling.
+- Broader than a pair: `actions_orphan_detector.py` (`if not orphan_candidates:
+  return`, line 486) and `slice_orphan_detector.py` (same guard, line 254) show the
+  identical pattern on inspection. `column_orphan_detector.py`'s equivalent
+  (`if potential_orphans:`, line 452) has not been separately re-checked here but
+  reads the same way. This may be all five orphan detectors sharing one behavior,
+  not two of five — not confirmed exhaustively, but the "unlike sibling detectors"
+  framing should not be trusted for any of them until each is actually checked.
+- Surfaced 2026-09-01 verifying the curly-quote fix below: Kankaku's
+  `potential_view_orphans.csv` (3 rows pre-fix) is simply absent post-fix, not
+  present with a header and no rows, which is what prompted reading the source.
+- Not fixed. Read-only finding.
+
+### Kankaku's own app is a ready-made test for the untested LINKTOROW view-name case-sensitivity question
+
+- The curly-quote fix below recovers a `LINKTOROW` call in "Go to card stats"
+  targeting `"Card Stats"` — the app's real view is `Card stats` (lowercase s). This
+  suite's own matching is case-insensitive (confirmed: the view cleared as a
+  potential orphan, and no new phantom-reference row appeared — see the fix's own
+  verification below), but that only says what this tool assumes, not what AppSheet
+  actually does at runtime.
+- `APPSHEET_BEHAVIOR.md`'s "Case sensitivity" section (expanded 2026-09-01) already
+  flags this exact question as untested: whether a view name inside
+  `LINKTOVIEW`/`LINKTOROW`/`LINKTOFORM` resolves case-insensitively in the running
+  app. Kankaku now contains a live, concrete instance of it, ready to test the same
+  way the Table+`Display_Overlay` and Primary-on-table questions were settled
+  elsewhere in this project: tap "Go to card stats" in the running Kankaku app and
+  see whether it navigates to `Card stats`. If it does, this settles the open
+  question empirically for the first time; if it does not, this tool has been
+  clearing a view that is genuinely unreachable, the same risk already recorded
+  against `Water Tanks` in Farmy (see the `f4d931a` entry below).
+- Not tested. Available whenever Kirk wants to check.
+
+### `parse_linktoform` and `parse_linktofilteredview` share the curly-quote blindness `parse_linktorow` had
+
+- Both use a single quoted-argument regex requiring a literal straight `"`
+  (`LINKTOFORM\s*\(\s*"([^"]+)"`, the identical shape for `LINKTOFILTEREDVIEW`), with
+  no fallback pattern. A curly-quoted view name in either — the same shape of
+  argument the `496d5ed` regression affected in `parse_linktorow` (see "Recently
+  fixed" below) — would match zero times and fail silently, filing the whole
+  expression as an unparseable "Unknown pattern" the same way.
+- `parse_linktoview` survives this by accident, not by design: its unquoted fallback
+  pattern (`LINKTOVIEW\s*\(([^")][^)]*)\)`) does not require a straight quote at all,
+  so it captures `“ViewName”` whole, and the existing
+  `.strip(chr(8220)).strip(chr(8221))` cleanup recovers the correct name afterward.
+- Found 2026-09-01 while investigating the `parse_linktorow` curly-quote fix below;
+  that fix's scope was `parse_linktorow` only. Not fixed. Read-only finding.
+
+### `actions_parser.py` normalizes curly quotes for one consumer of `navigate_target` and not the other
+
+- `extract_views_from_navigate_target` (line ~738) normalizes a *local copy* of the
+  navigation expression — curly quotes to straight, via `base_parser.normalize_string`
+  — before extracting `referenced_views` for its own use. But the raw, un-normalized
+  `value` it was given is what gets stored into `action_info['navigate_target']` at
+  line ~975, and that field is exactly what `action_target_parser.py` later reads to
+  do its own parsing.
+- One function call produces two different views of the same expression: normalized
+  for `actions_parser.py`'s own `referenced_views` field, raw for the field the rest
+  of the pipeline depends on.
+- Found 2026-09-01 alongside the finding above. Not fixed. Read-only finding.
 
 ## Recently fixed
 
@@ -178,6 +218,13 @@ Entries from `48eead1` onward carry full verification detail — row counts, byt
   - Verified by full re-parse (`20260831_151553_AppsheetFarmyApp_for_Kirk_parse` against the `20260831_145854` baseline, counted with a real CSV parser): `action_targets.csv` 458 → 463 (+5, 0 removed, 0 modified), across two actions. `Level 0 - Go to` (+3): the two `LINKTOFORM("MyPlants_Form")` calls named above, plus one more instance of the same defect in a different `SWITCH` branch of the same action — undocumented by the original finding but the same action, and the same class of bug. `Take Image Form Save Where to next` (+2): two of its three `LINKTOFORM` calls (`PlantDB_LOG_Changes_Form`, `ActivitySeedWeights_Form`); the third, `Reminders_Form`, was already reachable pre-fix since it sits alone in its own `IF` branch with no competing function. All 5 recovered target views (`MyPlants_Form`, `MyPlants Food forest Deck`, `PlantDB_LOG_Changes_Form`, `ActivitySeedWeights_Form`) exist in `appsheet_views.csv`.
   - `navigation_edges.csv` 1839 → 1850 (+11, 0 removed) — more than one edge per recovered target, because both affected actions are available from multiple source views. `potential_phantom_view_references.csv` unchanged at 56. All five orphan-count files (`potential_view_orphans.csv`, `potential_action_orphans.csv`, `unused_system_views.csv`, `potential_format_rule_orphans.csv`, `potential_virtual_column_orphans.csv`) unchanged — no view or action cleared; `STATUS.md`'s prediction that `MyPlants_Form`/`Nursery_Form` were already reachable another route held.
   - `SWITCH` is still not decomposed as a branching construct: this fix lets each recovered target inside a `SWITCH` block be *found*, but `ifs_branch_index` and `ifs_branch_text` stay empty for them, unlike targets recovered from `IF`/`IFS` branches, which record which branch a target came from. No `SWITCH` decomposition was added by this commit; that gap remains open and is not tracked elsewhere in this file yet.
+- 2026-09-01, `1c22881` — `parse_linktorow`'s two quote-tracking loops (the paren-depth scan for a call's own closing paren, and the top-level-comma scan separating `row_expr` from `view_name`) treated the typographic quotes “ (U+201C) and ” (U+201D) as independent, self-closing characters via a plain membership test (`char in ['"', "'", chr(8220), chr(8221)]`), rather than pairing them. A view name wrapped “like this” opened the scanner on “, and nothing ever closed it back: the close test required `char == quote_char`, and `quote_char` was still “, which no `”` satisfies. The scanner therefore stayed in string mode through the rest of the expression, the call's own closing paren was never counted, `end` stayed `None`, and the call was silently dropped by the `continue` right after the loop. **This is a regression introduced by `496d5ed`** (2026-08-31): the greedy regex it replaced did no quote tracking at all when locating a call's closing paren, so it could not have had this particular failure, even though it had its own, worse one. Fixed by replacing the membership test with an explicit opener-to-closer map (`{'"': '"', "'": "'", chr(8220): chr(8221)}`) in both loops, so “ closes only on its own ” partner; ” is deliberately not a key, since nothing should be able to open a string on it. The single curly quotes ‘/’ are deliberately excluded from the map too, since ’ doubles as an apostrophe in ordinary text and including it would reopen the identical class of bug wherever a view name contains one.
+  - Also fixes a second, unrelated defect the same investigation surfaced: the self-referential "Force sync" pattern, `LINKTOROW([_THISROW], CONTEXT(VIEW))`, was already recognized and correctly skipped by `parse_linktorow`, but skipping produced zero targets with no way for `process_action` to tell "found nothing" from "found something and deliberately excluded it," so a correct exclusion was filed as an unparseable "Unknown pattern." Added an instance flag, `forced_sync_skipped`, reset by `process_action` immediately before each top-level `parse_navigation_expression` call and set by `parse_linktorow` at its existing `continue`; `process_action` now writes `"Forced sync — LINKTOROW to CONTEXT(VIEW), no navigation target"` instead of calling `classify_parse_failure` when the flag is set. Known limitation, not solved: an expression holding both a forced-sync call and a genuinely unparseable one will take the forced-sync label.
+  - Verified by full re-parse of both apps, row counts confirmed with Python's `csv` module rather than `wc -l` or line-splitting (the Force sync expression itself has embedded newlines). Farmy (control, `20260901_090005_AppsheetFarmyApp_for_Kirk_parse` against `20260831_151553`): every one of the 16 output files byte-identical (`cmp -s`, not merely equal row counts) — Farmy's expressions contain no curly quotes, so this confirms the fix did not leak outside its intended scope.
+  - Kankaku (subject): both the before and after parses used the same `260831 1809 Kankaku V18 baseline` export (2026-08-31) — no new export was pulled today. The pre-fix side (`20260901_085747_..._parse`) was produced by `git stash`-ing this fix, parsing, then popping the stash and re-parsing for the post-fix side (`20260901_085853_..._parse`). **This makes `20260901_085853_...` a same-export re-parse for verifying this specific fix, not a reference parse of Kirk's current app** — it does not satisfy `RELEASE_CHECKLIST.md` section C's still-open item, which needs a fresh export from the live app, not a re-parse of an existing one. `action_targets_unparseable.csv`: 6 → 1 — exactly the 5 curly-quote rows go, and the sole remaining row is "Force sync," carrying the new reason string rather than one of the five. `action_targets.csv`: 0 rows removed or modified (verified by full-row multiset comparison, not just the count), 7 rows added — one per recovered `LINKTOROW` call: 3 single-call actions (`Go to card stats` → `Card Stats`; `Go to card stats 2` → `Card stats 2`; `View Ref (Show WD stats) 2` → `Stats_Detail`) plus 2 branches each from the two `IF`-wrapped actions (`Go to long-term statistics`, `Go to short-term statistics`, each → `Overall_Detail` and `Overall_Detail J`). `navigation_edges.csv`: 0 removed, +31 added — more than one edge per target, since some of the affected actions are available from multiple source views (`Overall_Detail` and `Overall_Detail J` each pick up 10).
+  - Orphan counts, all moving the direction the pipeline coupling predicts (see the `48eead1` entry above) and none increasing: `potential_view_orphans.csv` — the same 3 previously-flagged views (`Card stats`, `Card stats 2`, `Overall_Detail J`) clear, and since 0 remain, the file is no longer written at all — see "`view_orphan_detector.py` also writes no `potential_view_orphans.csv` on a zero result" above, found while checking this. `unused_system_views.csv`: -2 (`Overall_Detail`, `Stats_Detail`), 0 added. `potential_action_orphans.csv`: unchanged, same 2 actions. `potential_virtual_column_orphans.csv`: 29 → 2, 0 added — checked for residue rather than assumed: all 27 cleared columns are on table `Overall` (25) or `Stats` (2), and every one of the 27 appears verbatim (as `Table[Column]`) in `Overall_Detail`'s or `Stats_Detail`'s `referenced_columns` field in the post-fix `appsheet_views.csv`, so the entire clearance is accounted for by the two views leaving `unused_system_views.csv`; zero residue. `potential_format_rule_orphans.csv`: absent (0) both before and after.
+  - `potential_phantom_view_references.csv` stayed at 2 rows, unchanged — deliberately not predicted in either direction beforehand, since one recovered target (`Card Stats`) names the same view as the app's actual `Card stats`, differing only by case. Traced rather than assumed: `phantom_view_reference_detector.py`'s action-targets-based check (`find_action_phantoms_from_targets`) already lowercases both sides before comparing, so the case difference never registers there and the recovered target correctly produced no new phantom row. The 2 rows that are already flagged come from a different code path in the same file — `is_phantom_reference`'s `CONTEXT()` branch, which compares case-sensitively by design (its own comment claims "`CONTEXT()` is case-sensitive in AppSheet"). That comment is the defect, not a justification: it is the same defect the "`phantom_view_reference_detector.py` matches view names case-sensitively, producing false positives" entry already records above, for these same 2 rows — see that entry for the evidence, not restated here. This fix leaves that defect exactly as it was; the two code paths in this one file disagree with each other, and the `CONTEXT()` one is the one that is wrong.
+  - The "Navigation expressions using typographic (curly) quotes..." known-defects entry that described this bug, including its "Kankaku's 3 potential view orphans and 2 phantom references... are downstream of this" caveat, is removed as fixed and superseded by the verification above. The two Task 3 findings that fix did not cover (`parse_linktoform`/`parse_linktofilteredview`'s identical blindness, and `actions_parser.py`'s inconsistent curly-quote normalization) are recorded separately above under "Known defects."
 
 ## Remaining work on the false positives
 
