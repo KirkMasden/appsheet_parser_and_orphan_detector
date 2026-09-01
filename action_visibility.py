@@ -6,17 +6,17 @@ A behavior-preserving extraction of the three existing "is this action visible
 in this view" implementations: navigation_edge_generator.py (NEG),
 actions_orphan_detector.py (AOD), and action_dependency_analyzer.py (ADA). Each
 function below is a direct translation of one file's original method — `self`
-and instance state replaced by explicit parameters, nothing else changed. Every
-disagreement between the three (CONSOLIDATION_PLAN.md section 2) is preserved
-exactly as it stood in the original file, including the
-`.replace('_', ' ')` mismatch that makes `Do_Not_Display` never match
-`'Do not display'` in the AOD and ADA strategies below. That is a real bug;
-fixing it is CONSOLIDATION_PLAN.md step 2, not this one.
+and instance state replaced by explicit parameters, nothing else changed,
+EXCEPT the Do_Not_Display case bug in the AOD strategy
+(CONSOLIDATION_PLAN.md section 3's `.replace('_', ' ')` mismatch), fixed by
+step 2. The ADA strategy still carries that same bug deliberately — see its
+own docstring — and the NEG strategy never had it (it compares the raw
+underscored `action_prominence` directly and needed no fix).
 
-Only `action_dependency_analyzer.py` has been switched to call this module so
-far (step 1). `navigation_edge_generator.py` and `actions_orphan_detector.py`
-still run their own, currently-identical, copies of this logic; the versions
-here are inert until steps 2 and 3 switch those two files over.
+`action_dependency_analyzer.py` (step 1) and `actions_orphan_detector.py`
+(step 2) have been switched to call this module. `navigation_edge_generator.py`
+still runs its own, currently-identical, copy of this logic; the NEG functions
+here are inert until step 3 switches it over.
 
 Hard constraint carried over from CONSOLIDATION_PLAN.md section 1/section 6:
 none of this is called from navigation_edge_generator.py's
@@ -171,7 +171,12 @@ def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
     """action_dependency_analyzer.py's is_action_visible_in_view, unchanged.
 
     Carries the '.replace('_', ' ')' Do_Not_Display case bug as-is
-    (CONSOLIDATION_PLAN.md section 3) — step 2's job, not this one.
+    (CONSOLIDATION_PLAN.md section 3). Deliberately NOT fixed by step 2:
+    ADA has been live on this module since step 1 (`84a651d`), so fixing its
+    copy now would change what the interactive dependency browser reports —
+    a real behavior change outside what step 2 predicts, and outside what
+    step 2's verification would catch, since ADA writes no CSV. Left for its
+    own, later step, with its own before/after verification.
 
     Note ADA's function boundary (CONSOLIDATION_PLAN.md section 2's Pre-gates):
     unlike NEG and AOD, the available_actions gate is in ADA's *caller*
@@ -227,19 +232,29 @@ def is_visible_in_views_aod(
     unused_system_views,
     column_exists: Callable[[str, str], bool],
 ) -> bool:
-    """actions_orphan_detector.py's is_action_visible_in_views, unchanged.
+    """actions_orphan_detector.py's is_action_visible_in_views, with the
+    Do_Not_Display case bug fixed (CONSOLIDATION_PLAN.md step 2).
 
     Existential, not pointwise: loops every view and returns True at the first
     match (CONSOLIDATION_PLAN.md section 1). `column_exists` replaces the
     original's lazily-cached `self.column_exists` method — pass a callable with
     the same `(column_name, table_name) -> bool` signature.
 
-    Carries the '.replace('_', ' ')' Do_Not_Display case bug as-is
-    (CONSOLIDATION_PLAN.md section 3) — step 2's job, not this one.
+    CONSOLIDATION_PLAN.md section 3: the original compared
+    `action_prominence.replace('_', ' ')` against spaced literals
+    ('Display Prominently', etc.). Three of four values round-trip correctly
+    through that transform; 'Do_Not_Display' does not — it becomes 'Do Not
+    Display' (title case), which never matches the comparison target 'Do not
+    display' (sentence case), so the intended Hide exclusion on deck/gallery
+    never fired. Per section 4's second exclusion, the fix is to stop
+    transforming the string, not to compare loosely: `prominence` is now
+    compared against the real underscored values directly, and the four
+    literals below are underscored to match — not a new rule, the same
+    literal comparison the original always meant to make.
     """
     action_name = action.get('action_name', '')
     action_name_lower = action_name.lower()
-    prominence = action.get('action_prominence', '').replace('_', ' ')
+    prominence = action.get('action_prominence', '')
     attach_to_column = action.get('attach_to_column', '')
     source_table = action.get('source_table', '')  # Add this
 
@@ -275,9 +290,9 @@ def is_visible_in_views_aod(
 
         # Check visibility based on view type and prominence
         if view_type == 'detail':
-            if prominence in ['Display Prominently', 'Display Overlay']:
+            if prominence in ['Display_Prominently', 'Display_Overlay']:
                 return True
-            elif prominence == 'Display Inline' and attach_to_column:
+            elif prominence == 'Display_Inline' and attach_to_column:
                 # Check if column is visible in view
                 view_columns = [c.strip() for c in view['view_columns'].split('|||') if c.strip()]
 
@@ -291,9 +306,9 @@ def is_visible_in_views_aod(
             # Display_Overlay (editor Position "Primary") displays on table
             # views regardless of action type, confirmed by live app test
             # 2026-08-31 — see APPSHEET_BEHAVIOR.md's "Observed behavior" section.
-            if prominence == 'Display Overlay':
+            if prominence == 'Display_Overlay':
                 return True
-            if prominence == 'Display Inline' and attach_to_column:
+            if prominence == 'Display_Inline' and attach_to_column:
                 # Check if column is visible in view
                 view_columns = [c.strip() for c in view['view_columns'].split('|||') if c.strip()]
                 if attach_to_column in view_columns:
@@ -303,7 +318,7 @@ def is_visible_in_views_aod(
 
         elif view_type in ['deck', 'gallery']:
             if view.get('show_action_bar', '').lower() == 'true':
-                if prominence != 'Do not display':
+                if prominence != 'Do_Not_Display':
                     if view.get('action_display_mode', '') == 'Manual':
                         # For Manual mode, must also be in referenced_actions
                         ref_actions = [a.strip().lower() for a in view['referenced_actions'].split('|||') if a.strip()]

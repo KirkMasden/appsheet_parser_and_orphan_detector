@@ -16,6 +16,8 @@ import os
 from pathlib import Path
 from collections import defaultdict
 
+from action_visibility import is_visible_in_views_aod
+
 
 class ActionOrphanDetector:
     def __init__(self, parse_directory):
@@ -199,83 +201,13 @@ class ActionOrphanDetector:
         print(f"  ✓ Loaded {len(self.views)} views for visibility checking")
         
     def is_action_visible_in_views(self, action):
-        """Check if action is visible in any view based on prominence and view type"""
-        action_name = action.get('action_name', '')
-        action_name_lower = action_name.lower()
-        prominence = action.get('action_prominence', '').replace('_', ' ')
-        attach_to_column = action.get('attach_to_column', '')
-        source_table = action.get('source_table', '')  # Add this
+        """Check if action is visible in any view based on prominence and view type.
 
-        # If only_if_condition is explicitly false, action is never visible
-        only_if = action.get('only_if_condition', '').strip().lower()
-        if only_if == 'false':
-            return False
-        
-        for view in self.views:
-            # Skip unused system views
-            if view['view_name'].lower() in self.unused_system_views:
-                continue
-                
-            # Check if view is actually shown
-            show_if = view.get('show_if', '').strip()
-            if show_if.lower() == 'false':
-                continue
-            
-            # Get available actions for this view
-            available_actions = [a.strip().lower() for a in view['available_actions'].split('|||') if a.strip()]
-
-            # Action must be in available_actions
-            if action_name_lower not in available_actions:
-                continue
-            
-            # NEW: Check if view's data source matches action's source table
-            view_source = view.get('source_table', '') or view.get('data_source', '')
-            if source_table and view_source and source_table != view_source:
-                # Action is for a different table than this view
-                continue
-            
-            view_type = view['view_type'].lower()
-            
-            # Check visibility based on view type and prominence
-            if view_type == 'detail':
-                if prominence in ['Display Prominently', 'Display Overlay']:
-                    return True
-                elif prominence == 'Display Inline' and attach_to_column:
-                    # Check if column is visible in view
-                    view_columns = [c.strip() for c in view['view_columns'].split('|||') if c.strip()]
-                    
-                    # NEW: Also verify the column actually exists in the table
-                    if attach_to_column in view_columns:
-                        # Should also check if column exists in appsheet_columns.csv
-                        if self.column_exists(attach_to_column, source_table):
-                            return True
-                            
-            elif view_type == 'table':
-                # Display_Overlay (editor Position "Primary") displays on table
-                # views regardless of action type, confirmed by live app test
-                # 2026-08-31 — see APPSHEET_BEHAVIOR.md's "Observed behavior" section.
-                if prominence == 'Display Overlay':
-                    return True
-                if prominence == 'Display Inline' and attach_to_column:
-                    # Check if column is visible in view
-                    view_columns = [c.strip() for c in view['view_columns'].split('|||') if c.strip()]
-                    if attach_to_column in view_columns:
-                        # Should also check if column exists in appsheet_columns.csv
-                        if self.column_exists(attach_to_column, source_table):
-                            return True
-                            
-            elif view_type in ['deck', 'gallery']:
-                if view.get('show_action_bar', '').lower() == 'true':
-                    if prominence != 'Do not display':
-                        if view.get('action_display_mode', '') == 'Manual':
-                            # For Manual mode, must also be in referenced_actions
-                            ref_actions = [a.strip().lower() for a in view['referenced_actions'].split('|||') if a.strip()]
-                            if action_name_lower in ref_actions:
-                                return True
-                        else:  # Automatic mode
-                            return True
-        
-        return False
+        CONSOLIDATION_PLAN.md step 2: delegates to the shared
+        action_visibility.is_visible_in_views_aod, which also carries this
+        step's Do_Not_Display case-bug fix (see that function's docstring).
+        """
+        return is_visible_in_views_aod(action, self.views, self.unused_system_views, self.column_exists)
 
     def column_exists(self, column_name, table_name):
         """Check if a column exists in the specified table"""
