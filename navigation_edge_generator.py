@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple, Optional
+from action_visibility import is_visible_in_view_neg  # consolidation step 3
 
 class NavigationEdgeGenerator:
     """Generates navigation edges from parsed targets and view/action data."""
@@ -194,6 +195,17 @@ class NavigationEdgeGenerator:
         
         return data_source
     
+    # -----------------------------------------------------------------------
+    # Step 3 dead code — retained so step3_neg_diff.py can call old and new
+    # in the same process. Both call sites above now delegate to
+    # is_visible_in_view_neg (action_visibility.py). Removal is tracked as
+    # step 3b in RELEASE_CHECKLIST.md section D.
+    #
+    # HARD CONSTRAINT (CONSOLIDATION_PLAN.md section 1/6): none of this is
+    # called from process_group_action's child-edge loop, and it must not be —
+    # that loop's deliberate lack of a visibility check is what lets
+    # group-membership invocation routes produce edges at all.
+    # -----------------------------------------------------------------------
     def is_action_visible_in_view(self, action: Dict, view: Dict) -> bool:
         """Check if an action is visible/accessible in a specific view."""
         action_name = action.get('source_action', '')
@@ -521,7 +533,7 @@ class NavigationEdgeGenerator:
         target_view = target_row.get('target_view', '')
 
         # Check if action is visible in this view
-        if not self.is_action_visible_in_view(target_row, view):
+        if not is_visible_in_view_neg(target_row, view, stats=self.stats):
             return
         
         if not target_view:
@@ -850,7 +862,7 @@ class NavigationEdgeGenerator:
             for target_row in target_rows:
                 if target_row.get('action_type') == 'execute_group':
                     # Check if group action is visible before processing
-                    if not self.is_action_visible_in_view(target_row, view):
+                    if not is_visible_in_view_neg(target_row, view, stats=self.stats):
                         continue
                     # Process group action
                     self.process_group_action(target_row, view)

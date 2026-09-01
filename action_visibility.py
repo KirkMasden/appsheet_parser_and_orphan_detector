@@ -13,10 +13,10 @@ step 2. The ADA strategy still carries that same bug deliberately — see its
 own docstring — and the NEG strategy never had it (it compares the raw
 underscored `action_prominence` directly and needed no fix).
 
-`action_dependency_analyzer.py` (step 1) and `actions_orphan_detector.py`
-(step 2) have been switched to call this module. `navigation_edge_generator.py`
-still runs its own, currently-identical, copy of this logic; the NEG functions
-here are inert until step 3 switches it over.
+All three callers — `action_dependency_analyzer.py` (step 1),
+`actions_orphan_detector.py` (step 2), and `navigation_edge_generator.py`
+(step 3) — have been switched to this module. The NEG, AOD, and ADA
+functions below are each in production use.
 
 Hard constraint carried over from CONSOLIDATION_PLAN.md section 1/section 6:
 none of this is called from navigation_edge_generator.py's

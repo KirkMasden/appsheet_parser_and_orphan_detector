@@ -36,7 +36,8 @@ design in section 4.
 - Both call sites, and the three per-type helpers they dispatch to
   (`is_action_visible_in_detail_view`, `is_action_visible_in_deck_view`,
   `is_action_visible_in_table_view`), increment `self.stats['edges_blocked_by_visibility']`
-  (9 increment sites total) — a side effect on the instance, not a pure function.
+  (8 increment sites total; corrected from 9 by step 3's grep — see block A0) —
+  a side effect on the instance, not a pure function.
 
 **A finding not named in the background, worth stating plainly: inside the same file,
 a third, undocumented behavior exists.** `process_group_action` (lines 428–516), which

@@ -283,20 +283,52 @@ answers are unknown; once A is done they become mechanical.
       browser's actual reported text (not a CSV diff) is run and recorded —
       see `STATUS.md`'s matching entry for what that comparison needs to be.
 
-- [ ] **Step 3: switch `navigation_edge_generator.py` (NEG).**
-      Predicted diff: zero, and that zero *is* the test here, unlike steps 1
-      and 2 — NEG's output is consumed by `navigation_edges.csv` and everything
-      downstream of it. **Caution:** NEG's visibility function mutates
-      `self.stats['edges_blocked_by_visibility']` at nine sites; the extracted
-      version takes an optional `stats` dict instead of mutating `self`
-      directly. If the switch fails to pass `self.stats` through, every CSV
-      stays byte-identical and a pairwise verdict comparison still passes,
-      while the counter silently stops incrementing — neither check catches
-      it. Compare the counter's final value before and after as a third,
-      separate check. See `STATUS.md`'s matching entry.
-      *Done when:* `navigation_edge_generator.py` calls the shared module, the
-      differential comparison shows zero disagreements, the CSV diff is zero,
-      and `edges_blocked_by_visibility`'s final value is unchanged.
+- [x] **Step 3: switch `navigation_edge_generator.py` (NEG).**
+      Done `66ddb54`. Both call sites (`process_regular_action` and `process_view`'s
+      group-action branch) now delegate to the shared `is_visible_in_view_neg`,
+      passing `self.stats` through so `edges_blocked_by_visibility` keeps
+      incrementing. The four old methods (`is_action_visible_in_view` and its
+      three per-view-type helpers) are retained as dead code so the
+      differential script could call old and new in the same process; removal
+      is tracked as step 3b below. **Increment-count figure corrected:** step
+      3's grep (block A0) found eight `+= 1` sites, not nine — corrected here,
+      in `STATUS.md`'s `84a651d` caution paragraph, and in
+      `CONSOLIDATION_PLAN.md` section 1.
+      **Verified by a 204,827-pair differential comparison of NEG's own
+      answer, old implementation vs. new** (Farmy 463 navigation targets × 319 views =
+      147,697 pairs; Kankaku 290 navigation targets × 197 views = 57,130 pairs), run via
+      `step3_neg_diff.py` (throwaway, not committed): **0 disagreements in
+      either app.**
+      **CSV byte-identity:** `navigation_edges.csv` byte-identical (`cmp`
+      pass) for both apps, pre-switch vs. post-switch, run against fresh
+      copies of the saved references. Data-row counts (Python's `csv` module,
+      not `wc -l`): Farmy 1850 → 1850, Kankaku 592 → 592, both unchanged.
+      **Counter match:** `edges_blocked_by_visibility` — Farmy 4020 (pre) →
+      4020 (post); Kankaku 1363 (pre) → 1363 (post). Both identical,
+      confirming the `stats=self.stats` wiring is correct and the counter did
+      not silently stop.
+      Downstream orphan files (`potential_view_orphans.csv`,
+      `unused_system_views.csv`, `potential_action_orphans.csv`,
+      `potential_format_rule_orphans.csv`,
+      `potential_virtual_column_orphans.csv`) were not directly verified in
+      this step. This step relies on the pipeline coupling documented in the
+      `48eead1` "Recently fixed" entry in `STATUS.md`, under which those files
+      are deterministic given `navigation_edges.csv`. If any downstream file
+      had moved while `navigation_edges.csv` was byte-identical, that would be
+      a finding about the coupling, not about step 3.
+      *Done when:* met — see above.
+
+- [ ] **Step 3b: remove the dead methods from `navigation_edge_generator.py`.**
+      `is_action_visible_in_view` and its three per-view-type helpers
+      (`is_action_visible_in_detail_view`, `is_action_visible_in_deck_view`,
+      `is_action_visible_in_table_view`) were retained in step 3 so the
+      differential comparison could call old and new in one process. They serve
+      no purpose once that comparison is done and should be deleted.
+      *Done when:* the four methods are deleted and a full re-parse of both Farmy
+      and Kankaku against the same app exports used in step 3 shows zero diff on
+      all output files compared to a pre-deletion parse at the same commit. The
+      step 3 differential script cannot verify this step — it depends on the old
+      method being present — so the re-parse diff is the only check.
 
 - [ ] **Step 4: Gallery/Deck parity.** No longer blocked — section A closed
       2026-08-31 (by documentation research, not app testing; see section A's
