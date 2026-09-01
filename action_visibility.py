@@ -7,11 +7,11 @@ in this view" implementations: navigation_edge_generator.py (NEG),
 actions_orphan_detector.py (AOD), and action_dependency_analyzer.py (ADA). Each
 function below is a direct translation of one file's original method — `self`
 and instance state replaced by explicit parameters, nothing else changed,
-EXCEPT the Do_Not_Display case bug in the AOD strategy
-(CONSOLIDATION_PLAN.md section 3's `.replace('_', ' ')` mismatch), fixed by
-step 2. The ADA strategy still carries that same bug deliberately — see its
-own docstring — and the NEG strategy never had it (it compares the raw
-underscored `action_prominence` directly and needed no fix).
+EXCEPT the Do_Not_Display case bug in the AOD and ADA strategies
+(CONSOLIDATION_PLAN.md section 3's `.replace('_', ' ')` mismatch), fixed in
+AOD by step 2 and in ADA by step 2b — see ADA's own docstring for why its
+fix was deferred past step 2. The NEG strategy never had it (it compares
+the raw underscored `action_prominence` directly and needed no fix).
 
 All three callers — `action_dependency_analyzer.py` (step 1),
 `actions_orphan_detector.py` (step 2), and `navigation_edge_generator.py`
@@ -168,15 +168,18 @@ def is_visible_in_view_neg(action: Dict, view: Dict, stats: Optional[Dict] = Non
 # --- action_dependency_analyzer.py (ADA) ------------------------------------
 
 def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
-    """action_dependency_analyzer.py's is_action_visible_in_view, unchanged.
+    """action_dependency_analyzer.py's is_action_visible_in_view, with the
+    Do_Not_Display case bug fixed (CONSOLIDATION_PLAN.md step 2b).
 
-    Carries the '.replace('_', ' ')' Do_Not_Display case bug as-is
-    (CONSOLIDATION_PLAN.md section 3). Deliberately NOT fixed by step 2:
-    ADA has been live on this module since step 1 (`84a651d`), so fixing its
-    copy now would change what the interactive dependency browser reports —
-    a real behavior change outside what step 2 predicts, and outside what
-    step 2's verification would catch, since ADA writes no CSV. Left for its
-    own, later step, with its own before/after verification.
+    Deliberately left carrying the bug by step 2, since ADA had just gone
+    live on this module in step 1 (`84a651d`) and fixing it then would have
+    changed what the interactive dependency browser reports — a real
+    behavior change outside what step 2 predicted or its CSV-diff
+    verification could catch, since ADA writes no CSV. Step 2b applies the
+    same fix step 2 made to the AOD strategy above: `prominence` is compared
+    against the real underscored values directly, with its own
+    before/after verification (363 Do_Not_Display/deck pairs across both
+    reference apps flipped True→False, none the other way).
 
     Note ADA's function boundary (CONSOLIDATION_PLAN.md section 2's Pre-gates):
     unlike NEG and AOD, the available_actions gate is in ADA's *caller*
@@ -184,7 +187,7 @@ def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
     than folded in, so the extraction changes no verdict and no boundary.
     """
     action_name = action.get('action_name', '')
-    prominence = action.get('action_prominence', '').replace('_', ' ')
+    prominence = action.get('action_prominence', '')
     attach_to_column = action.get('attach_to_column', '')
 
     # Check if view is actually shown
@@ -196,16 +199,16 @@ def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
 
     # Check visibility based on view type and prominence
     if view_type == 'detail':
-        if prominence in ['Display Prominently', 'Display Overlay']:
+        if prominence in ['Display_Prominently', 'Display_Overlay']:
             return True
-        elif prominence == 'Display Inline' and attach_to_column:
+        elif prominence == 'Display_Inline' and attach_to_column:
             # Check if column is visible in view - EXACT MATCH
             view_columns = view.get('view_columns', '').split('|||') if view.get('view_columns') else []
             view_columns = [col.strip() for col in view_columns]
             return attach_to_column in view_columns  # Exact match, not substring
 
     elif view_type == 'table':
-        if prominence == 'Display Inline' and attach_to_column:
+        if prominence == 'Display_Inline' and attach_to_column:
             # Check if column is visible in view - EXACT MATCH
             view_columns = view.get('view_columns', '').split('|||') if view.get('view_columns') else []
             view_columns = [col.strip() for col in view_columns]
@@ -213,7 +216,7 @@ def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
 
     elif view_type in ['deck', 'gallery']:
         if view.get('show_action_bar', '').lower() == 'true':
-            if prominence != 'Do not display':
+            if prominence != 'Do_Not_Display':
                 if view.get('action_display_mode', '') == 'Manual':
                     # For Manual mode, must also be in referenced_actions
                     ref_actions = view.get('referenced_actions', '').split('|||') if view.get('referenced_actions') else []
