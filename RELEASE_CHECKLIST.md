@@ -64,6 +64,27 @@ Optional, only if convenient: confirm the manual-action-list exclusion on a
 non-deck view type, which would close the open question already recorded under
 "Manual action lists" in `APPSHEET_BEHAVIOR.md`.
 
+**Opened 2026-09-01 — a new item, not part of the closure above.**
+
+- [ ] **Does a case-mismatched `LINKTOROW` view name resolve at runtime?**
+      Kankaku's "Go to card stats" (source table `Kankaku`, per
+      `action_targets.csv`) navigates via `=LINKTOROW([_THISROW], “Card Stats”)`
+      — the curly quotes are AppSheet's own editor's, not a transcription choice
+      here, and are exactly why this call was unparseable until `1c22881`. The
+      app's actual view is `Card stats` (lowercase s). Tap "Go to card stats" in
+      the running Kankaku app and see whether it navigates to `Card stats`.
+      If it navigates: the open question is settled empirically for the first
+      time, and `CONSOLIDATION_PLAN.md` section 4's case-insensitive-by-default
+      decision stops carrying a known cost — that decision's one accepted cost
+      is exactly this shape.
+      If it does nothing: this suite has been clearing views that are genuinely
+      unreachable, and both Kankaku's `Card stats` and Farmy's `Water Tanks`
+      (STATUS.md's `f4d931a` entry) are affected.
+      *Done when:* recorded in `APPSHEET_BEHAVIOR.md`'s "Case sensitivity"
+      section, against the existing "Untested... whether a view name inside
+      `LINKTOVIEW`/`LINKTOROW`/`LINKTOFORM` resolves case-insensitively" bullet,
+      with the date and how it was tested.
+
 ---
 
 ## B. Code fixes — specified, no decisions needed

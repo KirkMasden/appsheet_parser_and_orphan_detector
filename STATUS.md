@@ -132,25 +132,17 @@ first time it has been saved as a regression baseline alongside Farmy's.
   present with a header and no rows, which is what prompted reading the source.
 - Not fixed. Read-only finding.
 
-### Kankaku's own app is a ready-made test for the untested LINKTOROW view-name case-sensitivity question
+### Kankaku's `Card stats` clearance rests on an untested platform assumption
 
 - The curly-quote fix below recovers a `LINKTOROW` call in "Go to card stats"
-  targeting `"Card Stats"` — the app's real view is `Card stats` (lowercase s). This
-  suite's own matching is case-insensitive (confirmed: the view cleared as a
-  potential orphan, and no new phantom-reference row appeared — see the fix's own
-  verification below), but that only says what this tool assumes, not what AppSheet
-  actually does at runtime.
-- `APPSHEET_BEHAVIOR.md`'s "Case sensitivity" section (expanded 2026-09-01) already
-  flags this exact question as untested: whether a view name inside
-  `LINKTOVIEW`/`LINKTOROW`/`LINKTOFORM` resolves case-insensitively in the running
-  app. Kankaku now contains a live, concrete instance of it, ready to test the same
-  way the Table+`Display_Overlay` and Primary-on-table questions were settled
-  elsewhere in this project: tap "Go to card stats" in the running Kankaku app and
-  see whether it navigates to `Card stats`. If it does, this settles the open
-  question empirically for the first time; if it does not, this tool has been
-  clearing a view that is genuinely unreachable, the same risk already recorded
-  against `Water Tanks` in Farmy (see the `f4d931a` entry below).
-- Not tested. Available whenever Kirk wants to check.
+  targeting `"Card Stats"`, cleared as reachable only because this suite resolved
+  that name to the app's real view, `Card stats` (lowercase s), case-insensitively.
+  Whether AppSheet itself resolves the mismatch that way at runtime is untested —
+  the same shape of risk already recorded against `Water Tanks` in Farmy (see the
+  `f4d931a` entry below).
+- The app test that would settle this is `RELEASE_CHECKLIST.md` section A's
+  2026-09-01 item; the answer, once run, belongs in `APPSHEET_BEHAVIOR.md`'s "Case
+  sensitivity" section, not here.
 
 ### `parse_linktoform` and `parse_linktofilteredview` share the curly-quote blindness `parse_linktorow` had
 
