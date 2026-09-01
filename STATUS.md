@@ -175,6 +175,55 @@ first time it has been saved as a regression baseline alongside Farmy's.
   of the pipeline depends on.
 - Found 2026-09-01 alongside the finding above. Not fixed. Read-only finding.
 
+### `action_dependency_analyzer.py`'s copy of the `Do_Not_Display` case bug is still live
+
+- `is_visible_in_view_ada` (in `action_visibility.py`, since `84a651d`) still does
+  `action_prominence.replace('_', ' ')` before comparing against `'Do not display'`,
+  the same mismatch `84a651d`'s companion commit `6115f30` fixed in the AOD
+  strategy — see that entry below for the mechanism. Deliberately not fixed
+  alongside it: ADA has been live on `action_visibility.py` since step 1, so
+  fixing its copy changes what the interactive dependency browser
+  (`dependency_analyzer_hub.py`) actually reports for any `Do_Not_Display`
+  action on a deck or gallery view, a real behavior change with no CSV to
+  verify it against.
+- **What fixing it will take:** the same string-stops-transforming fix
+  `6115f30` applied to `is_visible_in_views_aod`, applied to `is_visible_in_view_ada`.
+  Verification cannot be a CSV diff or a differential pairwise-verdict
+  comparison alone (a verdict changing is the *point* of this fix, unlike
+  steps 1–2, so "zero disagreements" is the wrong success criterion here) —
+  it needs a before/after comparison of the browser's actual reported text
+  for at least one `Do_Not_Display` action known to sit on a deck or gallery
+  view, confirming the "Displayed action" label now correctly disappears for
+  that view and does not disappear anywhere it should not. See
+  `CONSOLIDATION_PLAN.md` section 5, between steps 2 and 3, for where this
+  belongs in sequence.
+- Not fixed. Read-only finding as of 2026-09-01.
+
+### Diffing orphan-detector output by `action_name` alone is unreliable — `action_name` is not unique
+
+- Found 2026-09-01 verifying `6115f30`: Farmy's export reuses generic action
+  names ("Add", "Edit", "Delete", …) across many different tables — one `Add`
+  action per table, not one per app. A first pass at both the CSV diff (comparing
+  `potential_action_orphans.csv` row sets by `action_name` alone) and the gate
+  trace that explains verdict changes (matching flipped actions back to a
+  specific row by `action_name` alone) gave a misleading result before being
+  redone: the CSV-diff pass could have missed added/removed rows that share a
+  name already present on both sides of the diff (it happened not to, this
+  time, confirmed by redoing it keyed on `(action_name, source_table)`), and
+  the gate-trace pass would have attributed one flipped row's gate values to
+  every other row sharing its name, double- and mis-counting whenever a name
+  is not unique.
+- **General caution, not a one-off:** any future comparison of this suite's
+  output — CSV diffs, differential verdict comparisons, gate traces — must key
+  on `(action_name, source_table)` at minimum, or on row identity (index into
+  the source CSV) where even that pair might collide, never on `action_name`
+  alone. This applies to any file keyed by action name, not only
+  `potential_action_orphans.csv`.
+- Not a defect in the tool's own output — the tool's `write_results_to_csv`
+  writes every qualifying row regardless of name collisions. It is a hazard
+  in how this project's own verification scripts are written, recorded here
+  so it is not rediscovered the hard way in a future session.
+
 ## Recently fixed
 
 Entries from `48eead1` onward carry full verification detail — row counts, byte-identical claims, named views. Earlier entries are compressed summaries; for the fuller reasoning behind one of those, read that commit's own message rather than expecting it here.
@@ -225,6 +274,12 @@ Entries from `48eead1` onward carry full verification detail — row counts, byt
   - A full re-parse of both apps against their saved references (Farmy `20260901_090005_...`, Kankaku `20260901_085853_260831_1809_Kankaku_V18_regression_reference_1c22881`) was also run, row counts confirmed with Python's `csv` module: every output file byte-identical in both apps, as predicted. **State this plainly rather than letting it stand as evidence:** this check is weak for a step like this one — it would have come back zero even if the extraction had been wrong, since ADA writes no CSV. The differential comparison above is what verifies it.
   - **Only ADA's path through `action_visibility.py` is exercised by this commit.** The NEG and AOD functions in the new module (`is_visible_in_view_neg` and its three per-view-type helpers, `is_visible_in_views_aod`) are unverified transcriptions until steps 3 and 2 switch those callers over — each will need its own differential check against its own original implementation when its step runs; a zero CSV diff will not be sufficient evidence for either, for the same reason it wasn't sufficient here.
   - **Caution for whoever runs step 3:** NEG's original `is_action_visible_in_view` and its three helpers mutate `self.stats['edges_blocked_by_visibility']` at nine call sites. The extracted `is_visible_in_view_neg` takes an optional `stats` dict parameter instead of mutating an instance directly, and it is a no-op if the switch's call site forgets to pass `self.stats` through. In that failure mode, every `navigation_edges.csv` row and every downstream CSV stays byte-identical, and a pairwise verdict comparison (this commit's method, repeated for NEG) still passes — neither check would catch it, since the counter is a side effect the return value doesn't carry. Step 3's verification must compare `self.stats['edges_blocked_by_visibility']`'s final value before and after as a third, separate check, not assume the other two cover it.
+- 2026-09-01, `6115f30` — `CONSOLIDATION_PLAN.md` step 2: fixed the `Do_Not_Display` case bug in `action_visibility.is_visible_in_views_aod` (the AOD strategy) and switched `actions_orphan_detector.py` to call it. **Mechanism, restated from `CONSOLIDATION_PLAN.md` section 3:** the original compared `action_prominence.replace('_', ' ')` against spaced literals; three of four prominence values round-trip correctly through that transform, but `'Do_Not_Display'` becomes `'Do Not Display'` (title case), which never matches the comparison target `'Do not display'` (sentence case), so the intended Hide exclusion on deck/gallery views never fired. **This is not a case-insensitivity problem and was not fixed as one** — per section 4's second exclusion, the fix is to stop transforming the string and compare the real underscored values directly, which is what this commit does.
+  - **Scope decision:** fixed in the AOD strategy only. `is_visible_in_view_ada` carries the identical bug, deliberately left — ADA has been live on `action_visibility.py` since step 1 (`84a651d`), so fixing its copy now would change what the interactive dependency browser reports, a real behavior change outside what step 2 predicts or what step 2's verification (a CSV diff) could catch, since ADA writes no CSV. Recorded as its own open item above under "Known defects."
+  - **Verified by a 1,530-action differential comparison of AOD's own answer, old implementation vs. new** (Farmy 970 actions, Kankaku 560 actions; existential, one verdict per action, not per (action, view) pair, per `CONSOLIDATION_PLAN.md` section 1): **64 True→False verdict flips, 0 False→True** — no stop condition hit.
+  - **Full accounting of all 64 flips**, traced against `find_orphan_candidates`' other gates rather than assumed: 44 were already excluded by `has_reachable_reference` or `is_event_action` (43 in Farmy, 1 in Kankaku — Kankaku's sole flip, `WD deck to detail group action`, is both referenced elsewhere and an event action); 18 (Farmy only) are system-generated actions (`is_system_generated == 'Yes'`) that `find_orphan_candidates` never considers at all, since it iterates `self.user_actions`, not `self.all_actions` — found while tracing, not anticipated going in; and 2 newly qualify as orphans, matching exactly the 2 rows the full re-parse actually added.
+  - **State plainly what the 18 system-generated flips mean, so the 2-row CSV diff is not mistaken for the whole effect of this fix:** the bug had been reporting system-generated `Add` actions (and one `View Ref (NurseryDetails_Seed)`) as wrongly "visible" on deck and gallery views via the broken exclusion; fixing it correctly reverses that for all 18, and it changes no downstream verdict for those 18 only because they never reach orphan consideration in the first place — the same shape as `e0530c8` (2026-08-31): a real class of wrong answer removed, most of its instances clearing no orphan because something else already made the right call moot.
+  - **CSV diff, accounted for row by row:** `potential_action_orphans.csv` gained 2 rows in Farmy — `Add Go to NurseryDetails_Form` and `NurseryDetails_Detail - UniqueRows`, both table `NurseryDetails` (85 → 87 rows, 0 removed, confirmed by a `(action_name, source_table)`-keyed diff, not by `action_name` alone — see the new Known-defects entry above on why bare-name diffing is unreliable in this export). Kankaku's file is unchanged, 2 → 2. Every other output file in both apps is byte-identical to its reference, row counts confirmed with Python's `csv` module.
 
 ## Remaining work on the false positives
 

@@ -257,17 +257,31 @@ answers are unknown; once A is done they become mechanical.
       calls it, and the differential comparison of ADA's own answer, old vs.
       new, shows zero disagreements.
 
-- [ ] **Step 2: fix the case bug, switch `actions_orphan_detector.py` (AOD).**
-      Fixes the `'Do_Not_Display'.replace('_',' ')` mismatch, which currently
-      disables the Hide exclusion on deck and gallery in the AOD and ADA
-      strategies. **Predicted diff:** `potential_action_orphans.csv` may gain
-      rows or show no change; no other CSV should change. Needs its own
-      differential comparison of AOD's own answer, old vs. new — a zero CSV
-      diff alone does not verify this step either, the same reasoning as step 1.
-      *Done when:* `actions_orphan_detector.py` calls the shared module with the
-      case bug fixed, its own differential comparison (AOD's own answer, old vs.
-      new) has been run and its result recorded, and the CSV diff is accounted
-      for row by row.
+- [x] **Step 2: fix the case bug, switch `actions_orphan_detector.py` (AOD).**
+      Done `6115f30`. Fixed the `'Do_Not_Display'.replace('_',' ')` mismatch in
+      the AOD strategy only — `is_visible_in_view_ada` still carries the
+      identical bug, deliberately left; see `STATUS.md`'s Known-defects entry
+      and step 2b below. **Verified by a 1,530-action differential comparison of
+      AOD's own answer, old implementation vs. new** (Farmy 970 actions,
+      Kankaku 560 actions): 64 True→False verdict flips, 0 False→True — no
+      stop condition hit. **CSV diff, accounted for row by row:**
+      `potential_action_orphans.csv` gained 2 rows in Farmy (`Add Go to
+      NurseryDetails_Form`, `NurseryDetails_Detail - UniqueRows`, both table
+      `NurseryDetails`), 0 removed; Kankaku gained nothing (0 → 0 change,
+      its one True→False flip was already excluded by another gate). Every
+      other output file byte-identical in both apps. See `STATUS.md`'s
+      matching entry for the full trace of all 64 flips, not just the 2 that
+      surfaced in a CSV.
+      *Done when:* met — see above.
+
+- [ ] **Step 2b (not in the original plan; added 2026-09-01): fix the same case
+      bug in `is_visible_in_view_ada`.** Deliberately deferred by step 2 rather
+      than fixed alongside AOD — ADA has been live on the shared module since
+      step 1 (`84a651d`), so fixing its copy changes what the interactive
+      dependency browser reports, and no CSV diff can verify that change.
+      *Done when:* the fix is made, and a before/after comparison of the
+      browser's actual reported text (not a CSV diff) is run and recorded —
+      see `STATUS.md`'s matching entry for what that comparison needs to be.
 
 - [ ] **Step 3: switch `navigation_edge_generator.py` (NEG).**
       Predicted diff: zero, and that zero *is* the test here, unlike steps 1
