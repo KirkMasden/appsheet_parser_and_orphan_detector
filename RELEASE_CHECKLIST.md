@@ -318,17 +318,38 @@ answers are unknown; once A is done they become mechanical.
       a finding about the coupling, not about step 3.
       *Done when:* met — see above.
 
-- [ ] **Step 3b: remove the dead methods from `navigation_edge_generator.py`.**
-      `is_action_visible_in_view` and its three per-view-type helpers
-      (`is_action_visible_in_detail_view`, `is_action_visible_in_deck_view`,
-      `is_action_visible_in_table_view`) were retained in step 3 so the
-      differential comparison could call old and new in one process. They serve
-      no purpose once that comparison is done and should be deleted.
-      *Done when:* the four methods are deleted and a full re-parse of both Farmy
-      and Kankaku against the same app exports used in step 3 shows zero diff on
-      all output files compared to a pre-deletion parse at the same commit. The
-      step 3 differential script cannot verify this step — it depends on the old
-      method being present — so the re-parse diff is the only check.
+- [x] **Step 3b: remove the dead methods from `navigation_edge_generator.py`.**
+      Done `d88941d`. Deleted `is_action_visible_in_view` and its three
+      per-view-type helpers (`is_action_visible_in_detail_view`,
+      `is_action_visible_in_deck_view`, `is_action_visible_in_table_view`),
+      retained through step 3 only so the differential script could call old
+      and new in one process. They served no further purpose.
+      **Pre-deletion caller check:** block A's grep found zero hits outside
+      the four methods themselves (the internal calls from
+      `is_action_visible_in_view` to its three helpers were the only matches
+      besides the dead-code comment) — confirming step 3 had already
+      eliminated both external call sites.
+      **Import smoke-test:** pass — `from navigation_edge_generator import
+      NavigationEdgeGenerator` succeeds with no `NameError` or
+      missing-attribute error after deletion.
+      **CSV byte-identity:** `navigation_edges.csv` byte-identical (`cmp`
+      pass) for both apps, pre-deletion vs. post-deletion, run against fresh
+      copies of the saved references. Data-row counts (Python's `csv`
+      module, not `wc -l`): Farmy 1850 → 1850, Kankaku 592 → 592, both
+      unchanged.
+      **Counter match:** `edges_blocked_by_visibility` — Farmy 4020 (pre) →
+      4020 (post); Kankaku 1363 (pre) → 1363 (post). Both identical.
+      Downstream orphan files (`potential_view_orphans.csv`,
+      `unused_system_views.csv`, `potential_action_orphans.csv`,
+      `potential_format_rule_orphans.csv`,
+      `potential_virtual_column_orphans.csv`) were not directly verified in
+      this step. This step relies on the pipeline coupling documented in the
+      `48eead1` "Recently fixed" entry in `STATUS.md`, under which those
+      files are deterministic given `navigation_edges.csv`. If any
+      downstream file had moved while `navigation_edges.csv` was
+      byte-identical, that would be a finding about the coupling, not about
+      step 3b.
+      *Done when:* met — see above.
 
 - [ ] **Step 4: Gallery/Deck parity.** No longer blocked — section A closed
       2026-08-31 (by documentation research, not app testing; see section A's
