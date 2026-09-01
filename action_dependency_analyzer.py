@@ -14,6 +14,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from action_visibility import is_visible_in_view_ada
+
 
 class ActionDependencyAnalyzer:
     def __init__(self, base_path=".", return_to_hub=False):
@@ -652,46 +654,13 @@ class ActionDependencyAnalyzer:
         return None
                     
     def is_action_visible_in_view(self, action, view):
-        """Check if an action is actually visible in a specific view."""
-        action_name = action.get('action_name', '')
-        prominence = action.get('action_prominence', '').replace('_', ' ')
-        attach_to_column = action.get('attach_to_column', '')
-        
-        # Check if view is actually shown
-        show_if = view.get('show_if', '').strip()
-        if show_if.lower() == 'false':
-            return False
-        
-        view_type = view.get('view_type', '').lower()
-        
-        # Check visibility based on view type and prominence
-        if view_type == 'detail':
-            if prominence in ['Display Prominently', 'Display Overlay']:
-                return True
-            elif prominence == 'Display Inline' and attach_to_column:
-                # Check if column is visible in view - EXACT MATCH
-                view_columns = view.get('view_columns', '').split('|||') if view.get('view_columns') else []
-                view_columns = [col.strip() for col in view_columns]
-                return attach_to_column in view_columns  # Exact match, not substring
-                
-        elif view_type == 'table':
-            if prominence == 'Display Inline' and attach_to_column:
-                # Check if column is visible in view - EXACT MATCH
-                view_columns = view.get('view_columns', '').split('|||') if view.get('view_columns') else []
-                view_columns = [col.strip() for col in view_columns]
-                return attach_to_column in view_columns  # Exact match, not substring
-                
-        elif view_type in ['deck', 'gallery']:
-            if view.get('show_action_bar', '').lower() == 'true':
-                if prominence != 'Do not display':
-                    if view.get('action_display_mode', '') == 'Manual':
-                        # For Manual mode, must also be in referenced_actions
-                        ref_actions = view.get('referenced_actions', '').split('|||') if view.get('referenced_actions') else []
-                        return action_name in [r.strip() for r in ref_actions]
-                    else:  # Automatic mode
-                        return True
-        
-        return False
+        """Check if an action is actually visible in a specific view.
+
+        CONSOLIDATION_PLAN.md step 1: delegates to the shared
+        action_visibility.is_visible_in_view_ada, a behavior-preserving copy of
+        this method's former body. No rule changed by this switch.
+        """
+        return is_visible_in_view_ada(action, view)
     
     def analyze_action_dependencies(self, action):
         """Find actions that use this action and actions used by this action."""
