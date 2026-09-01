@@ -208,20 +208,26 @@ it misses — every defect found came from rules Kirk's app never exercised. Kir
 app also contains prominence values and view types Leon's does not, so a second
 reference covers different ground rather than merely more of the same.
 
-- [ ] **Produce and save a reference parse of Kirk's current app.**
-      Three reasons, listed separately because they need different work:
-      - *Regression guard:* a saved reference parse of the current app, diffed
-        alongside Leon's on every subsequent change. The consolidation's steps 1
-        and 3 (section D below) claim a zero diff across every output file, and
-        that claim is far stronger verified against two apps than one.
-      - *Source of new findings:* run it, look at what gets flagged, and check
-        the surprising results in the running app. That is how this week's
-        discoveries happened.
-      - *Because the app has changed:* the suite was shaped around this app once;
-        some rules encoded then may no longer match what Kirk builds now.
-      *Done when:* a reference parse of the current app exists at a stable path,
-      that path is recorded in this checklist, and both references are diffed on
-      every subsequent change.
+- [x] **Regression guard: save a reference parse, diffed alongside Leon's on
+      every subsequent change.** The consolidation's steps 1 and 3 (section D
+      below) claim a zero diff across every output file, and that claim is far
+      stronger verified against two apps than one.
+      *Done:* `20260901_085853_260831_1809_Kankaku_V18_regression_reference_1c22881`,
+      a copy of `20260901_085853_260831_1809_Kankaku_V18_baseline_parse`
+      (original left in place), at
+      `/Users/kirkmasden/Documents/Research projects/201228 My project/250608 2132 Orphan columns/250907 1229 AppSheetAnalysis/20260901_085853_260831_1809_Kankaku_V18_regression_reference_1c22881`.
+      Parsed by the code at `1c22881` from the 2026-08-31 export. This is a
+      regression guard — the fixed point every subsequent change is diffed
+      against, alongside Farmy — and **not** a current-app snapshot: it is not
+      the discovery-half output below, and it does not reflect any export more
+      recent than 2026-08-31.
+- [ ] **Source of new findings: run a fresh export of Kirk's current app, look
+      at what gets flagged, and check the surprising results in the running
+      app.** That is how this week's discoveries happened. Also covers
+      *because the app has changed:* the suite was shaped around this app once;
+      some rules encoded then may no longer match what Kirk builds now. Needs a
+      fresh export — the regression-guard item above reuses the existing
+      2026-08-31 export and does not satisfy this.
 
 ---
 
