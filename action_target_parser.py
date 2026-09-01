@@ -56,6 +56,13 @@ class NavigationExpressionParser:
         # Add this new attribute to store table->detail view mapping
         self.table_detail_views = {}
 
+        # Set by parse_linktorow when it skips a self-referential forced-sync
+        # call (LINKTOROW([_THISROW], CONTEXT(VIEW))); read by process_action
+        # so a correct exclusion isn't reported as an unparseable expression.
+        # Reset by process_action immediately before each top-level call to
+        # parse_navigation_expression.
+        self.forced_sync_skipped = False
+
     def load_views_csv(self, views_file: str):
         """Load appsheet_views.csv and build table->detail view mapping."""
         if not views_file or not os.path.exists(views_file):
@@ -281,6 +288,20 @@ class NavigationExpressionParser:
         """Parse LINKTOROW expressions."""
         targets = []
 
+        # Maps each opening quote character to the character that closes it.
+        # Straight quotes close on themselves; the typographic left double
+        # quote AppSheet's editor emits (“, U+201C) closes only on its own
+        # right partner (”, U+201D) — the two are not interchangeable, so a
+        # plain membership test (checking only whether a character is *some*
+        # quote) would let a ” close a “ or vice versa and, in the case that
+        # matters here, let ” open a string that no character can ever close.
+        # ” is deliberately NOT a key: it must never act as an opener. The
+        # single curly quotes ‘/’ (U+2018/U+2019) are deliberately excluded
+        # too — ’ doubles as an apostrophe in ordinary text, and treating it
+        # as a string opener would reproduce this same class of bug wherever
+        # a view name contains one.
+        quote_closers = {'"': '"', "'": "'", chr(8220): chr(8221)}
+
         # Track LINKTOROW usage
         if 'LINKTOROW' in expression.upper():
             self.target_counts['linktorow'] += 1
@@ -301,8 +322,8 @@ class NavigationExpressionParser:
                 if quote_char:
                     if char == quote_char and (i == 0 or expression[i-1] != '\\'):
                         quote_char = None
-                elif char in ['"', "'", chr(8220), chr(8221)]:  # Include smart quotes
-                    quote_char = char
+                elif char in quote_closers:
+                    quote_char = quote_closers[char]
                 elif char == '(':
                     paren_depth += 1
                 elif char == ')':
@@ -326,8 +347,8 @@ class NavigationExpressionParser:
                 if quote_char:
                     if char == quote_char and (i == 0 or content[i-1] != '\\'):
                         quote_char = None
-                elif char in ['"', "'", chr(8220), chr(8221)]:  # Include smart quotes
-                    quote_char = char
+                elif char in quote_closers:
+                    quote_char = quote_closers[char]
                 elif char == '(':
                     paren_depth += 1
                 elif char == ')':
@@ -345,7 +366,14 @@ class NavigationExpressionParser:
                 # Check for self-referential forced sync pattern
                 # LINKTOROW([_THISROW], CONTEXT("View")) is just a sync trigger, not navigation
                 if '[_THISROW]' in row_expr.upper() and 'CONTEXT' in view_name.upper():
-                    # This is a forced sync, not real navigation - skip it
+                    # This is a forced sync, not real navigation - skip it.
+                    # Tell process_action this was a deliberate exclusion, not
+                    # a parse failure, so it isn't filed as "Unknown pattern".
+                    # Known limitation, not solved here: if this same
+                    # expression also contains a genuinely unparseable
+                    # LINKTOROW call, this flag wins and that failure is
+                    # reported as a forced sync instead.
+                    self.forced_sync_skipped = True
                     continue
 
                 targets.append({
@@ -993,12 +1021,23 @@ class NavigationExpressionParser:
                     action_conditions['must_not_be_table'] = '|||'.join(table_must_not_be)
         
         # Parse the expression
+        self.forced_sync_skipped = False
         parsed = self.parse_navigation_expression(nav_expr)
-        
+
         if not parsed:
             # Record unparseable expression with full row data
             unparseable_record = row.copy()  # Preserve all original columns
-            unparseable_record['parse_failure_reason'] = self.classify_parse_failure(nav_expr)
+            if self.forced_sync_skipped:
+                # A LINKTOROW([_THISROW], CONTEXT(VIEW)) call was found and
+                # deliberately excluded by parse_linktorow, not left
+                # unrecognized — say so instead of calling this "Unknown
+                # pattern". See parse_linktorow's own comment for the one
+                # known limitation this label carries.
+                unparseable_record['parse_failure_reason'] = (
+                    'Forced sync — LINKTOROW to CONTEXT(VIEW), no navigation target'
+                )
+            else:
+                unparseable_record['parse_failure_reason'] = self.classify_parse_failure(nav_expr)
             unparseable_record['expression_attempted'] = nav_expr
             self.unparseable.append(unparseable_record)
             return targets
