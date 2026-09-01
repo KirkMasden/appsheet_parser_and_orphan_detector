@@ -236,14 +236,53 @@ reference covers different ground rather than merely more of the same.
 Do not start before section A. Steps 4 and 5 are only judgment calls because the
 answers are unknown; once A is done they become mechanical.
 
-- [ ] **Steps 1–3: extract, fix the case bug, switch all callers.**
-      Mechanical. Steps 1 and 3 predict a zero diff, and that zero is the test —
-      any change means the extraction was not behavior-preserving and the step
-      should be treated as failed, not patched forward. Step 2 fixes the
-      `'Do_Not_Display'.replace('_',' ')` mismatch, which currently disables the
-      Hide exclusion on deck and gallery in two of three files.
-      *Done when:* all three callers use the shared module, each step verified,
-      each committed separately.
+- [x] **Step 1: extract `action_visibility.py`, switch `action_dependency_analyzer.py`
+      (ADA) only.** Done `84a651d`. `action_visibility.py` holds a
+      behavior-preserving translation of all three implementations (NEG, AOD,
+      ADA) as separate call-compatible functions, every disagreement — including
+      the `Do_Not_Display` case bug below — preserved as-is; only ADA's caller
+      was switched over. **Verified by a 419,750-pair differential comparison of
+      ADA's own answer, old implementation vs. new** (Farmy 970 actions × 319
+      views = 309,430 pairs; Kankaku 560 actions × 197 views = 110,320 pairs; 0
+      disagreements in either). This, not the CSV diff below, is what verifies
+      the step: nothing programmatic consumes ADA's answer (`CONSOLIDATION_PLAN.md`
+      section 1), so a full re-parse would show zero diff even if the
+      extraction were wrong. A full re-parse of both apps against their saved
+      references was also run and came back byte-identical on every output
+      file, as predicted — recorded because the plan calls for it, not as
+      evidence of correctness. **Only ADA's path through `action_visibility.py`
+      is exercised as of this commit** — see `STATUS.md`'s matching entry for
+      what that means for steps 2 and 3.
+      *Done when:* met — `action_visibility.py` exists, `action_dependency_analyzer.py`
+      calls it, and the differential comparison of ADA's own answer, old vs.
+      new, shows zero disagreements.
+
+- [ ] **Step 2: fix the case bug, switch `actions_orphan_detector.py` (AOD).**
+      Fixes the `'Do_Not_Display'.replace('_',' ')` mismatch, which currently
+      disables the Hide exclusion on deck and gallery in the AOD and ADA
+      strategies. **Predicted diff:** `potential_action_orphans.csv` may gain
+      rows or show no change; no other CSV should change. Needs its own
+      differential comparison of AOD's own answer, old vs. new — a zero CSV
+      diff alone does not verify this step either, the same reasoning as step 1.
+      *Done when:* `actions_orphan_detector.py` calls the shared module with the
+      case bug fixed, its own differential comparison (AOD's own answer, old vs.
+      new) has been run and its result recorded, and the CSV diff is accounted
+      for row by row.
+
+- [ ] **Step 3: switch `navigation_edge_generator.py` (NEG).**
+      Predicted diff: zero, and that zero *is* the test here, unlike steps 1
+      and 2 — NEG's output is consumed by `navigation_edges.csv` and everything
+      downstream of it. **Caution:** NEG's visibility function mutates
+      `self.stats['edges_blocked_by_visibility']` at nine sites; the extracted
+      version takes an optional `stats` dict instead of mutating `self`
+      directly. If the switch fails to pass `self.stats` through, every CSV
+      stays byte-identical and a pairwise verdict comparison still passes,
+      while the counter silently stops incrementing — neither check catches
+      it. Compare the counter's final value before and after as a third,
+      separate check. See `STATUS.md`'s matching entry.
+      *Done when:* `navigation_edge_generator.py` calls the shared module, the
+      differential comparison shows zero disagreements, the CSV diff is zero,
+      and `edges_blocked_by_visibility`'s final value is unchanged.
 
 - [ ] **Step 4: Gallery/Deck parity.** No longer blocked — section A closed
       2026-08-31 (by documentation research, not app testing; see section A's
