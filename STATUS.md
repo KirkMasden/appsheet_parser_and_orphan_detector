@@ -175,30 +175,6 @@ first time it has been saved as a regression baseline alongside Farmy's.
   of the pipeline depends on.
 - Found 2026-09-01 alongside the finding above. Not fixed. Read-only finding.
 
-### `action_dependency_analyzer.py`'s copy of the `Do_Not_Display` case bug is still live
-
-- `is_visible_in_view_ada` (in `action_visibility.py`, since `84a651d`) still does
-  `action_prominence.replace('_', ' ')` before comparing against `'Do not display'`,
-  the same mismatch `84a651d`'s companion commit `6115f30` fixed in the AOD
-  strategy — see that entry below for the mechanism. Deliberately not fixed
-  alongside it: ADA has been live on `action_visibility.py` since step 1, so
-  fixing its copy changes what the interactive dependency browser
-  (`dependency_analyzer_hub.py`) actually reports for any `Do_Not_Display`
-  action on a deck or gallery view, a real behavior change with no CSV to
-  verify it against.
-- **What fixing it will take:** the same string-stops-transforming fix
-  `6115f30` applied to `is_visible_in_views_aod`, applied to `is_visible_in_view_ada`.
-  Verification cannot be a CSV diff or a differential pairwise-verdict
-  comparison alone (a verdict changing is the *point* of this fix, unlike
-  steps 1–2, so "zero disagreements" is the wrong success criterion here) —
-  it needs a before/after comparison of the browser's actual reported text
-  for at least one `Do_Not_Display` action known to sit on a deck or gallery
-  view, confirming the "Displayed action" label now correctly disappears for
-  that view and does not disappear anywhere it should not. See
-  `CONSOLIDATION_PLAN.md` section 5, between steps 2 and 3, for where this
-  belongs in sequence.
-- Not fixed. Read-only finding as of 2026-09-01.
-
 ### Diffing orphan-detector output by `action_name` alone is unreliable — `action_name` is not unique
 
 - Found 2026-09-01 verifying `6115f30`: Farmy's export reuses generic action
@@ -293,6 +269,12 @@ Entries from `48eead1` onward carry full verification detail — row counts, byt
   - **CSV byte-identity:** fresh copies of the saved references were re-parsed with NEG standalone before and after deletion; `navigation_edges.csv` came back byte-identical (`cmp` pass) for both apps. Data-row counts, confirmed with Python's `csv` module: Farmy 1850 → 1850, Kankaku 592 → 592.
   - **Counter match:** `edges_blocked_by_visibility` — Farmy 4020 (pre-deletion) → 4020 (post-deletion); Kankaku 1363 (pre-deletion) → 1363 (post-deletion). Both unchanged.
   - Downstream orphan files were not directly verified. This entry relies on the same pipeline coupling as the step 3 entry above (documented in `48eead1`): those files are deterministic given `navigation_edges.csv`.
+- 2026-09-02, `742b759` — `CONSOLIDATION_PLAN.md` step 2b: fixed `action_dependency_analyzer.py`'s copy of the `Do_Not_Display` case bug in `is_visible_in_view_ada` (`action_visibility.py`), the same `.replace('_', ' ')` mismatch step 2 (`6115f30`) fixed in AOD, deliberately deferred then because ADA had just gone live on the shared module and fixing it mid-step would have changed the interactive dependency browser's output outside what step 2 predicted.
+  - **The fix:** the `.replace('_', ' ')` transform on `action_prominence` removed; all five comparison literals inside the function changed from spaced to underscored form (`'Display Prominently'`, `'Display Overlay'`, `'Display Inline'` ×2, `'Do not display'` → their `_`-joined equivalents).
+  - **Pre-fix scan:** every `(action, view)` pair combining a `Do_Not_Display` action with a deck or gallery view where the action is in the view's `available_actions` returned `True` (wrong) — 232 pairs in Farmy, 131 in Kankaku, 363 total. All 363 span deck views only (no gallery view hit the pre-gate in either app), all with `show_action_bar=True`. Farmy: 73 actions, 21 tables, 17 views. Kankaku: 117 actions, 7 tables, 4 views.
+  - **Post-fix verification:** all 363 pairs now return `False`. A full cross-product of every `(action, view)` pair in both apps (Farmy 309,430 pairs, Kankaku 110,320) confirms zero pairs in the `Do_Not_Display` × deck/gallery category return `True` anywhere: Farmy 10,350 affected-category pairs / 299,080 unaffected, Kankaku 1,422 affected-category pairs / 108,898 unaffected — the fix changed only the affected category's logic, nothing else.
+  - **Verification method note:** verified by direct calls to `is_visible_in_view_ada` against parsed CSVs rather than via the interactive dependency browser — equivalent evidence, since the function is plain and the browser is its only consumer, and this is exactly the value the browser displays. `RELEASE_CHECKLIST.md`'s original done-when condition called for a before/after comparison of the browser's actual reported text; this is that comparison, made directly against the function's return value.
+  - Not a CSV diff and no CSV changed: ADA feeds only the interactive dependency browser (`CONSOLIDATION_PLAN.md` section 1), so nothing programmatic downstream of this function is affected.
 
 ## Remaining work on the false positives
 

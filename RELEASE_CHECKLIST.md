@@ -274,14 +274,44 @@ answers are unknown; once A is done they become mechanical.
       surfaced in a CSV.
       *Done when:* met — see above.
 
-- [ ] **Step 2b (not in the original plan; added 2026-09-01): fix the same case
+- [x] **Step 2b (not in the original plan; added 2026-09-01): fix the same case
       bug in `is_visible_in_view_ada`.** Deliberately deferred by step 2 rather
       than fixed alongside AOD — ADA has been live on the shared module since
       step 1 (`84a651d`), so fixing its copy changes what the interactive
       dependency browser reports, and no CSV diff can verify that change.
-      *Done when:* the fix is made, and a before/after comparison of the
-      browser's actual reported text (not a CSV diff) is run and recorded —
-      see `STATUS.md`'s matching entry for what that comparison needs to be.
+      Done `742b759`. Same fix as step 2 (`6115f30`) applied to
+      `is_visible_in_view_ada`: the `.replace('_', ' ')` transform on
+      `action_prominence` removed, and all five comparison literals inside
+      the function changed from spaced to underscored form (`'Display
+      Prominently'` → `'Display_Prominently'`, `'Display Overlay'` →
+      `'Display_Overlay'`, `'Display Inline'` → `'Display_Inline'` (two
+      occurrences), `'Do not display'` → `'Do_Not_Display'`).
+      **Pre-fix scan:** every `(action, view)` pair combining a
+      `Do_Not_Display` action with a deck or gallery view where the action
+      is in the view's `available_actions` — 232 pairs in Farmy, 131 in
+      Kankaku (363 total) — returned `True` (wrong; the bug's spaced-vs-
+      underscored mismatch meant the `Do_Not_Display` exclusion on
+      deck/gallery action bars never fired). All 363 span only deck views
+      (no gallery views hit the pre-gate in either app) with
+      `show_action_bar=True`; Farmy touches 73 actions across 21 tables and
+      17 views, Kankaku 117 actions across 7 tables and 4 views.
+      **Post-fix verification:** all 363 pairs now return `False`. A full
+      cross-product of every `(action, view)` pair in both apps (Farmy
+      309,430 pairs, Kankaku 110,320) confirms zero pairs in the
+      `Do_Not_Display` × deck/gallery category return `True` anywhere —
+      Farmy 10,350 affected-category pairs / 299,080 unaffected, Kankaku
+      1,422 affected-category pairs / 108,898 unaffected, all unaffected
+      pairs untouched by the fix (only the `Do_Not_Display`/deck-gallery
+      category's logic changed).
+      **Verification method note:** verified by direct function calls
+      against parsed CSVs rather than via the interactive dependency
+      browser — equivalent evidence, since `is_visible_in_view_ada` is a
+      plain function and the browser is its only consumer. The done-when
+      condition originally called for a before/after comparison of the
+      browser's actual reported text; this comparison was made against the
+      function's return value directly, which is exactly what the browser
+      displays.
+      *Done when:* met — see above.
 
 - [x] **Step 3: switch `navigation_edge_generator.py` (NEG).**
       Done `8d6cb94`. Both call sites (`process_regular_action` and `process_view`'s
