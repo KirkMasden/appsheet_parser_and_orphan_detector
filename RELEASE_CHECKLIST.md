@@ -284,7 +284,7 @@ answers are unknown; once A is done they become mechanical.
       see `STATUS.md`'s matching entry for what that comparison needs to be.
 
 - [x] **Step 3: switch `navigation_edge_generator.py` (NEG).**
-      Done `66ddb54`. Both call sites (`process_regular_action` and `process_view`'s
+      Done `8d6cb94`. Both call sites (`process_regular_action` and `process_view`'s
       group-action branch) now delegate to the shared `is_visible_in_view_neg`,
       passing `self.stats` through so `edges_blocked_by_visibility` keeps
       incrementing. The four old methods (`is_action_visible_in_view` and its
