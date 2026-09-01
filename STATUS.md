@@ -53,11 +53,14 @@ Of the four false-positive categories originally reported, three are fixed (see 
 
 The `USERSETTINGS()` parsing, User Settings orphan detection and broken-reference detection shipped 2025-12-24 with an explicit public caveat that more testing was needed. That testing has not happened. The caveat itself could not be verified from this repository or its git history — no commit message or file records it — so treat "explicit public caveat" as asserted, not established, until a source is found.
 
-### Two defects found by the section C reference parse of Kankaku
+### One remaining defect found by the section C reference parse of Kankaku
 
-Both entries below were found 2026-08-31, by the section C reference parse of Kirk's
-own app, Kankaku (260411 Kankaku V18) — see `RELEASE_CHECKLIST.md` section C. Baseline
-parse: `20260831_182306_260831_1809_Kankaku_V18_baseline_parse`.
+Two entries originally stood here, both found 2026-08-31 by the section C reference
+parse of Kirk's own app, Kankaku (260411 Kankaku V18) — see `RELEASE_CHECKLIST.md`
+section C. Baseline parse: `20260831_182306_260831_1809_Kankaku_V18_baseline_parse`.
+The second, the curly-quote parsing defect, is fixed as of `1c22881` and has moved
+to "Recently fixed" below; only the phantom-reference case-sensitivity entry remains
+open here.
 
 Note the counting, since this file uses "second app" elsewhere with the opposite
 sense (see "Seven modules..." above): Kankaku is the app the suite's display rules

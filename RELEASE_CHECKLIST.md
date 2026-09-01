@@ -24,13 +24,15 @@ These block section D. Each is answerable by putting an action on a view in a
 running app and looking. Nothing else can answer them: the rules are facts about
 AppSheet's client, not derivable from the exports.
 
-**Closed 2026-08-31 — by documentation research, not app testing.** All five items
-below were resolved from Google's official documentation (four items) and one
-reasoned inference from Kirk (the map item), not by running the app tests this
-section originally called for. See `APPSHEET_BEHAVIOR.md`'s "Established behavior"
-section for each item's specific source and the strength of that source. The items
-are left below, unmodified and checked off rather than deleted, so the record of
-what was originally asked survives.
+**Closed 2026-08-31 — by documentation research, not app testing.** The five items
+immediately below were resolved from Google's official documentation (four items)
+and one reasoned inference from Kirk (the map item), not by running the app tests
+this section originally called for. See `APPSHEET_BEHAVIOR.md`'s "Established
+behavior" section for each item's specific source and the strength of that source.
+The items are left below, unmodified and checked off rather than deleted, so the
+record of what was originally asked survives. This closure is what unblocked
+section D, and it still stands — the item opened below is a separate, later
+addition and does not reopen it.
 
 - [x] **Does Prominent (`Display_Prominently`) display on a form view?**
       92 of Leon's 319 views are forms — the single largest block of the
@@ -64,7 +66,9 @@ Optional, only if convenient: confirm the manual-action-list exclusion on a
 non-deck view type, which would close the open question already recorded under
 "Manual action lists" in `APPSHEET_BEHAVIOR.md`.
 
-**Opened 2026-09-01 — a new item, not part of the closure above.**
+**Opened 2026-09-01 — a new item, added after the closure above and not part of
+it.** The 2026-08-31 closure that unblocked section D still stands; this item does
+not reopen it (see the item's own note on why it does not block section D either).
 
 - [ ] **Does a case-mismatched `LINKTOROW` view name resolve at runtime?**
       Kankaku's "Go to card stats" (source table `Kankaku`, per
@@ -80,6 +84,11 @@ non-deck view type, which would close the open question already recorded under
       If it does nothing: this suite has been clearing views that are genuinely
       unreachable, and both Kankaku's `Card stats` and Farmy's `Water Tanks`
       (STATUS.md's `f4d931a` entry) are affected.
+      *Does NOT block section D*, despite this section's own header: section D's
+      steps 1 and 3 predict a zero diff and touch no name-matching logic, and
+      section 4's case-insensitive-by-default decision is already made, its one
+      cost already accepted — this test only refines what is known about that
+      already-accepted cost, it does not gate whether the decision can be made.
       *Done when:* recorded in `APPSHEET_BEHAVIOR.md`'s "Case sensitivity"
       section, against the existing "Untested... whether a view name inside
       `LINKTOVIEW`/`LINKTOROW`/`LINKTOFORM` resolves case-insensitively" bullet,
