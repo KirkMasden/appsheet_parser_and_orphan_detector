@@ -612,7 +612,7 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
 
 ## E. Before contacting Leon
 
-- [ ] **Push.** The commits have been local since 2026-08-30.
+- [x] **Push.** Done 2026-09-03: 72 commits, `2f0cb81..28164fd`. Pushed without squashing — the recorded plan had been to squash `adfdaac`'s correction into `18e7462` so a public reader never saw the wrong LINKTOFORM count, and that was dropped deliberately: rewriting the base of a 72-commit branch would have invalidated every commit hash cited across `STATUS.md`, `CONSOLIDATION_PLAN.md` and this file, and `adfdaac` sits two commits after the error and names it in its own subject line. Keeping the correction visible in history also matches how these documents already treat superseded reasoning.
 
 - [ ] **Report the five broken view references in Leon's app.**
       `Seeds Form` (the real view is `Seeds_Form`), `ActivityForm - Transplant`,
