@@ -251,36 +251,6 @@ first time it has been saved as a regression baseline alongside Farmy's.
   touched anywhere, as required.
 - Not fixed, not applied, not committed. Read-only finding as of 2026-09-02.
 
-### `action_target_parser.py` inverts any `NOT(CONTEXT(...))` condition
-
-- **Mechanism:** the file has no handling for a `NOT(...)` wrapper anywhere —
-  confirmed by grep, zero matches for `NOT(` or `not(` in its context-condition
-  extraction. Its regex matches the inner `CONTEXT("ViewType") = "Detail"`
-  regardless of the enclosing `NOT()`, sees the `=` operator, and takes the "must
-  be" branch. So `NOT(CONTEXT("ViewType") = "Detail")` — meaning every view type
-  EXCEPT Detail — is recorded as `must_be_viewtype='Detail'`, the exact opposite.
-  `check_context_conditions` then correctly enforces the wrong requirement.
-- **Scope as measured:** 17 rows in Farmy's `action_targets.csv` carry a
-  `NOT(CONTEXT(...))` condition; 7 have the `ViewType` shape and are confirmed
-  inverted — `ActivityTransplant_Form`, `AmendmentPrep_Form`, `TRANSPLANT 0 -
-  GROUP`, `Go to Germination - From Nursery DELETE`, `Add - Beds_Form`, and
-  `Nursery_Detail or NurseryDetails_Detail` (2 rows). The remaining 10 use
-  `CONTEXT("View")` and land in `must_be_in_views` instead; whether they invert
-  the same way is NOT yet established — say so rather than assuming. Kankaku has
-  not been checked at all.
-- **Direction and why it matters:** the error is RESTRICTIVE. The parser believes
-  an action can only appear where it can never appear, so edges go missing and
-  views look unreachable — the false-positive direction Leon reported and the
-  reason for this round of work. It has been suppressing edges in every parse to
-  date, including every reference parse currently used for diffing; it is
-  invisible in diffs because it is stable across runs.
-- **How found:** while accounting for why Farmy's `CONSOLIDATION_PLAN.md` step 6
-  edge count came in below its predicted floor (`96d8897`, `CONSOLIDATION_PLAN.md`
-  section 5's step 6 entry). `Add - Beds_Form` was the single case in that
-  investigation with no legitimate explanation; the defect is general and that
-  action merely intersected step 6's flip set.
-- Not fixed. Read-only finding as of 2026-09-02.
-
 ## Recently fixed
 
 Entries from `48eead1` onward carry full verification detail — row counts, byte-identical claims, named views. Earlier entries are compressed summaries; for the fuller reasoning behind one of those, read that commit's own message rather than expecting it here.
@@ -361,6 +331,15 @@ Entries from `48eead1` onward carry full verification detail — row counts, byt
   - **Group-cascade pattern, the same one `e0530c8` found on tables:** 7 of Farmy's 18 added edges are `via_group` rows where a `Display_Overlay` group CONTAINER became visible and its `Do_Not_Display` children then produced edges through the group bypass — the children were never prominence-checked, before or after this fix.
   - **Zero orphan-count change in either app** — every orphan output file byte-identical, so nothing cleared, matching the plan's guess by analogy to `e0530c8` (which also cleared nothing on tables).
   - **Differential checks**, pre-change vs. post-change module comparison: NEG 0 True→False / 871 False→True in Farmy and 0/16 in Kankaku, with `edges_blocked_by_visibility` falling by exactly 871 and 16 respectively — confirming the counter tracks the same flips the edge count reflects. ADA 0/1713 and 0/60. AOD (existential) 0/0 in both apps — which is why no orphan cleared: every action that gained deck visibility already had another reachable path.
+- 2026-09-02, `a15021b` — `action_target_parser.py` inverted any `NOT(CONTEXT(...))` condition: a `NOT()` wrapping a `CONTEXT` comparison was previously ignored, so the condition was stored with its sense reversed — `NOT(CONTEXT("ViewType")="Detail")` became `must_be_viewtype='Detail'`, the exact opposite of what it says. The error was RESTRICTIVE in one direction and PERMISSIVE in the other: it suppressed real edges from every view type the condition actually allowed, while admitting false ones from the one view type it was written to exclude. Added two shared helpers, `_not_wraps_context_match` and `_invert_operator`, applied at four call sites: `parse_context_condition` (feeding `parse_if_expression`'s single-condition branch and `parse_ifs_expression`), and both of `process_action`'s inline `only_if_condition` regex loops (`execute_group` and regular-action branches).
+  - **Known limitation, not a defect:** the OR branch of `parse_if_expression` is deliberately not fixed — a `NOT()` on one OR term needs a different transform than bare-comparison inversion (that branch already collects every OR'd value into one shared must-be/must-not-be list, with no per-term negation), and the shape occurs in neither app, so it is unattested rather than tested.
+  - **Measured effect:** Farmy `navigation_edges.csv` 1868 → 1971 (111 added, 8 removed); Kankaku 597 → 585 (6 added, 18 removed, of which 6 are self-loop edges recounted after a field-only change — same `(source, target)` pair, corrected condition fields — so 12 are genuine revocations of edges that only existed because of the bug). `potential_action_orphans.csv` and `potential_view_orphans.csv` byte-identical in both apps. Farmy `unused_system_views.csv` 100 → 99, `ActivityGermination_Form` cleared.
+  - **Verification actually performed, stronger than a diff:** all 28 affected rows (21 Farmy, 7 Kankaku) were checked field-by-field against their source `only_if_condition` expressions, not merely against each other, confirmed correct across: lowercase `not(`/`and(`; newlines inside both `NOT(` and `CONTEXT(` itself (e.g. `NOT(\n    CONTEXT(\n      "View"\n    ) = ...)`, `ADJUST QUANTITY 0a - Group`); several `NOT()` terms in one `AND` (up to 3, `ActivityTransplant_Form 2`); mixed `View`- and `ViewType`-shaped `NOT()` conditions in one expression (`ActivityTransplant_Form`); and a row where a target-side `ViewType` condition from the navigate_target expression's own branch sits beside a `NOT`-wrapped view-name condition from `only_if_condition` and must be left untouched (`Images_Form - AmendmentPrep`, whose unrelated `must_be_viewtype='Form|||Dashboard|||Detail'` is confirmed unchanged on both of its rows).
+- 2026-09-02 — Kankaku's three `20260831_182306` view orphans (`Card stats`, `Card stats 2`, `Overall_Detail J`, all "Detail view not reachable from any root view") are absent from the `20260902_142806` parse of the SAME frozen export — which precedes the `NOT()` fix above — so they were cleared by commits made between those two parses, not by `a15021b`. Mechanism confirmed: `action_targets_unparseable.csv` fell from 6 rows to 1 across the same interval, matching the five `LINKTOROW` calls whose view-name arguments use typographic quotes — the defect `1c22881` fixed. This is a later, independent re-confirmation against fresh parses of the same export, not a new discovery: `1c22881`'s own entry above already recorded this exact clearance as part of its 2026-09-01 verification.
+  - `Card stats 2` gained 4 incoming `navigation_edges.csv` rows, all from `Go to card stats 2` (0 → 4). `Overall_Detail J` gained 10, split evenly between `Go to long-term statistics` and `Go to short-term statistics` (1 → 11, the 1 pre-existing edge from `Flag (Overall)` unchanged) — edges that existed in the app all along and were invisible only because the expressions naming them could not be parsed.
+  - `Card stats` recorded separately and at lower strength: its incoming edge count is unchanged at 1 (source `Kankaku_Inline` via `**auto**`) both before and after, so it cleared by cascade from an upstream view becoming reachable, not by gaining an edge of its own. Which upstream view has not been checked.
+  - The one remaining `action_targets_unparseable.csv` row is not a mystery — it is `Force sync`, already correctly identified and labeled (`"Forced sync — LINKTOROW to CONTEXT(VIEW), no navigation target"`) by `1c22881`'s second fix (see that entry above). Recorded here so a reader checking today's parses against the row count doesn't go looking for an unidentified failure that isn't there.
+  - `potential_format_rule_orphans.csv` is absent from the `20260831_182306` parse too — Kankaku's format-rule orphan count has been zero throughout this entire interval, and there is no change to explain there.
 
 ## Remaining work on the false positives
 

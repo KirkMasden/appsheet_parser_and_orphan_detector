@@ -209,7 +209,7 @@ comparison against the current reference output.
       *Done when:* the audit has been run and its findings are recorded in
       `STATUS.md`, whether or not anything needs fixing.
 
-- [ ] **`action_target_parser.py` inverts any `NOT(CONTEXT(...))` condition.**
+- [x] **`action_target_parser.py` inverts any `NOT(CONTEXT(...))` condition.**
       No handling exists anywhere for a `NOT(...)` wrapper around a `CONTEXT()`
       comparison — confirmed by grep, zero matches for `NOT(`/`not(` in the
       context-condition extraction. The regex matches the inner comparison
@@ -224,16 +224,47 @@ comparison against the current reference output.
       for why `CONSOLIDATION_PLAN.md` step 6's Farmy edge count came in below
       its predicted floor — `Add - Beds_Form` was the one case in that
       accounting with no other explanation. See `STATUS.md`'s matching entry.
-      *Done when:* the fix handles a `NOT(...)` wrapper around a `CONTEXT()`
+      Done `a15021b`. Scope, corrected after a scan-methodology bug (space-only
+      whitespace stripping missed newline-separated `NOT(\nCONTEXT` instances):
+      actual count was 21 Farmy rows / 19 distinct `(action, table)` pairs, not
+      17/17. All 10 `View`-shaped rows confirmed to invert the same way as the
+      `ViewType`-shaped ones; Kankaku confirmed too (7 rows / 2 actions). See
+      `STATUS.md`'s `a15021b` entry for the fix and full verification.
+      **The done-when below is corrected, not silently replaced — say why:**
+      "edges added, never removed" cannot hold for an inversion-class fix,
+      because inverting a wrong condition both unblocks edges the wrong
+      condition had suppressed AND revokes edges the wrong condition had
+      wrongly permitted, whenever the inverted (wrong) requirement happened to
+      be satisfied by some source view. Both happened here: Farmy
+      `navigation_edges.csv` 1868 → 1971 (111 added, 8 removed), Kankaku 597 →
+      585 (6 added, 18 removed). The stop condition as originally written
+      would have blocked a correct fix from ever being committed.
+      *Done when, as originally written (superseded by the corrected version
+      below):* the fix handles a `NOT(...)` wrapper around a `CONTEXT()`
       comparison correctly (inverting `must_be_viewtype`/`must_not_be_viewtype`
       or `must_be_in_views`/`must_not_be_in_views` as appropriate); whether the
       10 `CONTEXT("View")`-shaped `NOT(...)` rows invert the same way is
       established rather than assumed, not left as an open question; and
-      Kankaku is checked too, not just Farmy.
-      *Predicted direction:* edges ADDED, never removed — the fix only
-      corrects an over-restrictive condition into the correct, less-restrictive
-      one. Orphan counts flat or falling, never rising. Stop and re-examine if
-      any edge is removed or any orphan count rises.
+      Kankaku is checked too, not just Farmy. *Predicted direction:* edges
+      ADDED, never removed — the fix only corrects an over-restrictive
+      condition into the correct, less-restrictive one. Orphan counts flat or
+      falling, never rising. Stop and re-examine if any edge is removed or any
+      orphan count rises.
+      *Corrected done-when, met:* the fix handles a `NOT(...)` wrapper around a
+      `CONTEXT()` comparison correctly, established for all 10 `View`-shaped
+      rows and for Kankaku; **every removed edge traces to a source view that
+      the corrected condition excludes**, verified individually for all 8
+      Farmy and 18 Kankaku removals (`STATUS.md`'s `a15021b` entry); orphan
+      counts flat or falling, never rising — byte-identical
+      `potential_action_orphans.csv` and `potential_view_orphans.csv` in both
+      apps, Farmy `unused_system_views.csv` fell by 1 (`ActivityGermination_Form`
+      cleared).
+      **General note for the next inversion-class fix:** a done-when of "edges
+      added, never removed" is the wrong shape for correcting an inverted
+      boolean condition — such a fix is expected to touch both directions. The
+      right done-when checks that every removal is *explained* by the
+      correction (traces to a source the fixed condition genuinely excludes),
+      not that no removal occurs at all.
 
 ---
 
@@ -485,16 +516,28 @@ against `20260830_linktoform_verify/20260830_212632_AppsheetFarmyApp_for_Kirk_pa
 which predates `e0530c8` and the 82 `navigation_edges.csv` rows it added, and the most
 recent Leon-app parse on disk at the time this caution was written was
 `20260831_primary_overlay_verify/20260831_081316_AppsheetFarmyApp_for_Kirk_parse`. Both
-are stale as of 2026-09-02. The current references are
-`20260902_131151_AppsheetFarmyApp_for_Kirk_parse` (Farmy, refreshed at HEAD) and
-`20260901_085853_260831_1809_Kankaku_V18_regression_reference_1c22881` (Kankaku). Both
-sit outside the repository, since `*_parse/` is gitignored. Re-parse against the
-current code before trusting any predicted diff — this advice was reconfirmed twice
-over during step 6: the pre-implementation floor for Kankaku (~343 edges, almost all
-from `Session flag`) overstated the real result (5, none from `Session flag`) by nearly
-two orders of magnitude, precisely because it was not evaluated against
-`check_context_conditions` on a fresh parse (`CONSOLIDATION_PLAN.md` section 5's step 6
-entry has the full accounting).
+were stale as of 2026-09-02, and so, in turn, were the references that replaced them
+(`20260902_131151_AppsheetFarmyApp_for_Kirk_parse`,
+`20260901_085853_260831_1809_Kankaku_V18_regression_reference_1c22881`) once step 6's
+`96d8897` and the `NOT(CONTEXT(...))` fix's `a15021b` landed. **Current references, as
+of `a15021b`:** `20260902_180352_AppsheetFarmyApp_for_Kirk_parse` (Farmy) and
+`20260902_180356_260831_1809_Kankaku_V18_baseline_parse` (Kankaku). Both were produced
+by the code now committed as `a15021b` and are adopted at that hash without
+regeneration — confirmed by comparing `action_target_parser.py`'s mtime (its last
+edit) against both directories' earliest file mtimes, both later. **A directory's own
+timestamp does not establish this by itself:** it names the run's START time, which
+necessarily precedes the first file the run writes — check file mtimes inside the
+directory against the code's own mtime, not the directory name, before adopting any
+parse directory as a reference for a specific commit. Both parse directories sit
+outside the repository, since `*_parse/` is gitignored. Re-parse against the current
+code before trusting any predicted diff — this advice was reconfirmed three times now:
+during step 6 (the pre-implementation floor for Kankaku, ~343 edges almost all from
+`Session flag`, overstated the real result of 5 by nearly two orders of magnitude,
+because it was not evaluated against `check_context_conditions` on a fresh parse —
+`CONSOLIDATION_PLAN.md` section 5's step 6 entry has the full accounting), and again
+during the `NOT(CONTEXT(...))` fix, whose own predicted done-when ("edges added, never
+removed") had to be corrected against what a fresh re-parse actually showed (see this
+section's own entry above).
 
 Count CSV rows with a real CSV parser rather than `wc -l` or line-splitting: several
 fields in these outputs contain embedded newlines, and naive counting gives wrong
