@@ -206,6 +206,8 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   re-tested by anyone using the suite on an app with actions on map views. 7 of
   Leon's 319 views are maps.
 
+- **An inline action renders only if the column it is attached to renders.** An inline action's button appears beside its attach-to column's row; if that column's own `Show_If` is false in the current state, the column is absent and so is the button. This holds for a group whose parent action is inline as well, and therefore for the group's children. Observed in Kirk's running Kankaku app, 2026-09-03: the `Schedule position label` column on the `Definition` table carries `Show_If` `and(CONTEXT("ViewType") <> "form",INDEX(Cram[Enum],1)<>"On")`; in cram mode the row is absent from the view and no button attached to it appears, while out of cram the row is present and shows one button, `Visualize schedule 2`, whose condition is `true`. Five actions attach to this column per the 2026-08-31 parse; they were not checked individually in the app, and the general rule above is what the observation supports. Consequence for this suite is recorded in `STATUS.md`, not here.
+
 ## Manual action lists
 
 Source: known behaviour, stated by Kirk from experience building AppSheet apps,
@@ -336,7 +338,7 @@ says. From AppSheet's own point of view nothing is wrong in any of the cases bel
 which is exactly why its validation cannot be expected to catch them, and exactly why
 this is a job for static analysis specifically.
 
-Three instances are established in this project so far, all failing with no error
+Four instances are established in this project so far, all failing with no error
 and no visible symptom:
 
 - **A `CONTEXT()` argument outside its closed vocabulary.** `CONTEXT(vew)`,
@@ -352,6 +354,16 @@ and no visible symptom:
   prominence would never display anyway. This follows logically from two facts
   already established above (Position values; `CONTEXT()`'s behavior), not from a
   new observation of its own.
+- **A column's `Show_If` and the condition on an action attached to that column can
+  be mutually unsatisfiable.** [Observed, 2026-09-03 — the first directly observed
+  instance of the dead-by-construction class above, which until now rested on
+  inference.] Kankaku's `Schedule position label` requires
+  `INDEX(Cram[Enum],1)<>"On"` to render; two group actions attached to it require
+  `INDEX(Cram[Enum],1)="On"` to be visible. Both expressions are well-formed and
+  AppSheet accepts both. Only their conjunction is impossible, and nothing in the
+  editor reports it. Note that the contradiction here is between a column and an
+  action, not within one expression — a checker scanning expressions individually
+  would not find it.
 
 ## Scope decisions — deliberate exclusions
 
