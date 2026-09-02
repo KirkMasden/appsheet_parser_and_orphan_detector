@@ -19,6 +19,7 @@ Of the four false-positive categories originally reported, three are fixed (see 
 ### Five actions in the app itself target views that do not exist
 
 - `Seeds Form` (the actual view is `Seeds_Form`), `ActivityForm - Transplant`, `ActivityForm - Germination`, and `ActivityForm Observation` are named by `LINKTOFORM` calls in the app (actions `Add Seeds to Order`; `Go to TransplantActivity`; `Go to Germination - From MyPlants Direct Sow`; `Go to ObservationActivity` and `Go to ObservationActivity 2`), but no view by these names exists in `appsheet_views.csv`. A fifth, `NurseryForm2b`, is named by a `LINKTOROW` call in the Sync action `Sync | Order (Complete)` on table `Nursery`; no such view exists either, and the nearest existing names are `Nursery_Form`, `NurseryDetails_Form`, and `Nursery Creating_Form`. Unlike the other four, this one is not a `new_record_form`/`LINKTOFORM` case, and it did not surface until `496d5ed`'s `parse_linktorow` fix stopped the greedy-regex bug from swallowing it into a bogus row first (see "Recently fixed" above) — the fix didn't create this phantom, it stopped hiding it. All five look like stale names left after view renames — a defect in the app being analyzed, not in this tool. `f4d931a` (for the first four) and `496d5ed` (for the fifth) emit them as targets rather than silently correcting or dropping them, so they now surface correctly in `potential_phantom_view_references.csv`. Not verified by observation in the running app.
+- **These five are specific cases, not a total.** They were found by two commits (`f4d931a`, `496d5ed`) tracing particular `LINKTOFORM`/`LINKTOROW` calls, not by a survey of every phantom reference in the app. Farmy's `potential_phantom_view_references.csv` currently holds 16 rows where an action's `navigate_target` names a missing view (`type=Action`, `field=navigate_target`), and 56 rows in total once every phantom-reference category is counted (actions, `only_if_condition` text, and column-level references) — counted directly against the current parse (`20260902_131151_AppsheetFarmyApp_for_Kirk_parse`). The five above are the ones this project has specifically investigated and named; the rest are real, correctly-surfaced findings this section has not individually narrated.
 
 ### All three visibility implementations gate `Display_Overlay` on a deck's action bar, the wrong element
 
@@ -33,7 +34,12 @@ Of the four false-positive categories originally reported, three are fixed (see 
   detail; the platform reasoning is not restated here.
 - Consequence worth stating: on a deck whose action bar is switched off, a Primary
   action is invisible to AOD and ADA, blocked by a setting governing a different
-  element. Leon's app contains one such deck.
+  element. Farmy has one such deck (`MyPlants_Inline - Recent transplants needing
+  GPS location - direct from transplant form`); Kankaku has five (`D to W`, `Help`,
+  `Help J M`, `Help menu`, `Help J S`) — both counts verified against the current
+  parses (`20260902_131151_AppsheetFarmyApp_for_Kirk_parse`,
+  `20260902_132519_260831_1809_Kankaku_V18_baseline_parse`), not carried over from
+  an earlier count.
 - Not fixed.
 
 ### Manual action-list exclusion may not be enforced outside deck views

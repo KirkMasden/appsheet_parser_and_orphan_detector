@@ -256,9 +256,25 @@ AppSheet's own behavior, not any of the three files' existing logic.
 | Prominence | NEG | AOD | ADA | AppSheet behavior |
 |---|---|---|---|---|
 | `Do_Not_Display` | T if onclick-bound, via the unconditional-True branch | **T** — case bug | **T** — case bug | **F** [documented] |
-| `Display_Inline` | **T, unconditional** — no branch exists | bar + mode gated | bar + mode gated | **[none]** |
-| `Display_Prominently` | **T, unconditional** | bar + mode gated | bar + mode gated | **Not established** [documented, weak] |
-| `Display_Overlay` | **T**, but by the unconditional `else`, not by a rule | bar + mode gated — **wrong** | bar + mode gated — **wrong** | **T** [documented] — same collection class as deck; not observed on gallery specifically |
+| `Display_Inline` | **T, unconditional** — no branch exists | **F** — bar gate unconditionally closed | **F** — bar gate unconditionally closed | **[none]** |
+| `Display_Prominently` | **T, unconditional** | **F** — bar gate unconditionally closed | **F** — bar gate unconditionally closed | **Not established** [documented, weak] |
+| `Display_Overlay` | **T**, but by the unconditional `else`, not by a rule | **F** — bar gate unconditionally closed — **wrong** | **F** — bar gate unconditionally closed — **wrong** | **T** [documented] — same collection class as deck; not observed on gallery specifically |
+
+**AOD's and ADA's "bar gated" cells above are not conditionally gated in
+practice — they are unconditionally closed for gallery, not merely gated the way
+deck's are.** `show_action_bar` is the empty string for every gallery view in both
+apps' exports (2/2 in Farmy, the only app with gallery views). `views_parser.py`
+writes this field from the view's own `view_configuration` JSON's `ShowActionBar`
+key uniformly by view type — the extraction itself carries no `view_type`
+conditional (`views_parser.py` line ~730) — and that key is simply absent from
+gallery's JSON: gallery's `view_configuration` carries `ActionBarEntries` (the
+action-list content) but never `ShowActionBar` (the toggle), while deck's carries
+both. Since `''.lower() == 'true'` is never true, AOD's and ADA's `show_action_bar`
+requirement can never pass for a gallery view, for any prominence, in any mode — so
+both files reject every non-`Do_Not_Display` action on every gallery view outright,
+not "when the bar happens to be off." This is a faithful reading of AppSheet's own
+export, not a parser gap — confirmed directly against both Farmy gallery views' raw
+`view_configuration` JSON.
 
 Step 4's premise is now stronger than the plan states: gallery being a sibling of deck and
 table is supported by documentation, not only by two files agreeing. But step 4 as
@@ -327,12 +343,10 @@ the previous version, which made NEG and the other two look closer than they are
 
 ### What this section does not establish
 
-- The view-type counts (92 form, 17 card, 7 map, 3 dashboard, 1 calendar, of 319) are
-  carried over from the previous version, which computed them against a superseded parse.
-  There is no reason to think they moved — `e0530c8` left every parser output file
-  byte-identical, and `appsheet_views.csv` is a parser output — but they are the only
-  figures here not derived from the code, and should be recounted with a real CSV parser
-  rather than trusted.
+- The view-type counts — 92 form, 17 card, 7 map, 3 dashboard, 1 calendar, 2 gallery,
+  23 deck, 80 table, 94 detail, of 319 — are confirmed against the current parse
+  (`20260902_131151_AppsheetFarmyApp_for_Kirk_parse`, counted with Python's `csv`
+  module), not merely carried over from an earlier one.
 - That exactly four prominence values exist was verified against Leon's app when this
   section was written. The 2026-08-31 baseline parse of Kirk's own app (Kankaku) has since
   confirmed the same four and no others in a second app.
