@@ -31,8 +31,70 @@ Of the four false-positive categories originally reported, three are fixed (see 
 
 ### Seven modules have had no logic change since they were written — a blind spot, not a clean bill of health
 
-- `view_orphan_detector.py`, `view_dependency_analyzer.py`, `slice_orphan_detector.py`, `format_rules_parser.py`, `format_rule_orphan_detector.py`, `column_dependency_analyzer.py`, and `action_dependency_analyzer.py` have never had a logic change since being written, per `git log` on each file (only the mechanical `csv_limits.py` import touches any of them). "Untouched" is ambiguous: it means either the code is solid, or it has never been exercised against real, varied data, and git history alone cannot tell the two apart. `action_dependency_analyzer.py` has already been shown to be the second case, not the first — see the entry directly above: never modified, and wrong the whole time it sat unmodified. The other six have not been examined at all; nothing here should be read as implying they are sound.
+- `view_orphan_detector.py`, `view_dependency_analyzer.py`, `slice_orphan_detector.py`, `format_rules_parser.py`, `format_rule_orphan_detector.py`, `column_dependency_analyzer.py`, and `action_dependency_analyzer.py` have never had a logic change since being written, per `git log` on each file (only the mechanical `csv_limits.py` import touches any of them). "Untouched" is ambiguous: it means either the code is solid, or it has never been exercised against real, varied data, and git history alone cannot tell the two apart. `action_dependency_analyzer.py` has already been shown to be the second case, not the first — see the entry directly above: never modified, and wrong the whole time it sat unmodified. **`view_orphan_detector.py` is now a third confirmed case of the second kind — see its own entry below, added 2026-09-02.** The other five have still not been examined; nothing here should be read as implying they are sound.
 - The pattern found across the wider history bears on how much confidence that absence of past fixes should give: `navigation_edge_generator.py` and `action_target_parser.py` were each untouched (beyond the mechanical `csv_limits` import) for months, then took every one of their real fixes inside a single 48-hour window, 2026-08-30 to 08-31, when the suite was first stress-tested against a second app in depth. In this project's own history, a long gap since the last fix has meant "not yet tested against different data" at least as often as it has meant "correct."
+
+### `view_orphan_detector.py` never evaluates `CONTEXT()` — systematically more permissive than sibling modules, under-reporting orphans in both apps
+
+- Confirmed by full code audit, 2026-09-02, the first of the six never-examined
+  modules in the entry above to actually be audited (report:
+  `/Users/kirkmasden/Desktop/260902_view_orphan_detector_code_audit.md`). The
+  module's own logic has been stable across the whole window this project has
+  been active — no commit has touched it since the initial commit, apart from
+  the mechanical `csv_limits` import and one Windows-only field-size fix
+  (`2f0cb81`).
+- **The confirmed finding:** reachability is a plain, root-seeded BFS over
+  `navigation_graph`, built entirely from `navigation_edges.csv`
+  (`build_navigation_graph_from_edges()`), with **zero additional validation
+  performed inside this module during traversal** — no visibility check, no
+  column-existence check, and no `CONTEXT()` evaluation of any kind, confirmed
+  by grep (`grep -n -i "context" view_orphan_detector.py` — zero hits, anywhere
+  in the file). Whatever an edge in `navigation_edges.csv` represents, this
+  module treats it as unconditionally traversable. This makes it
+  **systematically more permissive than sibling modules that do check
+  context** — an edge whose `must_be_in_views`/`must_be_viewtype`/etc.
+  condition can never actually be satisfied still counts as a real path here,
+  which means this module under-reports both `potential_view_orphans.csv` and
+  `unused_system_views.csv` in both apps, in every parse to date, by an amount
+  that has not been measured. This is the same "restrictive vs. permissive"
+  asymmetry already recorded elsewhere in this file for other modules, just in
+  the permissive direction, which is quieter and harder to notice than the
+  restrictive kind — a permissive error emits a false "reachable," and nobody
+  complains about a view that isn't flagged.
+- **Not decided:** whether to add `CONTEXT()` evaluation to this module (making
+  it match its stricter siblings) or to document the gap as an accepted
+  limitation instead. That is Kirk's call, not made here — see
+  `RELEASE_CHECKLIST.md` section B.
+- Other findings from the same audit, all confirmed directly against the code:
+  no `ref_parent` or embedding-based reachability path exists for
+  category-`ref` views — `category == 'ref'` only selects which reason string
+  to write (`'Ref view not reachable from any root view'` /
+  `'System ref view not reachable from any root view'`), after the same BFS
+  result gates every view regardless of category. `appsheet_actions.csv` is a
+  required input (`validate_files()` fails without it) but is never actually
+  read anywhere in the module. `appsheet_columns.csv` is loaded into
+  `self.columns_by_table` and then never read again — no column-existence
+  validation happens despite the data being present. `is_always_false_condition()`
+  is a small fixed list of literal patterns (`false`, `false()`, `1=2`,
+  `"a"="b"`, `true=false`, each with an optional leading `=`), not a general
+  expression evaluator — a `show_if` that's always false through any other
+  phrasing silently falls through as "not always false."
+- **Neither 2025 design document matches the code, and the mismatch runs in
+  opposite directions** (source: `260902_view_orphan_path_analysis_notes.md`,
+  a separate read of the four 2025 `.docx` design records). `250809` describes
+  a comprehensive, validated BFS as already implemented; `250819`, ten days
+  later, describes the then-current algorithm as pure reference-collection
+  with no path verification at all. The code today is root-seeded BFS with no
+  per-step validation — closer in *shape* to `250809` (the function names and
+  root-view definition match) but without the validation `250809` claimed was
+  built, and structurally nothing like `250819`'s flat reference-collection
+  description (there is no `available_actions` scanning anywhere in the file).
+  Neither document is an accurate account of the code as it exists now. Also
+  confirmed: none of the four 2025 documents mentions `ref_parent` at all
+  (verified by grep across all four) — the code's silence on embedding-based
+  reachability is not a case of undocumented divergence from a design; the
+  design never addressed the question either.
+- Not fixed. Read-only finding as of 2026-09-02.
 
 ### December 2025 User Settings work is unverified
 
@@ -335,9 +397,10 @@ Entries from `48eead1` onward carry full verification detail — row counts, byt
   - **Known limitation, not a defect:** the OR branch of `parse_if_expression` is deliberately not fixed — a `NOT()` on one OR term needs a different transform than bare-comparison inversion (that branch already collects every OR'd value into one shared must-be/must-not-be list, with no per-term negation), and the shape occurs in neither app, so it is unattested rather than tested.
   - **Measured effect:** Farmy `navigation_edges.csv` 1868 → 1971 (111 added, 8 removed); Kankaku 597 → 585 (6 added, 18 removed, of which 6 are self-loop edges recounted after a field-only change — same `(source, target)` pair, corrected condition fields — so 12 are genuine revocations of edges that only existed because of the bug). `potential_action_orphans.csv` and `potential_view_orphans.csv` byte-identical in both apps. Farmy `unused_system_views.csv` 100 → 99, `ActivityGermination_Form` cleared.
   - **Verification actually performed, stronger than a diff:** all 28 affected rows (21 Farmy, 7 Kankaku) were checked field-by-field against their source `only_if_condition` expressions, not merely against each other, confirmed correct across: lowercase `not(`/`and(`; newlines inside both `NOT(` and `CONTEXT(` itself (e.g. `NOT(\n    CONTEXT(\n      "View"\n    ) = ...)`, `ADJUST QUANTITY 0a - Group`); several `NOT()` terms in one `AND` (up to 3, `ActivityTransplant_Form 2`); mixed `View`- and `ViewType`-shaped `NOT()` conditions in one expression (`ActivityTransplant_Form`); and a row where a target-side `ViewType` condition from the navigate_target expression's own branch sits beside a `NOT`-wrapped view-name condition from `only_if_condition` and must be left untouched (`Images_Form - AmendmentPrep`, whose unrelated `must_be_viewtype='Form|||Dashboard|||Detail'` is confirmed unchanged on both of its rows).
-- 2026-09-02 — Kankaku's three `20260831_182306` view orphans (`Card stats`, `Card stats 2`, `Overall_Detail J`, all "Detail view not reachable from any root view") are absent from the `20260902_142806` parse of the SAME frozen export — which precedes the `NOT()` fix above — so they were cleared by commits made between those two parses, not by `a15021b`. For `Card stats 2` and `Overall_Detail J`, mechanism confirmed: `action_targets_unparseable.csv` fell from 6 rows to 1 across the same interval, matching the five `LINKTOROW` calls whose view-name arguments use typographic quotes — the defect `1c22881` fixed, and each view's clearance is accounted for by real new `navigation_edges.csv` rows (below). This is a later, independent re-confirmation against fresh parses of the same export, not a new discovery for those two: `1c22881`'s own entry above already recorded their clearance as part of its 2026-09-01 verification. `Card stats` is different — see its own bullet below; its clearance does not have this same explanation, and `1c22881`'s entry grouping it with the other two as one undifferentiated "3 previously-flagged views" clearance should be read with that caveat now attached.
+- 2026-09-02 — Kankaku's three `20260831_182306` view orphans (`Card stats`, `Card stats 2`, `Overall_Detail J`, all "Detail view not reachable from any root view") are absent from the `20260902_142806` parse of the SAME frozen export — which precedes the `NOT()` fix above — so they were cleared by commits made between those two parses, not by `a15021b`. All three trace to `1c22881`, though not by the same mechanism: `Card stats 2` and `Overall_Detail J` are explained directly, by a new `navigation_edges.csv` edge reaching each of them (below); `Card stats` is explained indirectly, via a path through an unrelated view, established only after this entry's first version wrongly concluded the mechanism was unidentified — see its own bullet below for the corrected account and why the first attempt missed it.
   - `Card stats 2` gained 4 incoming `navigation_edges.csv` rows, all from `Go to card stats 2` (0 → 4). `Overall_Detail J` gained 10, split evenly between `Go to long-term statistics` and `Go to short-term statistics` (1 → 11, the 1 pre-existing edge from `Flag (Overall)` unchanged) — edges that existed in the app all along and were invisible only because the expressions naming them could not be parsed.
-  - `Card stats` recorded separately, and as unexplained rather than attributed to this fix: its single incoming edge (`Kankaku_Inline` via `**auto**`, `row selected`) is byte-identical in both parses, and `Kankaku_Inline` itself has zero incoming edges in both — so neither view gained an edge, and the "cleared by cascade from an upstream view becoming reachable" framing this entry originally gave is wrong; there is no such cascade to point to. It cleared for some reason internal to how `view_orphan_detector.py` resolves reachability for category-`ref` views, which are embedded via `ref_parent` rather than reached by a navigation edge. **Mechanism not identified — do not attribute this one to the smart-quote/`1c22881` fix**, unlike `Card stats 2` and `Overall_Detail J` above, whose clearance is fully accounted for by real new edges.
+  - **`Card stats`, corrected 2026-09-02 by the `view_orphan_detector.py` code audit** (`/Users/kirkmasden/Desktop/260902_view_orphan_detector_code_audit.md`): it DOES trace to `1c22881`, via `D to W (root) → D to W_Detail → Definition → Card Stats` — a path through `Definition`, not through `Kankaku_Inline`. The first two hops are identical in both parses; the third, `Definition → Card Stats` via action `Go to card stats`, has zero rows in `20260831_182306` and two in `20260902_142806` — `Go to card stats` is one of the three single-call actions `1c22881`'s own entry above already names as recovered by the curly-quote fix (`"Go to card stats" → "Card Stats"`). `view_orphan_detector.py`'s existing, unchanged case-insensitive view-name resolution (`view_name_by_lower`, built in `load_views()`) attaches the mismatched-case target `'Card Stats'` to the real view `Card stats`. Established by executing the module itself — importing `ViewOrphanDetector` and running its own `find_all_reachable_views()` and `print_reach_path()` against both reference parse directories — not by reading the CSVs by hand.
+    - **Keeping the earlier conclusion on record rather than erasing it, because the reasoning behind it stands even though the conclusion was wrong:** the `Kankaku_Inline → Card stats` edge (`**auto**`, `row selected`) genuinely is byte-identical in both parses, and `Kankaku_Inline` genuinely has zero incoming edges in both — that observation was correct, and that edge truly is a dead end, in both parses, that never explains the clearance. What was wrong was concluding "mechanism not identified" from that alone: `Kankaku_Inline` is not `Card stats`'s only incoming edge, and the second path (through `Definition`) was never checked before drawing that conclusion. The lesson is the gap between "this specific edge doesn't explain it" and "no edge explains it" — the first was established, the second wasn't, and the entry stated the second anyway.
   - The one remaining `action_targets_unparseable.csv` row is not a mystery — it is `Force sync`, already correctly identified and labeled (`"Forced sync — LINKTOROW to CONTEXT(VIEW), no navigation target"`) by `1c22881`'s second fix (confirmed by `git log -S` on that exact string: only `1c22881`'s diff to `action_target_parser.py` adds it; `d5afd61` and `7aeb2c3` merely quote it in this file). Recorded here so a reader checking today's parses against the row count doesn't go looking for an unidentified failure that isn't there.
     - **Roadmap note, not a defect and not phase one:** this expression's `CONTEXT(VIEW)` uses a bare, unquoted argument — every other `CONTEXT()` call in both apps (101 in Farmy, 230 in Kankaku, confirmed by scanning `navigate_target` and `only_if_condition` in both) uses a quoted string literal (`CONTEXT("View")`, `CONTEXT("ViewType")`, and so on). AppSheet accepts both forms. Relevant to any future `CONTEXT()` argument-validation checker: one keyed on quoted literals alone would miss or misflag this form.
   - `potential_format_rule_orphans.csv` is absent from the `20260831_182306` parse too — Kankaku's format-rule orphan count has been zero throughout this entire interval, and there is no change to explain there.

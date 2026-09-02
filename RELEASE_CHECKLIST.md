@@ -203,6 +203,12 @@ comparison against the current reference output.
       - `view_orphan_detector.py` may not parse `CONTEXT("View")` conditions at
         all, unlike sibling files that do. Named as a "should do this" next
         step in two separate 2025 documents and never shown as done.
+        **CONFIRMED, 2026-09-02** — `view_orphan_detector.py` audited (report:
+        `/Users/kirkmasden/Desktop/260902_view_orphan_detector_code_audit.md`;
+        findings recorded in `STATUS.md`). This standing hypothesis was right:
+        the module parses no `CONTEXT()` condition of any kind — confirmed by
+        grep, zero hits for `context` anywhere in the file. One of six audited,
+        five remain.
       - `view_dependency_analyzer.py`'s exact/table-aware matching fix, applied
         in 2025 to format rules, slices and actions, was explicitly planned for
         views and explicitly not completed.
@@ -266,7 +272,7 @@ comparison against the current reference output.
       correction (traces to a source the fixed condition genuinely excludes),
       not that no removal occurs at all.
 
-- [ ] **How `view_orphan_detector.py` determines reachability for category-`ref`
+- [x] **How `view_orphan_detector.py` determines reachability for category-`ref`
       views.**
       Evidence, from the 2026-09-02 `STATUS.md` entry: `Card stats` was flagged
       a view orphan in the `20260831_182306` Kankaku parse and not in either
@@ -281,11 +287,48 @@ comparison against the current reference output.
       a reachability path nobody has read is a path whose correctness is
       unknown in both directions — it could be suppressing real orphans or
       clearing false ones.
+      Done, code audit `/Users/kirkmasden/Desktop/260902_view_orphan_detector_code_audit.md`.
+      **Both halves of the done-when below are met, and the first line's own
+      premise turned out to be wrong:** there is no separate `ref_parent` or
+      embedding-based reachability path — `category == 'ref'` is read in
+      exactly two places in the module, both purely cosmetic (choosing the
+      `orphan_reason`/`unused_reason` string after the ordinary BFS result has
+      already decided reachability). Every view, `ref`-category or not, is
+      reachable only through the same navigation-edge graph. And the specific
+      change is named: `1c22881`. `Card stats` reaches root `D to W` via
+      `D to W_Detail → Definition → Card Stats` — a path that has nothing to
+      do with `Kankaku_Inline` — and the one edge in that chain that differs
+      between the two parses, `Definition → Card Stats` via `Go to card
+      stats`, is one of the three actions `1c22881`'s own `STATUS.md` entry
+      already names as recovered by that commit's curly-quote fix. Established
+      by running the module's own `find_all_reachable_views()` and
+      `print_reach_path()` against both reference parses, not by reading CSVs.
+      See `STATUS.md`'s corrected `Card stats` entry for the full account,
+      including the earlier wrong conclusion kept on record rather than
+      erased.
       *Done when:* the path by which a category-`ref` view is judged reachable
       is identified in the code and described in `STATUS.md`; and the specific
       change between `ebc41d6` and `a15021b` that altered `Card stats`'s
       result is named, or it is stated that no such change was found and the
       difference remains unexplained.
+
+- [ ] **Decide: fix `view_orphan_detector.py`'s missing `CONTEXT()` handling, or
+      document it as an accepted limitation.**
+      Confirmed by the 2026-09-02 code audit
+      (`/Users/kirkmasden/Desktop/260902_view_orphan_detector_code_audit.md`;
+      `STATUS.md`'s matching entry): the module's BFS traversal performs no
+      `CONTEXT()` evaluation at all, so an edge whose context condition can
+      never actually be satisfied still counts as a real path — systematically
+      more permissive than sibling modules that do check, under-reporting
+      orphans in both apps by an unmeasured amount.
+      **Not resolved here — this is Kirk's decision, not made by this entry.**
+      Two live options, recorded so the choice isn't lost: (a) port
+      `CONTEXT()` validation into this module, matching its stricter siblings;
+      (b) leave it as-is and document the gap as an accepted limitation rather
+      than a defect to fix.
+      *Done when:* Kirk has chosen a direction, and either the fix is
+      implemented and verified by full re-parse of both apps, or the decision
+      to leave it and why is recorded in `STATUS.md`.
 
 ---
 
