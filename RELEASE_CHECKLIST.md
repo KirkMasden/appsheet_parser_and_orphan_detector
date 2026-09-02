@@ -634,6 +634,20 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
       non-Anthropic tools. Required before publication, not optional: a
       published tool that other people's AI will use needs this to use the
       suite without reverse-engineering it.
+      **On model choice:** this is the one remaining phase-one task that is
+      synthesis rather than verification — it requires holding the whole suite
+      in view at once (twenty-one modules, the CSV schemas they emit, which
+      analyzer answers which class of question, and the documented blind
+      spots) and has no verification loop to catch a shallow result. Kirk has
+      credits for Claude Fable and this is the phase-one task where that
+      capability fits. Practical note: hand the model `RELEASE_CHECKLIST.md`,
+      `STATUS.md`, `CONSOLIDATION_PLAN.md`, `APPSHEET_BEHAVIOR.md`, and the two
+      2026-09-02 audit reports
+      (`~/Desktop/260902_view_orphan_path_analysis_notes.md`,
+      `~/Desktop/260902_view_orphan_detector_code_audit.md`) at session start
+      rather than letting it discover them by reading the repo — discovery is
+      where cost accumulates, and those documents already contain what it
+      would reconstruct.
 
 ---
 
@@ -705,3 +719,8 @@ sheet side made visible; how that gets built is still open.
 The non-interactive query mode with JSON output, also named in `STATUS.md`'s "Next
 steps", is not part of this project and stays where that file puts it: only if a
 demonstrated need appears.
+
+**On model choice:** the early architectural decisions here are the other place
+extra model capability is worth spending, and arguably the stronger case — phase
+one's remaining work is checkable against code and re-parses, whereas a wrong
+architectural decision in phase two costs weeks before anything reveals it.
