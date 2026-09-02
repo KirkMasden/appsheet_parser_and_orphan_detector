@@ -21,27 +21,6 @@ Of the four false-positive categories originally reported, three are fixed (see 
 - `Seeds Form` (the actual view is `Seeds_Form`), `ActivityForm - Transplant`, `ActivityForm - Germination`, and `ActivityForm Observation` are named by `LINKTOFORM` calls in the app (actions `Add Seeds to Order`; `Go to TransplantActivity`; `Go to Germination - From MyPlants Direct Sow`; `Go to ObservationActivity` and `Go to ObservationActivity 2`), but no view by these names exists in `appsheet_views.csv`. A fifth, `NurseryForm2b`, is named by a `LINKTOROW` call in the Sync action `Sync | Order (Complete)` on table `Nursery`; no such view exists either, and the nearest existing names are `Nursery_Form`, `NurseryDetails_Form`, and `Nursery Creating_Form`. Unlike the other four, this one is not a `new_record_form`/`LINKTOFORM` case, and it did not surface until `496d5ed`'s `parse_linktorow` fix stopped the greedy-regex bug from swallowing it into a bogus row first (see "Recently fixed" above) — the fix didn't create this phantom, it stopped hiding it. All five look like stale names left after view renames — a defect in the app being analyzed, not in this tool. `f4d931a` (for the first four) and `496d5ed` (for the fifth) emit them as targets rather than silently correcting or dropping them, so they now surface correctly in `potential_phantom_view_references.csv`. Not verified by observation in the running app.
 - **These five are specific cases, not a total.** They were found by two commits (`f4d931a`, `496d5ed`) tracing particular `LINKTOFORM`/`LINKTOROW` calls, not by a survey of every phantom reference in the app. Farmy's `potential_phantom_view_references.csv` currently holds 16 rows where an action's `navigate_target` names a missing view (`type=Action`, `field=navigate_target`), and 56 rows in total once every phantom-reference category is counted (actions, `only_if_condition` text, and column-level references) — counted directly against the current parse (`20260902_131151_AppsheetFarmyApp_for_Kirk_parse`). The five above are the ones this project has specifically investigated and named; the rest are real, correctly-surfaced findings this section has not individually narrated.
 
-### All three visibility implementations gate `Display_Overlay` on a deck's action bar, the wrong element
-
-- `navigation_edge_generator.py`'s `is_action_visible_in_deck_view` requires membership
-  in `referenced_actions`; `actions_orphan_detector.py` and
-  `action_dependency_analyzer.py` require `show_action_bar` to be true and then branch
-  on `action_display_mode`. All three therefore make a Primary/`Display_Overlay`
-  action's visibility depend on the deck's row-level action bar.
-- Per `APPSHEET_BEHAVIOR.md`'s Deck+Overlay entry, a Primary action is a view-level
-  floating button and not a member of that bar, so none of these gates should apply to
-  it. See `CONSOLIDATION_PLAN.md` section 2's Deck views entry for the cell-by-cell
-  detail; the platform reasoning is not restated here.
-- Consequence worth stating: on a deck whose action bar is switched off, a Primary
-  action is invisible to AOD and ADA, blocked by a setting governing a different
-  element. Farmy has one such deck (`MyPlants_Inline - Recent transplants needing
-  GPS location - direct from transplant form`); Kankaku has five (`D to W`, `Help`,
-  `Help J M`, `Help menu`, `Help J S`) — both counts verified against the current
-  parses (`20260902_131151_AppsheetFarmyApp_for_Kirk_parse`,
-  `20260902_132519_260831_1809_Kankaku_V18_baseline_parse`), not carried over from
-  an earlier count.
-- Not fixed.
-
 ### Manual action-list exclusion may not be enforced outside deck views
 
 - `action_display_mode` is present for every view type in the export, but `navigation_edge_generator.py` reads it only inside `is_action_visible_in_deck_view` — see the open question under "Manual action lists" in `APPSHEET_BEHAVIOR.md`. Not investigated.
@@ -272,6 +251,36 @@ first time it has been saved as a regression baseline alongside Farmy's.
   touched anywhere, as required.
 - Not fixed, not applied, not committed. Read-only finding as of 2026-09-02.
 
+### `action_target_parser.py` inverts any `NOT(CONTEXT(...))` condition
+
+- **Mechanism:** the file has no handling for a `NOT(...)` wrapper anywhere —
+  confirmed by grep, zero matches for `NOT(` or `not(` in its context-condition
+  extraction. Its regex matches the inner `CONTEXT("ViewType") = "Detail"`
+  regardless of the enclosing `NOT()`, sees the `=` operator, and takes the "must
+  be" branch. So `NOT(CONTEXT("ViewType") = "Detail")` — meaning every view type
+  EXCEPT Detail — is recorded as `must_be_viewtype='Detail'`, the exact opposite.
+  `check_context_conditions` then correctly enforces the wrong requirement.
+- **Scope as measured:** 17 rows in Farmy's `action_targets.csv` carry a
+  `NOT(CONTEXT(...))` condition; 7 have the `ViewType` shape and are confirmed
+  inverted — `ActivityTransplant_Form`, `AmendmentPrep_Form`, `TRANSPLANT 0 -
+  GROUP`, `Go to Germination - From Nursery DELETE`, `Add - Beds_Form`, and
+  `Nursery_Detail or NurseryDetails_Detail` (2 rows). The remaining 10 use
+  `CONTEXT("View")` and land in `must_be_in_views` instead; whether they invert
+  the same way is NOT yet established — say so rather than assuming. Kankaku has
+  not been checked at all.
+- **Direction and why it matters:** the error is RESTRICTIVE. The parser believes
+  an action can only appear where it can never appear, so edges go missing and
+  views look unreachable — the false-positive direction Leon reported and the
+  reason for this round of work. It has been suppressing edges in every parse to
+  date, including every reference parse currently used for diffing; it is
+  invisible in diffs because it is stable across runs.
+- **How found:** while accounting for why Farmy's `CONSOLIDATION_PLAN.md` step 6
+  edge count came in below its predicted floor (`96d8897`, `CONSOLIDATION_PLAN.md`
+  section 5's step 6 entry). `Add - Beds_Form` was the single case in that
+  investigation with no legitimate explanation; the defect is general and that
+  action merely intersected step 6's flip set.
+- Not fixed. Read-only finding as of 2026-09-02.
+
 ## Recently fixed
 
 Entries from `48eead1` onward carry full verification detail — row counts, byte-identical claims, named views. Earlier entries are compressed summaries; for the fuller reasoning behind one of those, read that commit's own message rather than expecting it here.
@@ -347,6 +356,11 @@ Entries from `48eead1` onward carry full verification detail — row counts, byt
   - **Post-fix verification:** all 363 pairs now return `False`. A full cross-product of every `(action, view)` pair in both apps (Farmy 309,430 pairs, Kankaku 110,320) confirms zero pairs in the `Do_Not_Display` × deck/gallery category return `True` anywhere: Farmy 10,350 affected-category pairs / 299,080 unaffected, Kankaku 1,422 affected-category pairs / 108,898 unaffected — the fix changed only the affected category's logic, nothing else.
   - **Verification method note:** verified by direct calls to `is_visible_in_view_ada` against parsed CSVs rather than via the interactive dependency browser — equivalent evidence, since the function is plain and the browser is its only consumer, and this is exactly the value the browser displays. `RELEASE_CHECKLIST.md`'s original done-when condition called for a before/after comparison of the browser's actual reported text; this is that comparison, made directly against the function's return value.
   - Not a CSV diff and no CSV changed: ADA feeds only the interactive dependency browser (`CONSOLIDATION_PLAN.md` section 1), so nothing programmatic downstream of this function is affected.
+- 2026-09-02, `96d8897` — `CONSOLIDATION_PLAN.md` step 6: admitted Primary/`Display_Overlay` on deck views as a view-level floating button, ungated by `referenced_actions`, `show_action_bar`, or `action_display_mode` — the deck-side counterpart of `e0530c8`'s table fix. Added a shared `_overlay_admitted_on_deck` helper to `action_visibility.py`, used by all three strategies: NEG's deck helper admits it ahead of the `referenced_actions`/`event_actions` membership test (this branch previously read no prominence at all); AOD's and ADA's deck/gallery branches admit it ahead of the `show_action_bar` test, for deck only — gallery untouched.
+  - **Verified by full re-parse of both apps:** 0 edges removed in either app. Farmy: +18 edges across 10 actions (11 `direct`, 7 `via_group`). Kankaku: +5 edges, all from `Flag2 Settings`, one per deck (5 decks), all targeting `Help_Detail E`.
+  - **Group-cascade pattern, the same one `e0530c8` found on tables:** 7 of Farmy's 18 added edges are `via_group` rows where a `Display_Overlay` group CONTAINER became visible and its `Do_Not_Display` children then produced edges through the group bypass — the children were never prominence-checked, before or after this fix.
+  - **Zero orphan-count change in either app** — every orphan output file byte-identical, so nothing cleared, matching the plan's guess by analogy to `e0530c8` (which also cleared nothing on tables).
+  - **Differential checks**, pre-change vs. post-change module comparison: NEG 0 True→False / 871 False→True in Farmy and 0/16 in Kankaku, with `edges_blocked_by_visibility` falling by exactly 871 and 16 respectively — confirming the counter tracks the same flips the edge count reflects. ADA 0/1713 and 0/60. AOD (existential) 0/0 in both apps — which is why no orphan cleared: every action that gained deck visibility already had another reachable path.
 
 ## Remaining work on the false positives
 

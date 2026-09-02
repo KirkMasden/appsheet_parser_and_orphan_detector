@@ -60,7 +60,18 @@ addition and does not reopen it.
       rule explains the non-display by itself. Test on an Automatic-mode deck, or on a
       Manual deck whose list includes the action.
       *Done when:* recorded in `APPSHEET_BEHAVIOR.md` under "Established behavior".
-      Blocks section D step 5, which is billed on this rule and can raise orphan counts.
+      **Update, 2026-09-02:** the isolating test this item called for — a Manual deck
+      whose action list includes the action — was actually run, and gave the OPPOSITE
+      answer to what the 2026-08-31 documentation closure below assumed. Three
+      `Display_Prominently` actions on Kankaku's `W to D` deck are genuinely on that
+      deck's own `ActionBarEntries`, and two were confirmed rendering as row buttons
+      in the app editor's preview — see `APPSHEET_BEHAVIOR.md`'s "Established
+      behavior" entry for Prominent-on-Deck. The documentation-only closure was not
+      wrong to unblock section D (Automatic mode and Google's Position page remain
+      untested and unchanged), but its assumption about this specific rule did not
+      survive contact with an app test. No longer "blocks section D step 5" — step 5
+      was implemented on the old assumption, disproved by this same 2026-09-02 test,
+      and reverted without being committed (`CONSOLIDATION_PLAN.md` section 5).
 
 Optional, only if convenient: confirm the manual-action-list exclusion on a
 non-deck view type, which would close the open question already recorded under
@@ -197,6 +208,32 @@ comparison against the current reference output.
         views and explicitly not completed.
       *Done when:* the audit has been run and its findings are recorded in
       `STATUS.md`, whether or not anything needs fixing.
+
+- [ ] **`action_target_parser.py` inverts any `NOT(CONTEXT(...))` condition.**
+      No handling exists anywhere for a `NOT(...)` wrapper around a `CONTEXT()`
+      comparison — confirmed by grep, zero matches for `NOT(`/`not(` in the
+      context-condition extraction. The regex matches the inner comparison
+      regardless of the wrapper, so `NOT(CONTEXT("ViewType") = "Detail")` is
+      recorded as `must_be_viewtype='Detail'`, the exact opposite of what it
+      says. `check_context_conditions` then correctly enforces the wrong
+      requirement — the error is RESTRICTIVE, suppressing edges and making
+      reachable views look orphaned, which is invisible in any diff because it
+      is stable across runs. Farmy has 7 confirmed-inverted rows (`ViewType`
+      shape) and 10 more (`View`-name shape) whose inversion is not yet
+      established; Kankaku has not been checked at all. Found while accounting
+      for why `CONSOLIDATION_PLAN.md` step 6's Farmy edge count came in below
+      its predicted floor — `Add - Beds_Form` was the one case in that
+      accounting with no other explanation. See `STATUS.md`'s matching entry.
+      *Done when:* the fix handles a `NOT(...)` wrapper around a `CONTEXT()`
+      comparison correctly (inverting `must_be_viewtype`/`must_not_be_viewtype`
+      or `must_be_in_views`/`must_not_be_in_views` as appropriate); whether the
+      10 `CONTEXT("View")`-shaped `NOT(...)` rows invert the same way is
+      established rather than assumed, not left as an open question; and
+      Kankaku is checked too, not just Farmy.
+      *Predicted direction:* edges ADDED, never removed — the fix only
+      corrects an over-restrictive condition into the correct, less-restrictive
+      one. Orphan counts flat or falling, never rising. Stop and re-examine if
+      any edge is removed or any orphan count rises.
 
 ---
 
@@ -389,12 +426,47 @@ answers are unknown; once A is done they become mechanical.
       Note the direction: this can *increase* orphan counts, unlike every fix so
       far. An increase here is expected, not a regression.
 
-- [ ] **Step 6: Deck/`Display_Overlay` parity, added to the plan 2026-09-01.**
-      Not blocked — Overlay-on-Deck is already settled by direct observation
-      (`APPSHEET_BEHAVIOR.md`'s Established behavior section, Deck+Overlay
-      entry), unlike Step 5's Prominent-on-Deck, which rests on documentation
-      alone. See `CONSOLIDATION_PLAN.md` section 5's step 6 and `STATUS.md`'s
-      matching known-defects entry.
+      **DISPROVED, 2026-09-02 — struck, not deleted, so the record of what this
+      step predicted survives.** This step was implemented, verified by full
+      re-parse against both apps, and reverted the same day without being
+      committed. `Display_Prominently` is NOT excluded from deck views — three
+      such actions on Kankaku's `W to D` deck are genuinely on that deck's own
+      `ActionBarEntries`, and two were confirmed rendering as row buttons in the
+      app editor's preview. The "an increase here is expected, not a
+      regression" note above must not be read on its own now: the increase this
+      step actually produced (4 new `potential_view_orphans.csv` rows in
+      Kankaku) was real, but the rule that predicted it is wrong — so the note
+      explains why an increase would not have looked alarming, not standing
+      guidance that this step should still run. See `APPSHEET_BEHAVIOR.md`'s
+      "Established behavior" entry for Prominent-on-Deck and
+      `CONSOLIDATION_PLAN.md` section 5's step 5 entry for the full record.
+
+- [x] **Step 6: Deck/`Display_Overlay` parity, added to the plan 2026-09-01.**
+      Done `96d8897`. Admitted Primary/`Display_Overlay` on deck views as a
+      view-level floating button, ungated by `referenced_actions`,
+      `show_action_bar`, or `action_display_mode`, via a shared
+      `_overlay_admitted_on_deck` helper used by all three strategies — the
+      deck-side counterpart of `e0530c8`'s table fix. Not blocked — Overlay-on-
+      Deck was already settled by direct observation (`APPSHEET_BEHAVIOR.md`'s
+      Established behavior section, Deck+Overlay entry), unlike Step 5's
+      Prominent-on-Deck, which rested on documentation alone and has since been
+      disproved and reverted (see above).
+      **Verified by full re-parse of both apps:** 0 edges removed either app;
+      Farmy +18 edges across 10 actions (11 `direct`, 7 `via_group` — the same
+      `e0530c8` group-cascade pattern, a `Display_Overlay` group container
+      becoming visible and its `Do_Not_Display` children producing edges
+      through the group bypass); Kankaku +5, all from `Flag2 Settings`, one per
+      deck, all targeting `Help_Detail E`. Zero orphan-count change in either
+      app — every orphan output byte-identical.
+      **Differential checks:** NEG 0 True→False / 871 False→True in Farmy and
+      0/16 in Kankaku, with `edges_blocked_by_visibility` falling by exactly
+      871 and 16; ADA 0/1713 and 0/60; AOD (existential) 0/0 in both apps —
+      why no orphan cleared: every action that gained deck visibility already
+      had another reachable path. Full detail in `STATUS.md`'s matching
+      "Recently fixed" entry and `CONSOLIDATION_PLAN.md` section 5's step 6
+      entry, including why the pre-implementation floor overstated Kankaku's
+      real result by two orders of magnitude.
+      *Done when:* met — see above.
 
 - [ ] **The 120-view "other" bucket.** No longer blocked — section A closed
       2026-08-31 (by documentation research, not app testing; see section A's
@@ -408,13 +480,21 @@ answers are unknown; once A is done they become mechanical.
       them. A permissive default buys quiet at the price of never learning it was
       wrong.
 
-**Caution for whoever runs these:** the plan's predictions were computed against
-`20260830_linktoform_verify/20260830_212632_AppsheetFarmyApp_for_Kirk_parse`, which
-predates `e0530c8` and the 82 `navigation_edges.csv` rows it added. The most recent
-Leon-app parse on disk is
-`20260831_primary_overlay_verify/20260831_081316_AppsheetFarmyApp_for_Kirk_parse`.
-Both sit outside the repository, since `*_parse/` is gitignored. Re-parse against the
-current code before trusting any predicted diff.
+**Caution for whoever runs these:** the plan's predictions were originally computed
+against `20260830_linktoform_verify/20260830_212632_AppsheetFarmyApp_for_Kirk_parse`,
+which predates `e0530c8` and the 82 `navigation_edges.csv` rows it added, and the most
+recent Leon-app parse on disk at the time this caution was written was
+`20260831_primary_overlay_verify/20260831_081316_AppsheetFarmyApp_for_Kirk_parse`. Both
+are stale as of 2026-09-02. The current references are
+`20260902_131151_AppsheetFarmyApp_for_Kirk_parse` (Farmy, refreshed at HEAD) and
+`20260901_085853_260831_1809_Kankaku_V18_regression_reference_1c22881` (Kankaku). Both
+sit outside the repository, since `*_parse/` is gitignored. Re-parse against the
+current code before trusting any predicted diff — this advice was reconfirmed twice
+over during step 6: the pre-implementation floor for Kankaku (~343 edges, almost all
+from `Session flag`) overstated the real result (5, none from `Session flag`) by nearly
+two orders of magnitude, precisely because it was not evaluated against
+`check_context_conditions` on a fresh parse (`CONSOLIDATION_PLAN.md` section 5's step 6
+entry has the full accounting).
 
 Count CSV rows with a real CSV parser rather than `wc -l` or line-splitting: several
 fields in these outputs contain embedded newlines, and naive counting gives wrong

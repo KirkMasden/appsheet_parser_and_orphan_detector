@@ -211,21 +211,32 @@ or `action_display_mode`.
 | `Do_Not_Display` | T only if onclick-bound **and** in `referenced_actions` **and** not an event action | **T** — the case bug never excludes it | **T** — same bug | **F** [documented], universal |
 | `Display_Inline` | list-gated | bar + mode gated | bar + mode gated | **[none]** |
 | `Display_Prominently` | list-gated — T if listed | bar + mode gated | bar + mode gated | **T** [observed] — see `APPSHEET_BEHAVIOR.md` |
-| `Display_Overlay` | list-gated — **wrong** | bar + mode gated — **wrong** | bar + mode gated — **wrong** | **T** [observed], independent of the action bar |
+| `Display_Overlay` | **T** — admitted ahead of the list gate (step 6, `96d8897`) | **T** — admitted ahead of the bar gate (step 6, `96d8897`) | **T** — admitted ahead of the bar gate (step 6, `96d8897`) | **T** [observed], independent of the action bar |
 
-**Deck+Overlay is the cell where all three files are wrong, and it is the newest finding
-in this section.** The deck's action bar is a per-row strip of buttons, enabled by
-`Show action bar` and populated by the `Actions` setting; a Primary action is a view-level
-floating button. They are different UI elements, and every one of the three files gates
-the second on the first. Observed 2026-08-31 in Leon's app: a floating overlay button
-displaying over the rows of the `Beds Deck` view in the editor preview. Corroborated by
-documentation, which places primary actions in the panel for collection views — card,
-deck, gallery and table by name — and describes them under floating navigation buttons
-with no view type attached.
+**Deck+Overlay was the cell where all three files were wrong; as of `96d8897`
+(step 6, 2026-09-02) all three are correct.** The deck's action bar is a per-row
+strip of buttons, enabled by `Show action bar` and populated by the `Actions`
+setting; a Primary action is a view-level floating button. They are different UI
+elements, and all three files used to gate the second on the first. Observed
+2026-08-31 in Leon's app: a floating overlay button displaying over the rows of
+the `Beds Deck` view in the editor preview. Corroborated by documentation, which
+places primary actions in the panel for collection views — card, deck, gallery
+and table by name — and describes them under floating navigation buttons with no
+view type attached. Step 6 acted on this: `Display_Overlay` is now admitted on
+deck views ahead of every bar/list/mode gate, in all three strategies — see
+section 5's step 6 entry for the verification.
 
-Consequence for AOD and ADA specifically: their `show_action_bar` requirement means a
-Primary action on a deck with the action bar switched off is invisible to them, blocked by
-a setting that governs a different element. Leon's app contains one such deck.
+Consequence, now resolved: AOD's and ADA's former `show_action_bar` requirement
+meant a Primary action on a deck with the action bar switched off was invisible
+to them, blocked by a setting that governs a different element. Farmy has one
+such deck (`MyPlants_Inline - Recent transplants needing GPS location - direct
+from transplant form`); Kankaku has five (`D to W`, `Help`, `Help J M`, `Help
+menu`, `Help J S`) — both counts verified against the current parses
+(`20260902_131151_AppsheetFarmyApp_for_Kirk_parse`,
+`20260901_085853_260831_1809_Kankaku_V18_regression_reference_1c22881`). Step 6
+removes this consequence for `Display_Overlay` specifically, since it no longer
+reads `show_action_bar` at all on deck; it does not touch any other prominence's
+relationship to that setting.
 
 **Deck+Prominent now has observational support, pointing the opposite way from the
 documentation.** The previous version of this section, and of section 5's original
@@ -657,6 +668,57 @@ the same pattern `e0530c8` found on table views, where 82 new edges cleared zero
 orphans because every affected target was already reachable another way — may clear
 no orphan at all. This is a guess by analogy, not a number, and should be verified by
 a full re-parse exactly as `e0530c8` was, not assumed.
+
+**DONE, `96d8897`, 2026-09-02.** Implemented via a shared `_overlay_admitted_on_deck`
+helper in `action_visibility.py`, used by all three strategies, admitted ahead of
+every bar/list/mode gate, deck only. Verified by full re-parse of both apps: 0
+edges removed either app; Farmy +18 edges across 10 actions (11 `direct`, 7
+`via_group` — the same `e0530c8` group-cascade pattern, a `Display_Overlay` group
+container becoming visible and its `Do_Not_Display` children producing edges
+through the group bypass); Kankaku +5, all from `Flag2 Settings`, one per deck,
+all targeting `Help_Detail E`. Zero orphan-count change in either app — cleared
+nothing, exactly as guessed by analogy to `e0530c8`. Differential checks: NEG 0
+True→False / 871 False→True in Farmy and 0/16 in Kankaku, with
+`edges_blocked_by_visibility` falling by exactly 871 and 16; ADA 0/1713 and 0/60;
+AOD (existential) 0/0 in both apps — full detail in `STATUS.md`'s matching
+"Recently fixed" entry.
+
+**Why the pre-implementation estimate overstated, worked in full because a reader
+will otherwise wonder why the real numbers landed so far under it:** that estimate
+(from a read-only measurement pass) was an upper bound that multiplied "actions
+newly unblocked on a deck" by "that action's total valid targets across the whole
+app," without evaluating `check_context_conditions` — which the real parser does.
+Kankaku was predicted at roughly 343 edges, almost all from `Session flag` on
+table `Settings`, newly visible on 5 decks with 66 nominal targets; the actual
+result was 5, all from a different action entirely. `Session flag`'s 68
+`action_targets.csv` rows every one require a `must_be_in_views` naming a
+non-deck view — its `IFS()` branches test `Context("View")` against specific
+detail-view names (`Session`, `Schedule`, `Card stats`, and so on), never a deck
+— so despite becoming visible on 5 decks it correctly contributes zero edges.
+`Stats flag` is the same shape (6 rows, all requiring a `Stats_Detail`-family
+view). Only `Flag2 Settings` has a branch with an empty `must_be_in_views`
+(unconditional), which is why it fires exactly once per deck — 5 decks, 5 edges,
+all to `Help_Detail E`, its only unconditional target.
+
+Farmy's full accounting, kept here as the useful worked example: 69 distinct
+`(action_name, source_table)` pairs flipped NEG-visible on at least one deck, of
+which 10 produced an edge. Of the 59 that did not: 51 have no `action_targets.csv`
+row at all, being `edit_form` (26), `delete` (22), or `set_columns` (3) — action
+types `action_target_parser.py` line 843 gates out of target-parsing entirely,
+since none of them navigate anywhere by AppSheet's own semantics; 6 have target
+rows whose `must_be_in_views` names a different view (the same class as
+Kankaku's shortfall); 1 (`Add 2`, table `Reminders`) is correctly excluded by
+`must_be_viewtype='Table'`, parsed correctly from its `only_if_condition`; and 1
+(`Add - Beds_Form`, table `Beds`) is blocked by the `NOT()`-inversion defect
+recorded in `STATUS.md`, not by anything working correctly — its condition means
+"any view type except Detail" but was parsed into `must_be_viewtype='Detail'`,
+the literal opposite.
+
+Note for anyone reading flip counts against `navigation_edges.csv` to identify
+which action produced an added edge: for a `via_group` row, read `parent_action`,
+not `source_action` — the invoked child is not what was newly admitted; the
+group container is. This is the same field-reading caution `STATUS.md` already
+records for the step 5 attempt.
 
 **Deliberately deferred, not sequenced here:** the "other" bucket's permissive-vs-restrictive
 default (section 2's second cross-cutting finding, 120 views, the single largest
