@@ -210,7 +210,7 @@ or `action_display_mode`.
 |---|---|---|---|---|
 | `Do_Not_Display` | T only if onclick-bound **and** in `referenced_actions` **and** not an event action | **T** — the case bug never excludes it | **T** — same bug | **F** [documented], universal |
 | `Display_Inline` | list-gated | bar + mode gated | bar + mode gated | **[none]** |
-| `Display_Prominently` | list-gated — T if listed | bar + mode gated | bar + mode gated | **Not established** [documented, weak] |
+| `Display_Prominently` | list-gated — T if listed | bar + mode gated | bar + mode gated | **T** [observed] — see `APPSHEET_BEHAVIOR.md` |
 | `Display_Overlay` | list-gated — **wrong** | bar + mode gated — **wrong** | bar + mode gated — **wrong** | **T** [observed], independent of the action bar |
 
 **Deck+Overlay is the cell where all three files are wrong, and it is the newest finding
@@ -227,15 +227,29 @@ Consequence for AOD and ADA specifically: their `show_action_bar` requirement me
 Primary action on a deck with the action bar switched off is invisible to them, blocked by
 a setting that governs a different element. Leon's app contains one such deck.
 
-**Deck+Prominent has lost its observational support.** The previous version of this
-section, and of section 5's step 5, called this the best-evidenced rule in the plan,
-citing a direct 2026-08-30 observation. `APPSHEET_BEHAVIOR.md` has since withdrawn it:
-the deck used was in Manual mode with the action absent from its list, so the
-manual-list rule accounts for the non-display by itself and the case isolates
-nothing. The rule now rests on Google's Position page naming only detail. It may
-still be right. Section 5's step 5 has been corrected to cite that documentation
-instead; the step itself and its predicted direction are unchanged, and it remains
-the one step in this plan that raises orphan counts.
+**Deck+Prominent now has observational support, pointing the opposite way from the
+documentation.** The previous version of this section, and of section 5's original
+step 5, called Deck+Prominent the best-evidenced rule in the plan, citing a direct
+2026-08-30 observation; `APPSHEET_BEHAVIOR.md` withdrew that observation the same
+day the plan moved past it — the deck used was in Manual mode with the action absent
+from its list, so the manual-list rule accounted for the non-display by itself and
+the case isolated nothing. Section 5's step 5 was then implemented on documentation
+alone (Google's Position page naming only Detail), verified by full re-parse against
+both apps, and reverted, 2026-09-02, without being committed — a new, isolating
+observation disproved it before it shipped. Kankaku's `W to D` deck
+(`show_action_bar` `True`, `action_display_mode` `Manual`) lists three
+`Display_Prominently` actions in its own `view_configuration`'s `ActionBarEntries`,
+and Kirk confirmed two of them (thumbs-up, right-arrow) rendering on deck rows in the
+app editor's preview. See `APPSHEET_BEHAVIOR.md`'s "Established behavior" entry for
+the full evidence and the explicit limit of what it does and does not establish —
+Manual-list membership only; Automatic mode remains untested.
+
+All three files' cells for this row were already correct under these exact
+conditions (bar on, Manual mode, action listed): NEG's list-gated rule returns True
+because the action is on the list; AOD's and ADA's bar + mode gated rule returns True
+because the bar is on, mode is Manual, and the action is in `referenced_actions`. No
+code change follows from this finding — it corrects the documentation's account of
+AppSheet's own behavior, not any of the three files' existing logic.
 
 ### Gallery views
 
@@ -579,6 +593,37 @@ this step, not before it. This could move `potential_view_orphans.csv` upward if
 view was only reachable through such an edge — the opposite direction from every fix
 in the last two sessions, and worth calling out to whoever reviews the diff so an
 increase isn't mistaken for a regression.
+
+**DISPROVED, 2026-09-02 — struck, not deleted, so the record of what this step
+predicted survives.** The paragraph above rests on the documentation-only reading
+that Kirk's 2026-09-02 observation (`APPSHEET_BEHAVIOR.md`'s "Established behavior"
+entry) directly contradicts: three `Display_Prominently` actions on Kankaku's
+`W to D` deck are genuinely on that deck's own `ActionBarEntries`, and two of them
+were confirmed rendering as row buttons in the app editor's preview.
+`Display_Prominently` is not excluded from deck views.
+
+The step was implemented, verified by full re-parse against both apps, and reverted
+— never committed. What it actually did does not match what it predicted: it
+removed exactly 1 edge in Farmy (target `ActivityForm - Germination`, itself a
+phantom view reference — no real orphan consequence) and 3 in Kankaku (targets
+`Word`, `WDend`, `WDend J`), not through any action's own `Display_Prominently`
+prominence being independently checked, but through the *group parent* actions
+`Display Answer (W to D)` and `Displayed Got It (WD)` — both genuinely
+`Display_Prominently` and genuinely on `W to D`'s action bar — being wrongly excluded
+by the (disproved) rule, which cascaded to remove all of their children's edges per
+this module's hard constraint that a group's children are never independently
+visibility-checked. Kankaku's 3 removed edges cascaded to 4 new rows in
+`potential_view_orphans.csv` (`Word`, `WDend`, `WDend J`, and `Card stats 2`, whose
+own only other reachability path was already broken independently of this step) — a
+real orphan-count increase, not the zero a working measurement taken before
+implementation had predicted.
+
+The step's own predicted diff named "a deck or gallery," while this step's heading
+and `APPSHEET_BEHAVIOR.md`'s scope named deck only; gallery was never applied under
+this step and the question is now moot along with the rest of it.
+
+The patch implementing this step is preserved outside the repository, not committed,
+at `~/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260902_step5_disproved.patch`.
 
 **Step 6 — Remove the action-bar gate entirely for `Display_Overlay` on deck views,
 in all three files** (STATUS.md's "All three visibility implementations gate

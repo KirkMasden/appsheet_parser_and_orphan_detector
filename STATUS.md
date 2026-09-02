@@ -200,6 +200,72 @@ first time it has been saved as a regression baseline alongside Farmy's.
   in how this project's own verification scripts are written, recorded here
   so it is not rediscovered the hard way in a future session.
 
+### Reading `navigation_edges.csv`'s prominence off the wrong field for `via_group` rows misattributes what actually gates a group's visibility
+
+- Found 2026-09-02, tracing the Kankaku discrepancy in the entry below. An edge's
+  own prominence — the value that actually governs whether the *invoked* action
+  displays — is in `parent_prominence` when `action_availability_type` is `direct`
+  or `event`, and in `child_prominence` when it is `via_group`. But for `via_group`
+  rows specifically, `child_prominence` is the *invoked child action's* own
+  prominence, and `parent_prominence` is the *group container action's* own
+  prominence — and it is the container's prominence, not the child's, that gates
+  whether the group (and therefore every child edge under it) is visible at all,
+  since a group's children are never independently visibility-checked
+  (`action_visibility.py`'s module docstring; hard constraint carried from
+  `CONSOLIDATION_PLAN.md` sections 1/6). A measurement that reads `child_prominence`
+  off a `via_group` row and treats it as "this edge's own, independently-checked
+  prominence" will misclassify which edges a prominence-based rule change actually
+  touches — exactly what happened in the entry below: two `via_group` edges whose
+  `child_prominence` was `Display_Prominently` were predicted removable by the step
+  5 attempt and were not (their group parent's own prominence was `Do_Not_Display`,
+  untouched by the rule), while three edges whose `child_prominence` was
+  `Do_Not_Display` were actually removed, because their group parent's own
+  prominence — findable only via the row's separate `parent_action` field,
+  cross-referenced against `appsheet_actions.csv` — was `Display_Prominently`.
+- **General caution, not a one-off**, in the same spirit as the `action_name`-alone
+  caution above: any future comparison or prediction involving `via_group` rows in
+  this CSV must resolve the *group container's own* prominence via `parent_action`,
+  not assume `parent_prominence`/`child_prominence` alone tells the whole story —
+  `child_prominence` describes the invoked action, not what gates its visibility.
+- Not a defect in the tool's own output — every field genuinely present on the row
+  is correct and derivable; this is a hazard in how a reader interprets which field
+  answers "is this edge gated by prominence," recorded so it is not rediscovered
+  the hard way in a future session.
+
+### `CONSOLIDATION_PLAN.md` step 5 (Prominent-on-Deck exclusion): implemented, disproved, reverted — no commit
+
+- Implemented 2026-09-02 in `action_visibility.py` (all three strategies, via a
+  shared `_prominent_excluded_on_deck` helper), verified by full re-parse against
+  both apps, then reverted the same day before being committed — HEAD never moved
+  past `ebc41d6`. The uncommitted diff is preserved outside the repository, not
+  applied to the working tree, at `~/Documents/雑学/260505 0852 AppSheet orphan
+  script possible issues/260902_step5_disproved.patch`.
+- **Why reverted:** disproved by Kirk's own 2026-09-02 observation in the app
+  editor — see `APPSHEET_BEHAVIOR.md`'s "Established behavior" entry for
+  Prominent-on-Deck. Three `Display_Prominently` actions on Kankaku's `W to D` deck
+  are genuinely on that deck's own `view_configuration` `ActionBarEntries`
+  (`Displayed Got It (WD)`, `Play (Main Data)`, `Display Answer (W to D)`), and two
+  were confirmed rendering as row buttons (thumbs-up, right-arrow) in the editor
+  preview. Google's Position documentation, which names only Detail for Prominent,
+  does not hold on deck views under Manual-list membership.
+- **What the implementation actually did, verified against both apps before the
+  revert, and not what the step predicted:** removed exactly 1 edge in Farmy
+  (target `ActivityForm - Germination`, itself a phantom view reference — no real
+  orphan consequence) and 3 in Kankaku (targets `Word`, `WDend`, `WDend J`). All 3
+  Kankaku removals were `via_group` edges whose *group parent* action — not the
+  invoked child action itself — carried `Display_Prominently` and sat on `W to D`'s
+  action bar (`Display Answer (W to D)` parenting the `Word` edge, `Displayed Got
+  It (WD)` parenting the `WDend`/`WDend J` edges); blocking the parent cascaded to
+  every child edge under this module's hard constraint that a group's children are
+  never independently visibility-checked — see the entry above. This cascaded to 4
+  new rows in `potential_view_orphans.csv` (`Word`, `WDend`, `WDend J`, `Card stats
+  2` — the last one's own only other reachability path was already broken
+  independently of this step) — a real orphan-count increase, where the working
+  measurement taken before implementation had predicted zero. AOD's existential
+  channel showed 0 True→False flips in either app; 0 `Display_Overlay` rows were
+  touched anywhere, as required.
+- Not fixed, not applied, not committed. Read-only finding as of 2026-09-02.
+
 ## Recently fixed
 
 Entries from `48eead1` onward carry full verification detail — row counts, byte-identical claims, named views. Earlier entries are compressed summaries; for the fuller reasoning behind one of those, read that commit's own message rather than expecting it here.

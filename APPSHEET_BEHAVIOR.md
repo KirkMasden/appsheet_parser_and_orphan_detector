@@ -67,19 +67,44 @@ of its source.
 
 Source: observed in Leon's app, 2026-08-30, by Kirk.
 
-- **Prominent (export: `Display_Prominently`) on a Deck view: not established by
-  observation.** The documentation above names only detail views for Prominent, and
-  nothing here contradicts it — but the test once cited as confirming it does not
-  isolate the rule. Action "Go to ObservationActivity" (table `MyPlants`, prominence
-  Prominent, condition `OR(CONTEXT("ViewType")="Deck", CONTEXT("ViewType")="Map")`)
-  never appeared on "MyPlants Food forest Deck". Checked against the export
-  2026-08-31: that deck's `action_display_mode` is `Manual` and the action is absent
-  from its `referenced_actions`, though present in its `available_actions`. The
-  manual-list rule below therefore accounts for the non-display on its own, exactly as
-  prominence would. Either rule alone explains what was seen, so the case establishes
-  neither — this is the same reasoning already applied to it under "Manual action
-  lists" below, now applied in both directions. Until an isolating test is run, treat
-  Prominent-on-Deck as resting on Google's documentation alone.
+- **Prominent (export: `Display_Prominently`) on a Deck view: DOES display, when the
+  action is on the view's action bar.** Source: observed in Kankaku (260411 Kankaku
+  V18), 2026-09-02, by Kirk, in the app editor's preview. The `W to D` deck
+  (`show_action_bar` `True`, `action_display_mode` `Manual`) lists three
+  `Display_Prominently` actions in its own `view_configuration`'s `ActionBarEntries` —
+  `Displayed Got It (WD)` (thumbs-up icon), `Play (Main Data)` (play icon),
+  `Display Answer (W to D)` (right-arrow icon). Kirk confirmed visually that the
+  thumbs-up and right-arrow buttons render on the deck's rows. Method: the app
+  editor's preview plus the export's own `ActionBarEntries` list — not inference from
+  a button's shape alone, the way the earlier Overlay-on-Deck observation above had to
+  rely on shape.
+
+  This is consistent with, not contradicted by, the earlier withdrawn 2026-08-30 case
+  it replaces: that case was one `Display_Prominently` action ABSENT from a Manual
+  deck's action list, not displaying; this one is three `Display_Prominently` actions
+  PRESENT on a Manual deck's action list, displaying. Together they point the same
+  way — deck display turns on action-bar list membership, not on prominence.
+  Prominent-on-Deck is not an exception the deck action bar makes for its own
+  prominence value; it follows the same list-membership rule every other prominence
+  on a deck follows.
+
+  **Limit of this claim, stated explicitly:** this establishes that
+  `Display_Prominently` is NOT excluded from deck views. It does NOT establish what
+  happens to a `Display_Prominently` action that is absent from a Manual deck's
+  action list (the manual-list rule below already accounts for that case,
+  independent of prominence), nor anything about Automatic-mode decks — whether
+  `referenced_actions` is itself complete there remains an open question
+  (`CONSOLIDATION_PLAN.md` section 5's "Deliberately deferred" note). Google's
+  Position documentation, which names only Detail for Prominent, is now directly
+  contradicted by observation for this one case; whether Prominent excludes itself
+  under any other deck condition is untested.
+
+  `CONSOLIDATION_PLAN.md` section 5's step 5 applied the opposite rule — excluding
+  `Display_Prominently` from deck views entirely, on the strength of the
+  documentation-only reading this entry now supersedes — across all three visibility
+  strategies. It has been disproved by the observation above and reverted, 2026-09-02,
+  without ever being committed; see `STATUS.md` and `CONSOLIDATION_PLAN.md` for the
+  code-level record.
 - **Primary (export: `Display_Overlay`) DOES display on table views.** Source:
   observed in Leon's app, in Kirk's frozen copy, 2026-08-31, using a purpose-made
   External action set to Primary — "Go to web" (table `NurseryDetails`, effect
@@ -363,17 +388,19 @@ for the "Go to ObservationActivity" action (see STATUS.md) — is addressed in t
 bullet under "Established behavior" above; not repeated here.
 
 Prominent-on-Deck is not listed separately here because it is recorded in full
-under "Established behavior" above, not because it has been settled. It rests on
-Google's Position documentation naming only Detail for Prominent — documentation
-alone, with no isolating observational test. An isolating test would put a
+under "Established behavior" above. It is no longer a documentation-only claim: the
+isolating test once described here as missing — a `Display_Prominently` action on a
+Manual deck whose action list includes it — was run 2026-09-02, and the action
+displayed. What remains untested is the other half of that same isolating test: a
 `Display_Prominently` action on a deck whose `action_display_mode` is `Automatic`,
-or on a Manual deck whose action list includes that action, and look. Section D's
-step 5 applies this rule across all three files and can raise orphan counts, so
-anyone acting on it should know what it does and does not rest on.
+and, more broadly, whether `Automatic` mode's `referenced_actions` field is itself
+complete — an open question independent of this one (`CONSOLIDATION_PLAN.md`
+section 5's "Deliberately deferred" note).
 
 Calendar and dashboard are each answerable by one test in a running app. Form,
 card and gallery were closed by documentation; map rests on Kirk's stated
-inference. Deck is no longer a single grade: Prominent-on-Deck still rests on
-documentation alone, with no isolating observational test, while Overlay-on-Deck is
-now settled by direct observation (see "Established behavior" above). Those are
-several different grades of evidence and this file does not treat them as one.
+inference. Deck is no longer a single grade: both Prominent-on-Deck and
+Overlay-on-Deck are now settled by direct observation (see "Established behavior"
+above) — Prominent-on-Deck for the Manual-list-membership case specifically, not
+yet for Automatic mode. Those are several different grades of evidence and this
+file does not treat them as one.
