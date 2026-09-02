@@ -11,7 +11,14 @@ EXCEPT the Do_Not_Display case bug in the AOD and ADA strategies
 (CONSOLIDATION_PLAN.md section 3's `.replace('_', ' ')` mismatch), fixed in
 AOD by step 2 and in ADA by step 2b — see ADA's own docstring for why its
 fix was deferred past step 2. The NEG strategy never had it (it compares
-the raw underscored `action_prominence` directly and needed no fix).
+the raw underscored `action_prominence` directly and needed no fix). ALSO EXCEPT
+step 6's deck-only `Display_Overlay` admission (view-level floating button,
+ungated by the row-level action bar), applied to all three strategies via the
+shared `_overlay_admitted_on_deck` — see that function's docstring for the rule
+and its evidence. (Step 5's deck-only `Display_Prominently` exclusion was also
+implemented this way, via a since-removed `_prominent_excluded_on_deck` helper of
+the same shape, but was disproved by observation and reverted before being
+committed — see `CONSOLIDATION_PLAN.md` section 5 and `STATUS.md`.)
 
 All three callers — `action_dependency_analyzer.py` (step 1),
 `actions_orphan_detector.py` (step 2), and `navigation_edge_generator.py`
@@ -26,6 +33,25 @@ invocation routes (STATUS.md, `48eead1`/`f4d931a`) produce edges at all.
 """
 
 from typing import Callable, Dict, Iterable, List, Optional
+
+
+# --- Shared rule: CONSOLIDATION_PLAN.md step 6 ------------------------------
+
+def _overlay_admitted_on_deck(prominence: str, view_type: str) -> bool:
+    """CONSOLIDATION_PLAN.md step 6: Primary/`Display_Overlay` on a DECK view is
+    a view-level floating button, not a member of the row-level action bar, so it
+    must not be gated by `referenced_actions`, `show_action_bar`, or
+    `action_display_mode` — the deck-side counterpart of the fix `e0530c8` already
+    applied to table views. Source: observed in Leon's app (`Beds Deck`,
+    2026-08-31) plus documentation placing primary actions in the panel for
+    collection views, deck named among them (`APPSHEET_BEHAVIOR.md`'s Deck+Overlay
+    entry). Deck only — gallery is out of scope for this step; AOD/ADA's gallery
+    rejection of `Display_Overlay` (a bar gate that can never open, since gallery
+    carries no `ShowActionBar` key at all — see `CONSOLIDATION_PLAN.md` section 2's
+    Gallery table) remains untouched, as does step 4's own, separate exclusion of
+    `Display_Overlay` from its gallery scope.
+    """
+    return prominence == 'Display_Overlay' and view_type.lower() == 'deck'
 
 
 # --- navigation_edge_generator.py (NEG) -------------------------------------
@@ -59,13 +85,26 @@ def is_visible_in_detail_view_neg(action: Dict, view: Dict, stats: Optional[Dict
 
 
 def is_visible_in_deck_view_neg(action: Dict, view: Dict, stats: Optional[Dict] = None) -> bool:
-    """navigation_edge_generator.py's is_action_visible_in_deck_view, unchanged.
+    """navigation_edge_generator.py's is_action_visible_in_deck_view, plus
+    CONSOLIDATION_PLAN.md step 6's Display_Overlay-as-floating-button admission.
 
     For deck views:
-    - Actions in the action bar (in both referenced_actions and available_actions) are valid
-    - Prominence type doesn't matter if the action is in the action bar
+    - Display_Overlay is admitted outright (step 6; see
+      _overlay_admitted_on_deck), ahead of and independent of action-bar
+      membership — it is a view-level floating button, not a bar entry.
+    - Otherwise, actions in the action bar (in both referenced_actions and
+      available_actions) are valid — prominence doesn't matter for any other
+      value.
     - Event actions are handled separately by process_event_actions
+
+    This branch reads no other prominence value and no `show_action_bar` or
+    `action_display_mode` field, unlike AOD's and ADA's deck/gallery branches —
+    see CONSOLIDATION_PLAN.md section 2's Deck views entry.
     """
+    prominence = action.get('action_prominence', '')
+    if _overlay_admitted_on_deck(prominence, view.get('view_type', '')):
+        return True
+
     action_name = action.get('source_action', '')
 
     # Check if action is in referenced_actions (indicates it's in the action bar or events)
@@ -215,6 +254,12 @@ def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
             return attach_to_column in view_columns  # Exact match, not substring
 
     elif view_type in ['deck', 'gallery']:
+        # CONSOLIDATION_PLAN.md step 6: Display_Overlay admitted outright on
+        # deck (view-level floating button), ahead of the bar gate below.
+        # _overlay_admitted_on_deck is a no-op for gallery, out of scope for
+        # this step.
+        if _overlay_admitted_on_deck(prominence, view_type):
+            return True
         if view.get('show_action_bar', '').lower() == 'true':
             if prominence != 'Do_Not_Display':
                 if view.get('action_display_mode', '') == 'Manual':
@@ -320,6 +365,12 @@ def is_visible_in_views_aod(
                         return True
 
         elif view_type in ['deck', 'gallery']:
+            # CONSOLIDATION_PLAN.md step 6: Display_Overlay admitted outright
+            # on deck (view-level floating button), ahead of the bar gate
+            # below. _overlay_admitted_on_deck is a no-op for gallery, out of
+            # scope for this step.
+            if _overlay_admitted_on_deck(prominence, view_type):
+                return True
             if view.get('show_action_bar', '').lower() == 'true':
                 if prominence != 'Do_Not_Display':
                     if view.get('action_display_mode', '') == 'Manual':
