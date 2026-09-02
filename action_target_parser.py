@@ -459,6 +459,34 @@ class NavigationExpressionParser:
 
         return targets
 
+    def _not_wraps_context_match(self, condition: str, match_start: int, match_end: int) -> bool:
+        """Return True if the CONTEXT(...) comparison spanning
+        [match_start, match_end) in `condition` is wrapped by a NOT(...) that
+        encloses exactly that comparison and nothing else — including as one
+        term inside a larger AND(...)/OR(...), e.g.
+        AND(x, NOT(CONTEXT("View") = "Refresh Tables")).
+
+        Deliberately narrow: requires NOT( immediately before the match
+        (whitespace only between) and NOT's own closing paren immediately
+        after it (whitespace only between). A NOT() wrapping more than the
+        bare comparison — e.g. NOT(AND(CONTEXT(...)=..., other)) — will not
+        satisfy the trailing check and is left undetected, matching this
+        parser's pre-existing (uninverted) behavior for that shape rather
+        than attempting a semantic transform this code does not support.
+        Confirmed absent from both reference apps as of 2026-09-02
+        (CONSOLIDATION_PLAN.md/STATUS.md's NOT(CONTEXT(...)) defect entries).
+        """
+        before = condition[:match_start]
+        if not re.search(r'NOT\s*\(\s*$', before, re.IGNORECASE):
+            return False
+        after = condition[match_end:].lstrip()
+        return after.startswith(')')
+
+    def _invert_operator(self, operator: str) -> str:
+        """Swap = <-> <> for a NOT-wrapped comparison. NOT(X = Y) means X <> Y
+        and vice versa (double negation) — handles both directions."""
+        return '<>' if operator in ('=', '==') else '='
+
     def count_only_if_contexts(self, only_if_condition: str):
         """Count context conditions in only_if_condition field."""
         if not only_if_condition or 'CONTEXT' not in only_if_condition.upper():
@@ -498,17 +526,24 @@ class NavigationExpressionParser:
             elif context_type == 'Table':
                 self.context_counts['table'] += 1
             self.context_counts['total'] += 1
-            
-            return context_type, match.group(2), match.group(3)
-        
+
+            operator = match.group(2)
+            if self._not_wraps_context_match(condition, match.start(), match.end()):
+                operator = self._invert_operator(operator)
+
+            return context_type, operator, match.group(3)
+
         # Check for LEFT function with CONTEXT
         left_pattern = r'LEFT\s*\(\s*CONTEXT\s*\(\s*"(View)"\s*\)\s*,\s*\d+\s*\)\s*(=|<>|!=)\s*"([^"]+)"'
         match = re.search(left_pattern, condition, re.IGNORECASE)
         if match:
             self.context_counts['view'] += 1
             self.context_counts['total'] += 1
-            return match.group(1), match.group(2), match.group(3)
-        
+            operator = match.group(2)
+            if self._not_wraps_context_match(condition, match.start(), match.end()):
+                operator = self._invert_operator(operator)
+            return match.group(1), operator, match.group(3)
+
         return None, None, None
     
     def parse_if_expression(self, expression: str) -> List[Dict]:
@@ -567,6 +602,14 @@ class NavigationExpressionParser:
         false_expr = parts[2]
         
         # Check if condition contains OR
+        # NOT-wrapped CONTEXT terms inside this OR(...) are deliberately left
+        # unhandled: a NOT() on one OR term needs a different transform than
+        # bare-comparison inversion (this branch already collects every OR'd
+        # value into one shared must_be/must_not_be list, with no per-term
+        # negation), and confirmed absent from both reference apps as of
+        # 2026-09-02 (STATUS.md's NOT(CONTEXT(...)) defect entry) — this
+        # matches this parser's pre-existing behavior for that shape rather
+        # than attempting a semantic transform it does not support.
         if 'OR(' in condition.upper():
             # Extract all conditions from OR
             or_match = re.search(r'OR\s*\((.*)\)', condition, re.IGNORECASE | re.DOTALL)
@@ -890,8 +933,10 @@ class NavigationExpressionParser:
                     if context_type == 'Viewtype':
                         context_type = 'ViewType'
                     operator = match.group(2)
+                    if self._not_wraps_context_match(only_if_condition, match.start(), match.end()):
+                        operator = self._invert_operator(operator)
                     value = match.group(3).strip('"').strip("'").strip(chr(8220)).strip(chr(8221))
-                    
+
                     if context_type == "View":
                         if operator in ['=', '==']:
                             view_must_be.append(value)
@@ -907,7 +952,7 @@ class NavigationExpressionParser:
                             table_must_be.append(value)
                         elif operator in ['<>', '!=']:
                             table_must_not_be.append(value)
-                
+
                 # Join multiple conditions with |||
                 if view_must_be:
                     target['must_be_in_views'] = '|||'.join(view_must_be)
@@ -988,8 +1033,10 @@ class NavigationExpressionParser:
                     if context_type == 'Viewtype':
                         context_type = 'ViewType'
                     operator = match.group(2)
+                    if self._not_wraps_context_match(only_if_condition, match.start(), match.end()):
+                        operator = self._invert_operator(operator)
                     value = match.group(3).strip('"').strip("'").strip(chr(8220)).strip(chr(8221))
-                    
+
                     if context_type == "View":
                         if operator in ['=', '==']:
                             view_must_be.append(value)
@@ -1005,7 +1052,7 @@ class NavigationExpressionParser:
                             table_must_be.append(value)
                         elif operator in ['<>', '!=']:
                             table_must_not_be.append(value)
-                
+
                 # Join multiple conditions with |||
                 if view_must_be:
                     action_conditions['must_be_in_views'] = '|||'.join(view_must_be)
