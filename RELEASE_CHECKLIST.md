@@ -266,6 +266,27 @@ comparison against the current reference output.
       correction (traces to a source the fixed condition genuinely excludes),
       not that no removal occurs at all.
 
+- [ ] **How `view_orphan_detector.py` determines reachability for category-`ref`
+      views.**
+      Evidence, from the 2026-09-02 `STATUS.md` entry: `Card stats` was flagged
+      a view orphan in the `20260831_182306` Kankaku parse and not in either
+      2026-09-02 parse of the same frozen export, while its single incoming
+      edge (`Kankaku_Inline`, `row selected`) was unchanged and `Kankaku_Inline`
+      itself had zero incoming edges in both. So the clearance came from
+      something other than the navigation edge graph. Category-`ref` views are
+      embedded via `ref_parent` rather than navigated to, so reachability for
+      them must run through a separate path.
+      Matters enough for phase one rather than the roadmap: it governs every
+      category-`ref` view in both apps, not only the one that surfaced it, and
+      a reachability path nobody has read is a path whose correctness is
+      unknown in both directions — it could be suppressing real orphans or
+      clearing false ones.
+      *Done when:* the path by which a category-`ref` view is judged reachable
+      is identified in the code and described in `STATUS.md`; and the specific
+      change between `ebc41d6` and `a15021b` that altered `Card stats`'s
+      result is named, or it is stated that no such change was found and the
+      difference remains unexplained.
+
 ---
 
 ## C. A second reference parse — Kirk's own current app
