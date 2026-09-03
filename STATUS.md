@@ -45,10 +45,11 @@ Of the four false-positive categories originally reported, three are fixed (see 
 - Caveat on snapshots: the `Show_If` above was read from the live app 2026-09-03, while the attach-to-column and action data come from the 2026-08-31 frozen export. They agree here, but they are not the same snapshot.
 - The contradictory pair is a live instance of the class `RELEASE_CHECKLIST.md`'s "Deliberately not on this list" records as a post-publication candidate: AppSheet accepts both expressions, neither is malformed, and only their combination is unsatisfiable.
 
-### `column_parser.py` never populates the `show_if` field it emits
+### `column_parser.py` never populates the `_if` qualifier fields it emits — `show_if`, `required_if`, `editable_if`, `valid_if`, `reset_if`
 
 - `appsheet_columns.csv` carries a `show_if` column that is empty on every row in both apps (0 of 1064 Kankaku rows non-empty). Per `column_parser.py` lines 265–350 it is never written from the parsed Show_If. The data exists only inside the `type_qualifier` JSON blob, under key `Show_If`, so any consumer must parse JSON rather than read the field. Found 2026-09-03. A field created and left unpopulated, not a design decision.
 - A secondary text field, `type_qualifier_formulas`, carries a human-readable `Show_If:` fragment, but it disagrees with `type_qualifier` on 4 Kankaku rows (355 vs 359 non-null). Which is correct is not established.
+- The same root cause reaches four more fields, not just `show_if`: `required_if`, `editable_if`, `valid_if`, and `reset_if` are also empty in every row of both parses. `column_parser.py`'s `type_formula_fields` mapping (lines ~287–297) extracts all five keys — `Show_If`, `Required_If`, `Editable_If`, `Valid_If`, `Reset_If` — out of `type_qualifier` for reference-scanning only, and never writes any of the five into the top-level row. One unreported root cause behind five empty fields, not one. Found 2026-09-03, generating `CLAUDE.md`'s CSV reference section.
 
 ### Malformed `type_qualifier` JSON silently drops two Kankaku columns
 
@@ -57,6 +58,10 @@ Of the four false-positive categories originally reported, three are fixed (see 
 ### 23 Farmy inline actions attach to columns that do not exist
 
 - 23 of Farmy's 301 `Display_Inline` actions with a non-empty `attach_to_column` name a column that is not present as a `column_name` for that `table_name` in `appsheet_columns.csv`, mostly TS-prefixed names. This is the phantom-reference pattern applied to columns rather than views, and nothing currently surfaces it — `potential_phantom_view_references.csv` covers views only. Found 2026-09-03; excluded from that day's Show_If join rather than assumed empty. Whether these are stale names, a parser gap, or a naming convention this suite does not model is not established, and it should be before anything is reported to Leon.
+
+### `format_rule_orphan_detector.py`'s `run_analysis()` returns nothing
+
+- Its four sibling orphan detectors return a value from `run_analysis()`; this one has no `return` statement and always yields `None`. Found 2026-09-03 while generating the module reference for `CLAUDE.md`. Whether any caller depends on that return value is not established, and should be checked before this is treated as user-visible. Noted because it is the same shape as the `action_dependency_analyzer.py` finding above: an inconsistency sitting unexamined in a module with no logic change since it was written.
 
 ### `view_orphan_detector.py` never evaluates `CONTEXT()` — systematically more permissive than sibling modules, under-reporting orphans in both apps
 
