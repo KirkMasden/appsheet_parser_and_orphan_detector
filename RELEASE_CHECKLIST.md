@@ -203,8 +203,9 @@ comparison against the current reference output.
       - `view_orphan_detector.py` may not parse `CONTEXT("View")` conditions at
         all, unlike sibling files that do. Named as a "should do this" next
         step in two separate 2025 documents and never shown as done.
-        **CONFIRMED, 2026-09-02** — `view_orphan_detector.py` audited (report:
-        `/Users/kirkmasden/Desktop/260902_view_orphan_detector_code_audit.md`;
+        **CONFIRMED, 2026-09-02** — `view_orphan_detector.py` audited (report,
+        kept outside this repository as a private working note:
+        `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260902_view_orphan_detector_code_audit.md`;
         findings recorded in `STATUS.md`). This standing hypothesis was right:
         the module parses no `CONTEXT()` condition of any kind — confirmed by
         grep, zero hits for `context` anywhere in the file. One of six audited,
@@ -287,7 +288,8 @@ comparison against the current reference output.
       a reachability path nobody has read is a path whose correctness is
       unknown in both directions — it could be suppressing real orphans or
       clearing false ones.
-      Done, code audit `/Users/kirkmasden/Desktop/260902_view_orphan_detector_code_audit.md`.
+      Done, code audit (private working note, kept outside this repository):
+      `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260902_view_orphan_detector_code_audit.md`.
       **Both halves of the done-when below are met, and the first line's own
       premise turned out to be wrong:** there is no separate `ref_parent` or
       embedding-based reachability path — `category == 'ref'` is read in
@@ -314,8 +316,9 @@ comparison against the current reference output.
 
 - [ ] **Decide: fix `view_orphan_detector.py`'s missing `CONTEXT()` handling, or
       document it as an accepted limitation.**
-      Confirmed by the 2026-09-02 code audit
-      (`/Users/kirkmasden/Desktop/260902_view_orphan_detector_code_audit.md`;
+      Confirmed by the 2026-09-02 code audit (private working note, kept
+      outside this repository:
+      `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260902_view_orphan_detector_code_audit.md`;
       `STATUS.md`'s matching entry): the module's BFS traversal performs no
       `CONTEXT()` evaluation at all, so an edge whose context condition can
       never actually be satisfied still counts as a real path — systematically
@@ -642,9 +645,10 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
       credits for Claude Fable and this is the phase-one task where that
       capability fits. Practical note: hand the model `RELEASE_CHECKLIST.md`,
       `STATUS.md`, `CONSOLIDATION_PLAN.md`, `APPSHEET_BEHAVIOR.md`, and the two
-      2026-09-02 audit reports
-      (`~/Desktop/260902_view_orphan_path_analysis_notes.md`,
-      `~/Desktop/260902_view_orphan_detector_code_audit.md`) at session start
+      2026-09-02 audit reports — private working notes, kept outside this
+      repository —
+      (`~/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260902_view_orphan_path_analysis_notes.md`,
+      `~/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260902_view_orphan_detector_code_audit.md`) at session start
       rather than letting it discover them by reading the repo — discovery is
       where cost accumulates, and those documents already contain what it
       would reconstruct.
