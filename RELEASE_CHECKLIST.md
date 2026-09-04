@@ -188,10 +188,16 @@ comparison against the current reference output.
       seventh, `action_dependency_analyzer.py`, is already known to carry a live
       bug found the moment anyone looked — that is the reason to look at the
       others. Read-only: report what each module assumes, not a fix.
-      **Search the 2025 development archive first.** Kirk holds roughly 211
+      **Search the 2025 development archive first.** Kirk holds
       dated, descriptively-named `.docx` session records from the suite's
       original July–August 2025 build, at `/Users/kirkmasden/Documents/Research
-      projects/201228 My project/250608 2132 Orphan columns/`. That work
+      projects/201228 My project/250608 2132 Orphan columns/` — **163**, not
+      the "roughly 211" this item originally estimated; corrected 2026-09-04
+      after an actual count (`find . -name "*.docx" | wc -l`, run from that
+      folder). The 211 figure appears to have counted every item in that
+      folder generally — including parse directories and HTML exports, not
+      `.docx` files specifically — so nothing found since is missing; the
+      original estimate was simply counting the wrong thing. That work
       predates this project's use of Claude Code and its current documentation
       practice, so its reasoning was never carried into code comments or into
       any current document — this archive is the only likely record of WHY a
@@ -213,6 +219,28 @@ comparison against the current reference output.
       - `view_dependency_analyzer.py`'s exact/table-aware matching fix, applied
         in 2025 to format rules, slices and actions, was explicitly planned for
         views and explicitly not completed.
+        **MISATTRIBUTED, corrected 2026-09-04** — `view_dependency_analyzer.py`
+        audited (report, kept outside this repository as a private working
+        note:
+        `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260903_view_dependency_analyzer_code_audit.md`,
+        with supporting archive detail in the companion
+        `260903_view_dependency_analyzer_design_notes.md`; findings recorded
+        in `STATUS.md`). This hypothesis does not describe
+        `view_dependency_analyzer.py` — it performs no name-to-candidate
+        matching of any kind (confirmed by grep: zero hits for "exact" in the
+        file, and the only "table" references are display-only, never used
+        to disambiguate a match). The 2025 work it describes belongs to a
+        different module and a different method: `column_dependency_analyzer.py`'s
+        `analyze_view_dependencies()`, which asks which views reference a
+        given *column* — the reverse question from what
+        `view_dependency_analyzer.py` answers ("what paths reach this
+        view"). That work was called "planned but not completed" in one 2025
+        document and "Fixed" in a second document written roughly two hours
+        later the same day; checked against the current code, it is fixed,
+        and has been since 2025. The module-name / method-name resemblance
+        (`view_dependency_analyzer.py` vs. `analyze_view_dependencies`) is
+        the likely source of the original conflation. Two of six audited,
+        four remain.
       *Done when:* the audit has been run and its findings are recorded in
       `STATUS.md`, whether or not anything needs fixing.
 
@@ -617,26 +645,52 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
 
 - [x] **Push.** Done 2026-09-03: 72 commits, `2f0cb81..28164fd`. Pushed without squashing — the recorded plan had been to squash `adfdaac`'s correction into `18e7462` so a public reader never saw the wrong LINKTOFORM count, and that was dropped deliberately: rewriting the base of a 72-commit branch would have invalidated every commit hash cited across `STATUS.md`, `CONSOLIDATION_PLAN.md` and this file, and `adfdaac` sits two commits after the error and names it in its own subject line. Keeping the correction visible in history also matches how these documents already treat superseded reasoning.
 
-- [ ] **Report the five broken view references in Leon's app.**
-      `Seeds Form` (the real view is `Seeds_Form`), `ActivityForm - Transplant`,
-      `ActivityForm - Germination`, `ActivityForm Observation`, and `NurseryForm2b`.
-      Named by actions, absent from the app. Confirmed 2026-08-31 that a navigation
-      action pointing at a nonexistent view does nothing at all when tapped —
-      no error, no fallback — so these are invisible to users and findable only
+- [ ] **Report the broken view references in Leon's app — twelve names, not
+      five.**
+      The original five, already sent to Leon: `Seeds Form` (the real view is
+      `Seeds_Form`), `ActivityForm - Transplant`, `ActivityForm - Germination`,
+      `ActivityForm Observation`, and `NurseryForm2b`. Named by actions,
+      absent from the app. Confirmed 2026-08-31 that a navigation action
+      pointing at a nonexistent view does nothing at all when tapped — no
+      error, no fallback — so these are invisible to users and findable only
       by static analysis. Worth saying so: it is the clearest demonstration of
       what the tool is for.
-      Note for the report to Leon: the first four are `LINKTOFORM` references in
-      form actions, but `NurseryForm2b` is a `LINKTOROW` reference in a Sync action
-      (`Sync | Order (Complete)`, table `Nursery`) — don't describe all five as
-      form-view problems.
+      Note sent with the first five: the first four are `LINKTOFORM`
+      references in form actions, but `NurseryForm2b` is a `LINKTOROW`
+      reference in a Sync action (`Sync | Order (Complete)`, table `Nursery`)
+      — don't describe all five as form-view problems.
+      **Seven more, found 2026-09-05, not yet sent:** `ActivityWater Form`,
+      `Amendments ALL_Detail`, `MyPlantsReadOnly_Detail`, `New Selling Order
+      Form Finish`, `Order Form Nursery Plants List`, `Orders Table`,
+      `Seeds READONLY_Detail`. All twelve names — the original five and these
+      seven — already appear in Farmy's `potential_phantom_view_references.csv`,
+      every one of them via its `missing_view_names` field; no further suite
+      work is needed to surface them, only the reporting step. Their shapes
+      differ from each other and from the original five, worth keeping
+      straight in any report to Leon: two (`ActivityWater Form`, `Order Form
+      Nursery Plants List`) are plain `LINKTOVIEW` calls; one (`New Selling
+      Order Form Finish`) is a `LINKTOROW` call, the same shape as
+      `NurseryForm2b`; one (`Orders Table`) sits inside one branch of a
+      30-plus-branch `SWITCH`; three (`Amendments ALL_Detail`,
+      `MyPlantsReadOnly_Detail`, `Seeds READONLY_Detail`) aren't named
+      directly at all — they're view names synthesized from a
+      `#page=detail&table=...` deep-link URL, a structurally different kind
+      of reference from every other name on this list. Full detail in the
+      private working note:
+      `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260903_view_dependency_analyzer_code_audit.md`
+      (2026-09-05 section).
+      **Whether to report all twelve to Leon together, or the deep-link-derived
+      three separately given their different shape, is Kirk's call — not made
+      here.**
 
-- [ ] **A `CLAUDE.md` at the repository root**, per the July plan: CSV schemas,
+- [x] **A `CLAUDE.md` at the repository root**, per the July plan: CSV schemas,
       which analyzer answers which category of question, the instruction to call
       analyzer methods directly rather than driving the interactive menus, and
       the known blind spots. Ship an `AGENTS.md` with the same content for
       non-Anthropic tools. Required before publication, not optional: a
       published tool that other people's AI will use needs this to use the
       suite without reverse-engineering it.
+      **Done `1b28db1`, 2026-09-03.**
       **On model choice:** this is the one remaining phase-one task that is
       synthesis rather than verification — it requires holding the whole suite
       in view at once (twenty-one modules, the CSV schemas they emit, which

@@ -1,6 +1,6 @@
 # Project status
 
-Last updated 2026-09-03. Records what is outstanding in this project between working sessions.
+Last updated 2026-09-04. Records what is outstanding in this project between working sessions.
 
 See `APPSHEET_BEHAVIOR.md` for AppSheet's own display rules (positions, deck action
 bars, grouped-action execution) with sources for each. This file stays about defects
@@ -31,7 +31,7 @@ Of the four false-positive categories originally reported, three are fixed (see 
 
 ### Seven modules have had no logic change since they were written — a blind spot, not a clean bill of health
 
-- `view_orphan_detector.py`, `view_dependency_analyzer.py`, `slice_orphan_detector.py`, `format_rules_parser.py`, `format_rule_orphan_detector.py`, `column_dependency_analyzer.py`, and `action_dependency_analyzer.py` have never had a logic change since being written, per `git log` on each file (only the mechanical `csv_limits.py` import touches any of them). "Untouched" is ambiguous: it means either the code is solid, or it has never been exercised against real, varied data, and git history alone cannot tell the two apart. `action_dependency_analyzer.py` has already been shown to be the second case, not the first — see the entry directly above: never modified, and wrong the whole time it sat unmodified. **`view_orphan_detector.py` is now a third confirmed case of the second kind — see its own entry below, added 2026-09-02.** The other five have still not been examined; nothing here should be read as implying they are sound.
+- `view_orphan_detector.py`, `view_dependency_analyzer.py`, `slice_orphan_detector.py`, `format_rules_parser.py`, `format_rule_orphan_detector.py`, `column_dependency_analyzer.py`, and `action_dependency_analyzer.py` have never had a logic change since being written, per `git log` on each file (only the mechanical `csv_limits.py` import touches any of them). "Untouched" is ambiguous: it means either the code is solid, or it has never been exercised against real, varied data, and git history alone cannot tell the two apart. `action_dependency_analyzer.py` has already been shown to be the second case, not the first — see the entry directly above: never modified, and wrong the whole time it sat unmodified. **`view_orphan_detector.py` is now a third confirmed case of the second kind — see its own entry below, added 2026-09-02.** **`view_dependency_analyzer.py` has now also been audited (2026-09-03 through 2026-09-04, three sessions) — see its own entries below** (private working note, kept outside this repository: `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260903_view_dependency_analyzer_code_audit.md`). The other four have still not been examined; nothing here should be read as implying they are sound.
 - The pattern found across the wider history bears on how much confidence that absence of past fixes should give: `navigation_edge_generator.py` and `action_target_parser.py` were each untouched (beyond the mechanical `csv_limits` import) for months, then took every one of their real fixes inside a single 48-hour window, 2026-08-30 to 08-31, when the suite was first stress-tested against a second app in depth. In this project's own history, a long gap since the last fix has meant "not yet tested against different data" at least as often as it has meant "correct."
 
 ### Column-level `Show_If` is never consulted, so inline actions on a hidden column are counted as reachable
@@ -125,6 +125,132 @@ Of the four false-positive categories originally reported, three are fixed (see 
   reachability is not a case of undocumented divergence from a design; the
   design never addressed the question either.
 - Not fixed. Read-only finding as of 2026-09-02.
+
+### `view_dependency_analyzer.py` also evaluates no `CONTEXT()` conditions and never loads column data — a second instance, not a new gap
+
+- Confirmed by full code audit, 2026-09-03 (private working note, kept
+  outside this repository:
+  `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260903_view_dependency_analyzer_code_audit.md`).
+  `grep -c -i "context" view_dependency_analyzer.py` → 0, same as
+  `view_orphan_detector.py`. This module doesn't even load
+  `appsheet_columns.csv` — confirmed by grep, zero references anywhere in
+  the file — so column-level `Show_If` plays no role here either, for the
+  same reason it plays none in `view_orphan_detector.py` (see the entry
+  above): the file that would carry it is never opened at all, a step
+  further than `view_orphan_detector.py`'s load-then-discard.
+- **This is a second instance of the gap already recorded above for
+  `view_orphan_detector.py`, not a fresh discovery.** Say so rather than
+  presenting it as new: the suite's most consequential known gap now applies,
+  confirmed, to both of the two modules that answer "is this view reachable."
+- Not fixed. Read-only finding as of 2026-09-03.
+
+### `load_unused_system_views()` gives no signal distinguishing a missing `unused_system_views.csv` from one recording zero unused views
+
+- Read-side counterpart to the write-side defect already recorded above
+  (`view_orphan_detector.py` writes nothing on a zero result for the same
+  file). `view_dependency_analyzer.py`'s `load_unused_system_views()` is
+  gated entirely on whether the file exists; when it's absent, the method
+  does nothing — no exception, no message — and `self.unused_system_views`
+  stays the same empty set it would be if the file existed but recorded zero
+  unused views. Three distinct states — never ran, ran and found zero, file
+  absent — collapse into one, on the read side of the same file the write
+  side already collapses two of three for.
+- **Measured consequence, not just a description of the code path:** with
+  the file absent, `build_navigation_graph()` on Kankaku's data loads 585
+  navigation edges (the full, unfiltered `navigation_edges.csv` row count)
+  instead of 384 (with the real, populated file — 64 entries — loaded
+  first) — silently, with nothing distinguishing "ran with the exclusion
+  filter" from "ran without it because the file wasn't there."
+- Found 2026-09-04. Not fixed. Read-only finding.
+
+### Three code-level reachability-rule differences between `view_dependency_analyzer.py` and `view_orphan_detector.py` — no live disagreement found across three apps, but the depth cap runs at its ceiling in one
+
+- `view_dependency_analyzer.py`'s `is_always_false()` is a strict subset of
+  `view_orphan_detector.py`'s `is_always_false_condition()` (missing five
+  regex patterns for `1=2`/`"a"="b"`/`true=false`-shaped conditions);
+  `view_dependency_analyzer.py` never checks a *target* view's own `show_if`
+  as an override the way `view_orphan_detector.py` does; and
+  `view_dependency_analyzer.py`'s `bfs_find_paths()` caps search depth at a
+  6-edge maximum per root, which `view_orphan_detector.py`'s unbounded BFS
+  does not share.
+- **Measured against three apps, not asserted:** the first two differences
+  produce no live disagreement in any of Kankaku, Farmy, or a third app
+  parsed 2026-09-04 (no view with a matching `show_if` shape exists in any
+  of the three). The depth cap is the one that matters in practice — the
+  smallest cap that would hide nothing needs **5 edges in Kankaku, 5 in the
+  third app, and 7 in Farmy**, against the code's current 6-edge maximum.
+  Farmy alone currently has 19 (root, target) pairs whose shortest path
+  exceeds the cap — invisible today only because `find_paths_to_view()`
+  retries other roots and one of them succeeds within the cap.
+- **No view is currently hidden by the cap in any of the three apps
+  measured — but Farmy is the outlier of the three, not the typical case**,
+  and its margin is a live, currently-occurring shortfall (19 pairs), not a
+  comfortable, far-off one. Any future summary of this finding should say
+  "two of three apps show no margin pressure; Farmy is the current
+  exception," not imply a representative split.
+- Confirmed by audit, 2026-09-04 correction and 2026-09-05 follow-up,
+  re-run against a third app 2026-09-04 (see the private working note
+  above). Not fixed — Kirk's call on whether to widen the cap. Read-only
+  finding.
+
+### `view_orphan_detector.py` admits unresolvable `target_view` strings into its `reachable` set as raw text, overstating its reported reachable count
+
+- `build_navigation_graph_from_edges()` falls back to the raw, unresolved
+  `target_view` string from `navigation_edges.csv` when its own
+  `view_name_by_lower` canonicalization can't match it to any real view —
+  and that raw string then enters `reachable` indistinguishably from a
+  genuine view name. Measured: 12 such phantom names in Farmy, 0 in
+  Kankaku, 0 in a third app parsed 2026-09-04.
+- **The derived orphan CSVs are not affected** — `potential_view_orphans.csv`
+  and `unused_system_views.csv` are built by iterating real view rows and
+  checking set membership, so a phantom entry in `reachable` simply never
+  matches a real row. What's affected is `view_orphan_detector.py`'s own
+  printed "reachable" *count*, which overstates real, navigable views by
+  exactly the phantom count — a reader taking that console number at face
+  value, rather than the derived files, would be misled.
+- Whether this is the same class of dangling reference
+  `phantom_view_reference_detector.py` already catches from other source
+  fields, or a distinct blind spot specific to `navigation_edges.csv`'s own
+  `target_view`, is not established. Found 2026-09-04. Not fixed. Read-only
+  finding.
+
+### The parser doesn't recognize the `#page=fastTable&table=...` deep-link pattern used by chart-data actions
+
+- 6 unparseable navigation expressions in a third app parsed 2026-09-04, all
+  shaped `="#page=fastTable&table=..."`, all tied to chart-view actions —
+  zero occurrences in either Kankaku's or Farmy's
+  `action_targets_unparseable.csv`. Distinct from the already-known
+  `#page=map&table=...&mapcolumn=...` gap (13 rows in Farmy, 6 more in the
+  same third app) — this is a different `#page=` value the deep-link
+  recognizer doesn't handle at all, not a variant of the known one.
+- Not fixed. Read-only finding.
+
+### Open question: does `a15021b`'s `NOT(CONTEXT(...))` fix cover a membership-test shape it wasn't tested against?
+
+- `a15021b` fixed `NOT()` wrapping a *direct* `CONTEXT()` comparison (e.g.
+  `NOT(CONTEXT("ViewType") = "Detail")`). A third app parsed 2026-09-04
+  exercises a different shape six times: `NOT(IN(CONTEXT("View"),
+  LIST(...)))`, a `NOT()` wrapping a membership test rather than an
+  equality. Whether this inverts the same way is not established — not
+  audited here, flagged as an open question.
+- **Why this can't be settled by diffing:** the original defect this class
+  of bug belongs to was RESTRICTIVE — it suppresses edges rather than
+  fabricating them — and restrictive errors are stable across runs, so a
+  before/after CSV diff would show nothing even if this shape is still
+  mishandled (`a15021b`'s own entry below records the same asymmetry).
+  Confirming or ruling this out needs the same kind of targeted,
+  field-by-field check `a15021b`'s own verification used, not a diff.
+- Found 2026-09-04. Not fixed. Read-only finding.
+
+### `broken_usersettings_references.csv` was non-empty for the first time in this project
+
+- One row, found in a third app parsed 2026-09-04, involving a column in
+  the app's standard `_Per User Settings` table referencing another column
+  that doesn't exist in it — both Kankaku's and Farmy's
+  `broken_usersettings_references.csv` have zero rows (the file doesn't get
+  written at all, "write nothing on zero"). This gives the December 2025
+  USERSETTINGS() work below a real, non-synthetic test case for the first
+  time. Low priority; not investigated further here.
 
 ### December 2025 User Settings work is unverified
 
@@ -435,6 +561,11 @@ Entries from `48eead1` onward carry full verification detail — row counts, byt
   - The one remaining `action_targets_unparseable.csv` row is not a mystery — it is `Force sync`, already correctly identified and labeled (`"Forced sync — LINKTOROW to CONTEXT(VIEW), no navigation target"`) by `1c22881`'s second fix (confirmed by `git log -S` on that exact string: only `1c22881`'s diff to `action_target_parser.py` adds it; `d5afd61` and `7aeb2c3` merely quote it in this file). Recorded here so a reader checking today's parses against the row count doesn't go looking for an unidentified failure that isn't there.
     - **Roadmap note, not a defect and not phase one:** this expression's `CONTEXT(VIEW)` uses a bare, unquoted argument — every other `CONTEXT()` call in both apps (101 in Farmy, 230 in Kankaku, confirmed by scanning `navigate_target` and `only_if_condition` in both) uses a quoted string literal (`CONTEXT("View")`, `CONTEXT("ViewType")`, and so on). AppSheet accepts both forms. Relevant to any future `CONTEXT()` argument-validation checker: one keyed on quoted literals alone would miss or misflag this form.
   - `potential_format_rule_orphans.csv` is absent from the `20260831_182306` parse too — Kankaku's format-rule orphan count has been zero throughout this entire interval, and there is no change to explain there.
+- 2026-09-04 — `LINKTOFILTEREDVIEW` (added by `48eead1`, 2026-08-30) was
+  exercised by real data for the first time since that fix shipped: a third
+  app parsed this date uses it 13 times, all parsing cleanly into
+  `action_targets.csv`, none appearing in `action_targets_unparseable.csv`.
+  A fix confirmed by new data, not a defect found.
 
 ## Remaining work on the false positives
 
