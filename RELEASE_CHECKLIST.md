@@ -659,7 +659,7 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
       references in form actions, but `NurseryForm2b` is a `LINKTOROW`
       reference in a Sync action (`Sync | Order (Complete)`, table `Nursery`)
       — don't describe all five as form-view problems.
-      **Seven more, found 2026-09-05, not yet sent:** `ActivityWater Form`,
+      **Seven more, found 2026-09-04, not yet sent:** `ActivityWater Form`,
       `Amendments ALL_Detail`, `MyPlantsReadOnly_Detail`, `New Selling Order
       Form Finish`, `Order Form Nursery Plants List`, `Orders Table`,
       `Seeds READONLY_Detail`. All twelve names — the original five and these
@@ -678,10 +678,18 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
       of reference from every other name on this list. Full detail in the
       private working note:
       `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260903_view_dependency_analyzer_code_audit.md`
-      (2026-09-05 section).
+      (2026-09-04 follow-up section — originally misdated 2026-09-05 in the
+      audit document, corrected there).
       **Whether to report all twelve to Leon together, or the deep-link-derived
       three separately given their different shape, is Kirk's call — not made
       here.**
+      **Before this report goes out, see `STATUS.md`'s "Two Farmy phantom names
+      may be misattributed to source views whose own `action_targets.csv`
+      resolution points elsewhere"** — two of these twelve,
+      `MyPlantsReadOnly_Detail` and `Seeds READONLY_Detail`, may be an
+      artifact of this suite's own edge generation rather than a genuine
+      defect in Leon's app. Not settled; settle it before reporting these
+      two specifically.
 
 - [x] **A `CLAUDE.md` at the repository root**, per the July plan: CSV schemas,
       which analyzer answers which category of question, the instruction to call

@@ -188,10 +188,11 @@ Of the four false-positive categories originally reported, three are fixed (see 
   comfortable, far-off one. Any future summary of this finding should say
   "two of three apps show no margin pressure; Farmy is the current
   exception," not imply a representative split.
-- Confirmed by audit, 2026-09-04 correction and 2026-09-05 follow-up,
-  re-run against a third app 2026-09-04 (see the private working note
-  above). Not fixed — Kirk's call on whether to widen the cap. Read-only
-  finding.
+- Confirmed by audit — the 2026-09-04 correction, the 2026-09-04 follow-up
+  (originally misdated 2026-09-05 in the audit document; corrected there
+  2026-09-04), and a third-app re-run the same day (see the private
+  working note above). Not fixed — Kirk's call on whether to widen the
+  cap. Read-only finding.
 
 ### `view_orphan_detector.py` admits unresolvable `target_view` strings into its `reachable` set as raw text, overstating its reported reachable count
 
@@ -214,6 +215,34 @@ Of the four false-positive categories originally reported, three are fixed (see 
   `target_view`, is not established. Found 2026-09-04. Not fixed. Read-only
   finding.
 
+### Two Farmy phantom names may be misattributed to source views whose own `action_targets.csv` resolution points elsewhere
+
+- For two of Farmy's phantom view names, `MyPlantsReadOnly_Detail` and
+  `Seeds READONLY_Detail`, `navigation_edges.csv`'s recorded target for a
+  source view does not match what `action_targets.csv` independently
+  resolved for that source view's own table. Both arise from an action
+  name shared across several tables — `View Ref (MyPlants_ID)` and
+  `View Ref (Seeds_ID)` — where `action_targets.csv` resolves each table's
+  own variant separately and correctly, most of them to real, existing
+  views (`Plants without DB reference_Detail`, `Seeds_Detail`), while
+  `navigation_edges.csv` records 9 of 12 and 7 of 10 source views under the
+  phantom target instead. See the private working note for the full
+  figures and view lists rather than relying on this summary:
+  `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260903_view_dependency_analyzer_code_audit.md`
+  (2026-09-04 follow-up section).
+- **Cause not established.** Reported as evidence only, not diagnosed
+  against `navigation_edge_generator.py`'s own logic, which was out of
+  scope for the audit that found this.
+- **Why this matters now:** both `MyPlantsReadOnly_Detail` and
+  `Seeds READONLY_Detail` sit on `RELEASE_CHECKLIST.md` section E's list of
+  broken view references pending a report to Leon. If edges are being
+  attributed to source views whose own resolution points elsewhere, some of
+  those names may be an artifact of this suite rather than a defect in his
+  app. **Recommend settling this before the follow-up report goes to
+  Leon — not settled here, and the call on how to proceed is not made
+  here.**
+- Found 2026-09-04. Not fixed. Read-only finding.
+
 ### The parser doesn't recognize the `#page=fastTable&table=...` deep-link pattern used by chart-data actions
 
 - 6 unparseable navigation expressions in a third app parsed 2026-09-04, all
@@ -223,6 +252,11 @@ Of the four false-positive categories originally reported, three are fixed (see 
   `#page=map&table=...&mapcolumn=...` gap (13 rows in Farmy, 6 more in the
   same third app) — this is a different `#page=` value the deep-link
   recognizer doesn't handle at all, not a variant of the known one.
+- **Observation, not investigated:** the same six actions also carry six of
+  the twelve `CONTEXT()`-bearing `only_if_condition` rows in that app's
+  `appsheet_actions.csv`, and that same parse reported zero edges blocked
+  by conditions. The unparseable navigation targets and the unexercised
+  condition checking may be connected — not diagnosed here.
 - Not fixed. Read-only finding.
 
 ### Open question: does `a15021b`'s `NOT(CONTEXT(...))` fix cover a membership-test shape it wasn't tested against?
