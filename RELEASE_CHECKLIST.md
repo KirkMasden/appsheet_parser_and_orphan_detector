@@ -239,8 +239,26 @@ comparison against the current reference output.
         later the same day; checked against the current code, it is fixed,
         and has been since 2025. The module-name / method-name resemblance
         (`view_dependency_analyzer.py` vs. `analyze_view_dependencies`) is
-        the likely source of the original conflation. Two of six audited,
-        four remain.
+        the likely source of the original conflation. Three of six audited, three remain.
+      - `column_dependency_analyzer.py`'s column-to-column matching
+        (`categorize_references`) was never brought into the 2025 exact/table-aware
+        fix — neither 2025 document mentions it, `analyze_column_dependencies`, or
+        column-to-column matching at all.
+        **CONFIRMED AS A SEPARATE FACT, 2026-09-04** — the module's four
+        component-level methods (views, slices, format rules, actions) do have
+        exact, table-aware matching, confirmed by direct read; the column-to-column
+        path is a two-stage exception, and only its first stage (the gate) is exact
+        — that gate also lacks the table-scoping the other four methods use.
+        `categorize_references` itself is unanchored substring matching throughout:
+        the pre-2025 idiom the 2025 fix set out to remove, but never reached — not a
+        regression from a later fix. **Do not file this under the MISATTRIBUTED
+        entry above** — that entry closes the section B hypothesis; this is a
+        separate, newly surfaced fact its closure would otherwise bury. Also worth
+        flagging as inaccurate: the 15:59 documentation's column-to-column field
+        list, which claims `show_if`, `valid_if`, `required_if`, and `editable_if`
+        references are tracked — those fields are empty in every row of every parse
+        (`STATUS.md`), so the claim has been untrue for as long as the current
+        parser has emitted them. (code audit, `260904_column_dependency_analyzer_code_audit.md`)
       *Done when:* the audit has been run and its findings are recorded in
       `STATUS.md`, whether or not anything needs fixing.
 
