@@ -136,7 +136,7 @@ not reopen it (see the item's own note on why it does not block section D either
 Each is a Claude Code task with a predicted diff, verified by full re-parse and
 comparison against the current reference output.
 
-- [ ] **Re-cut both reference parses at current HEAD — before any other section B item is started.**
+- [x] **Re-cut both reference parses at current HEAD — before any other section B item is started.**
       Both saved references predate `a15021b` (`STATUS.md`, "Both saved reference parses are stale"), so every diff against them attributes pre-existing drift to the change under test. Decided 2026-09-05: this is the first execution item, done on its own in a session that gives it full attention, not as a closing task after a fix.
       *Done when:* fresh parses of both apps exist from the code at the current HEAD; for each parse directory the earliest file mtime inside it is later than the mtime of every `.py` file in the repository (a directory's own timestamp does not establish this — see the caution paragraph in section D); the two new directory paths replace the "Current references, as of `a15021b`" paths in section D's caution paragraph; and `STATUS.md`'s "Both saved reference parses are stale" entry records the new paths and moves to "Recently fixed".
 
