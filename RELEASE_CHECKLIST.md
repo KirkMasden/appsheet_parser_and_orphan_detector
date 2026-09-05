@@ -81,7 +81,25 @@ non-deck view type, which would close the open question already recorded under
 it.** The 2026-08-31 closure that unblocked section D still stands; this item does
 not reopen it (see the item's own note on why it does not block section D either).
 
-- [ ] **Does a case-mismatched `LINKTOROW` view name resolve at runtime?**
+- [x] **Does a case-mismatched `LINKTOROW` view name resolve at runtime?**
+      **ANSWERED 2026-09-05 — YES, by direct observation in the running app.**
+      `Go to card stats` fired on a qualifying card and rendered the `Card stats`
+      view correctly (heading "Card statistics for 数珠", Card made date, Status:
+      Scheduled), despite its expression naming `"Card Stats"` with a capital S and
+      no view of that name existing. **AppSheet's `LINKTOROW` view-name argument is
+      case-insensitive at runtime.** `CONSOLIDATION_PLAN.md` section 4's
+      case-insensitive-by-default decision therefore no longer carries a known cost
+      — the one accepted cost was exactly this shape, and it is not a cost. Neither
+      Kankaku's `Card stats` nor Farmy's `Water Tanks` is affected by the failure
+      case this item described.
+      **Incidental finding, recorded because it affects debugging:** the AppSheet
+      editor's preview echoes the view name *as written in the expression*, not the
+      view's actual stored name — the preview footer read
+      `View: Card Stats | Table: Card stats`. A case error propagates into the debug
+      display rather than being corrected there, so it cannot be spotted by reading
+      that line.
+      Recorded in `APPSHEET_BEHAVIOR.md`'s case-sensitivity section, 2026-09-05.
+      The original item text follows, left unmodified as the record of what was asked.
       Kankaku's "Go to card stats" (source table `Kankaku`, per
       `action_targets.csv`) navigates via `=LINKTOROW([_THISROW], “Card Stats”)`
       — the curly quotes are AppSheet's own editor's, not a transcription choice

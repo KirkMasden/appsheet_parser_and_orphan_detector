@@ -326,6 +326,15 @@ on its own; none is inferred from a sibling.
   not resolve that call at runtime, the tool cleared a view that is actually
   unreachable — the code-level detail belongs in STATUS.md, not here; this file only
   records that the platform fact needed to judge it is currently unknown.
+- **Established 2026-09-05, by app test:** a `LINKTOROW` view-name argument DOES
+  resolve case-insensitively at runtime. Kankaku's action `Go to card stats`
+  navigates via `=LINKTOROW([_THISROW], "Card Stats")` — capital S, curly quotes —
+  and no view named `Card Stats` exists in the app. Tapped on a qualifying card in
+  the running app, it rendered the real view `Card stats` correctly. Tested by Kirk
+  by direct observation, not inferred from documentation. Incidental: the AppSheet
+  editor's preview echoes the view name as spelled in the expression rather than the
+  stored view name (`View: Card Stats | Table: Card stats`), so a case error is
+  invisible in that display.
 
 ## AppSheet validates shape, not meaning
 
