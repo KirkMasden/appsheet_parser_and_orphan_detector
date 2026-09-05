@@ -712,8 +712,8 @@ were stale as of 2026-09-02, and so, in turn, were the references that replaced 
 (`20260902_131151_AppsheetFarmyApp_for_Kirk_parse`,
 `20260901_085853_260831_1809_Kankaku_V18_regression_reference_1c22881`) once step 6's
 `96d8897` and the `NOT(CONTEXT(...))` fix's `a15021b` landed. **Current references, as
-of `a15021b`:** `20260902_180352_AppsheetFarmyApp_for_Kirk_parse` (Farmy) and
-`20260902_180356_260831_1809_Kankaku_V18_baseline_parse` (Kankaku). Both were produced
+of `c1e849e`:** `20260906_065021_AppsheetFarmyApp_for_Kirk_parse` (Farmy) and
+`20260906_064915_260831_1809_Kankaku_V18_baseline_parse` (Kankaku). Both were produced
 by the code now committed as `a15021b` and are adopted at that hash without
 regeneration — confirmed by comparing `action_target_parser.py`'s mtime (its last
 edit) against both directories' earliest file mtimes, both later. **A directory's own
