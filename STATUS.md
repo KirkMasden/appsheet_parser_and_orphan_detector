@@ -215,33 +215,32 @@ Of the four false-positive categories originally reported, three are fixed (see 
   `target_view`, is not established. Found 2026-09-04. Not fixed. Read-only
   finding.
 
-### Two Farmy phantom names may be misattributed to source views whose own `action_targets.csv` resolution points elsewhere
+### Three Farmy phantom names are artifacts of this suite, not defects in Leon's app — diagnosed 2026-09-06
 
-- For two of Farmy's phantom view names, `MyPlantsReadOnly_Detail` and
-  `Seeds READONLY_Detail`, `navigation_edges.csv`'s recorded target for a
-  source view does not match what `action_targets.csv` independently
-  resolved for that source view's own table. Both arise from an action
-  name shared across several tables — `View Ref (MyPlants_ID)` and
-  `View Ref (Seeds_ID)` — where `action_targets.csv` resolves each table's
-  own variant separately and correctly, most of them to real, existing
-  views (`Plants without DB reference_Detail`, `Seeds_Detail`), while
-  `navigation_edges.csv` records 9 of 12 and 7 of 10 source views under the
-  phantom target instead. See the private working note for the full
-  figures and view lists rather than relying on this summary:
-  `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260903_view_dependency_analyzer_code_audit.md`
-  (2026-09-04 follow-up section).
-- **Cause not established.** Reported as evidence only, not diagnosed
-  against `navigation_edge_generator.py`'s own logic, which was out of
-  scope for the audit that found this.
-- **Why this matters now:** both `MyPlantsReadOnly_Detail` and
-  `Seeds READONLY_Detail` sit on `RELEASE_CHECKLIST.md` section E's list of
-  broken view references pending a report to Leon. If edges are being
-  attributed to source views whose own resolution points elsewhere, some of
-  those names may be an artifact of this suite rather than a defect in his
-  app. **Recommend settling this before the follow-up report goes to
-  Leon — not settled here, and the call on how to proceed is not made
-  here.**
-- Found 2026-09-04. Not fixed. Read-only finding.
+- `MyPlantsReadOnly_Detail`, `Seeds READONLY_Detail` and `Amendments ALL_Detail` do not occur anywhere in Leon's own expressions. Searched exhaustively across the 2026-09-06 baseline: raw `navigate_target`, `with_these_properties`, `referenced_views`, view `show_if`, column `app_formula` and `type_qualifier`, format rules, slices, and `action_targets_unparseable.csv`. Each string occurs only in `action_targets.csv`'s `target_view` field.
+- **What Leon actually wrote** is a deep link naming a real slice, with no `_Detail` suffix anywhere in it: `CONCATENATE("#page=detail&table=MyPlantsReadOnly&row=", ENCODEURL([MyPlants_ID]))`, the same shape for `Seeds%20READONLY`, and `CONCATENATE("#page=detail&table=Amendments%20ALL&row=", ENCODEURL([Container_AmendmentPrep]))`. `MyPlantsReadOnly` (source table `MyPlants`), `Seeds READONLY` (source table `Seeds`) and `Amendments ALL` (source table `AmendmentPrep`) are all real slices. None is a table.
+- **Where the suffix comes from:** `action_target_parser.py`'s table→view lookup (`table_detail_views`) contains base-table names only, so a slice name misses it and the parser falls back to an `f"{table_name}_Detail"` string convention (line ~180) to have something to write to `target_view`. That guess is what reached `potential_phantom_view_references.csv` and `RELEASE_CHECKLIST.md` section E's list.
+- None of the three exists as a view under any capitalization — no exact match, no case variant, no near-miss, unlike the Kankaku `Card stats`/`Card Stats` false positive. None of the three slices is the `data_source` of any view: AppSheet appears to materialize a view set for a slice only when that slice is used as a customized view's data source, and none of these is.
+- **All three struck from the report to Leon.** Reporting them would be handing him this suite's own fallback guess as though it were his text.
+- **What is NOT settled, and must not be overstated to him either way:** whether a `#page=detail&table=<slice>` deep link navigates anywhere useful in the running app. The slices are real but have no exported view of their own — either the links are genuinely broken (a real finding of a different shape) or AppSheet routes them to a default this export does not catalogue. Settling it needs a tap test in the live app, not more static analysis.
+- The misattribution the earlier entry reported is real and its cause is now established — see the two entries below, added the same day. Figures at the 2026-09-06 baseline: 9 of 12 source views misattributed for `View Ref (MyPlants_ID)`, and 6 of 10 for `View Ref (Seeds_ID)`. The earlier "7 of 10" was an undercount in the 2026-09-04 private audit, which omitted `ActivityHarvest_Form` from the legitimate-`ActivityHarvest` set despite its own `source_table` being `ActivityHarvest` — not a consequence of the reference re-cut. Verified directly: the set of 10 source views is byte-identical between the pre-`b68f854` reference and the 2026-09-06 baseline, so nothing about this changed when the references were re-cut.
+
+### `navigation_edge_generator.py` joins actions to targets by name alone, with no table boundary, fabricating edges in every app where an action name recurs across tables
+
+- `load_action_targets` indexes on the action name only — `self.targets_by_action[row.get('source_action', '')]` (line ~39 for the `defaultdict`, ~68–70 for the population) — so every table's copy of a same-named action lands in one bucket.
+- `process_view` (lines ~719–737) iterates `self.targets_by_action[action_name]` and calls `process_regular_action` for every row in it. `target_row['source_table']` is never read and never compared against the view's own table. The join has no table boundary at all.
+- **Consequence:** any view listing that action name in its `available_actions` receives a candidate edge for every table's variant, not only its own, gated solely by `is_visible_in_view_neg`. That gate can pass a foreign-table row while rejecting the view's own correct row — `Details Germination Only Slice` is the clean specimen: for `View Ref (MyPlants_ID)` its only recorded edge is the contaminating one, its own correct edge to `Plants without DB reference_Detail` having been filtered out. Everything `navigation_edges.csv` shows for that view on that action is wrong, not partly wrong.
+- **Confirmed in data (2026-09-06 baseline):** 9 of 12 source views for `View Ref (MyPlants_ID)` and 6 of 10 for `View Ref (Seeds_ID)` carry a spurious edge to another table's target. `View Ref (MyPlants_ID)` exists as a distinct action row on 6 tables.
+- **Scope is not these two actions.** Any action name shared across two or more tables whose variants resolve to different targets fans out the same way. `navigation_edges.csv` is load-bearing for every downstream reachability and orphan computation, so fabricated edges make views look reachable that are not — a FALSE NEGATIVE in the tool's central claim, silent by construction. Where the contaminating target is itself a phantom name, it also misattributes phantom-reference reports to source views that never produce them.
+- Not fixed. Found 2026-09-06 while diagnosing the three Farmy phantom names above; Kankaku could not have surfaced it, since its action names do not recur across tables this way.
+
+### `action_target_parser.py`'s `table_detail_views` keeps whichever Detail view came last in the export, silently mis-targeting deep links
+
+- `load_views_csv` (lines ~66–82) builds `self.table_detail_views[source_table] = view_name` by iterating every system-generated Detail-type view and overwriting unconditionally on each match. Where a table has several slice-derived Detail views — all carrying the base table's `source_table` — the survivor is simply the last one in the export's view order, with no preference for the view whose own name matches the table exactly.
+- **Confirmed in data:** 16 of Farmy's 45 tables have more than one candidate; in 6 of those 16 (`Beds`, `ActivityAmendment`, `BlankTable`, `Containers`, `MyPlants`, `Nursery`) the survivor is not the table's own `<Table>_Detail` view. For `MyPlants`, this is why `#page=detail&table=MyPlants` resolves to `Plants without DB reference_Detail` rather than the real, exact-match `MyPlants_Detail`, which exists and merely was not written last.
+- **Why it is worse than it looks:** the substituted view is real, so nothing ever flags it — it never surfaces as a phantom, produces no error, and is findable only by hand trace. It is also order-dependent: a slice rename or reorder in the editor can flip the winner on a future re-parse with no code change.
+- **Bearing on the entry above:** `action_targets.csv`'s per-table resolution is internally correct in the sense that each table's link is resolved without cross-table contamination, but a correctly-attributed row can still name the wrong view. Do not read "`action_targets.csv` is right where the two files disagree" as a general warrant for its resolved values.
+- Not fixed. Found 2026-09-06 while diagnosing the three Farmy phantom names above.
 
 ### The parser doesn't recognize the `#page=fastTable&table=...` deep-link pattern used by chart-data actions
 
@@ -610,7 +609,7 @@ first time it has been saved as a regression baseline alongside Farmy's.
 - Several entries here report measurements across three apps and name the third only as "a third app." It is the app shared by forum user @shimodabt in December 2025 — the sharing that prompted the parser fixes announced in Kirk's December 2025 forum post, and for which shimodabt was thanked publicly by name at the time. The generic wording was deliberate: provenance was unestablished when those entries were written, and the prompt that wrote them was instructed to keep the app unidentified.
 - **Provenance established 2026-09-04**, on evidence internal to the export rather than on timing: the data-source string `shimodabt@gmail.com` appears in the app's own data model, and the action name "Vue Agenda MAL" matches the December 2025 bug-fix writeup by name.
 - Export, complete set (`Application Documentation.html`, `actions.txt`, `views1.txt`, `views2.txt`, all file-dated 2025-11-30): `/Users/kirkmasden/Documents/Research projects/201228 My project/250608 2132 Orphan columns/250907 1229 AppSheetAnalysis/251130 1947 Test/`
-- Parses: `20260904_093140_251130_1947_Test_parse` — the parse every three-app measurement in this file was taken from, cut before `b68f854` — and `20260906_070344_251130_1947_Test_parse`, baseline cut 2026-09-06 at `c1e849e`.
+- Parses: `20260904_093140_251130_1947_Test_parse` — the parse every three-app measurement in this file was taken from, cut before `b68f854` — and `20260906_070344_251130_1947_Test_parse`, baseline cut 2026-09-06 at `c6231b7` (`c6231b7` is documentation-only — it touched no `.py` file — so the code state is identical to `c1e849e`, at which the Kankaku and Farmy references were cut the same morning.)
 - **Why it is kept.** It has twice surfaced defects neither Kankaku nor Farmy could: three in December 2025 (the `actions_parser.py` crash on a target-less "Execute an action on a set of rows"; `actions_orphan_detector.py` false positives for Display Overlay navigation actions in table views; `views_parser.py` failing to recognize dashboard views whose position field held "laterType"), and in September 2026 the unrecognized `#page=fastTable` deep-link value and the `NOT(CONTEXT("ViewType") = "Detail")` shape bearing on `a15021b`'s inversion fix. It also serves as a control: its zero dropped references against Farmy's 35 localized that cause to Farmy's `type_qualifier` rendering, and it supplies the third data point behind "Farmy is the outlier at the 6-edge depth ceiling," which two apps could not establish.
 - **Not a standing reference parse. Decided 2026-09-06:** a baseline is cut so all three apps sit at one HEAD, but it stays out of the per-fix diff loop for the remaining section B fixes, which are restrictive in direction and whose verification is explaining every removed clearance individually. It is run once against the finished state after those fixes land, as a diversity check rather than a step in each fix.
 
