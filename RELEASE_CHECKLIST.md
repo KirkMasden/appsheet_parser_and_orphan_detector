@@ -742,8 +742,8 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
 
 - [x] **Push.** Done 2026-09-03: 72 commits, `2f0cb81..28164fd`. Pushed without squashing — the recorded plan had been to squash `adfdaac`'s correction into `18e7462` so a public reader never saw the wrong LINKTOFORM count, and that was dropped deliberately: rewriting the base of a 72-commit branch would have invalidated every commit hash cited across `STATUS.md`, `CONSOLIDATION_PLAN.md` and this file, and `adfdaac` sits two commits after the error and names it in its own subject line. Keeping the correction visible in history also matches how these documents already treat superseded reasoning.
 
-- [ ] **Report the broken view references in Leon's app — twelve names, not
-      five.**
+- [ ] **Report the broken view references in Leon's app — nine names, not
+      twelve.**
       The original five, already sent to Leon: `Seeds Form` (the real view is
       `Seeds_Form`), `ActivityForm - Transplant`, `ActivityForm - Germination`,
       `ActivityForm Observation`, and `NurseryForm2b`. Named by actions,
@@ -756,37 +756,35 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
       references in form actions, but `NurseryForm2b` is a `LINKTOROW`
       reference in a Sync action (`Sync | Order (Complete)`, table `Nursery`)
       — don't describe all five as form-view problems.
-      **Seven more, found 2026-09-04, not yet sent:** `ActivityWater Form`,
-      `Amendments ALL_Detail`, `MyPlantsReadOnly_Detail`, `New Selling Order
-      Form Finish`, `Order Form Nursery Plants List`, `Orders Table`,
-      `Seeds READONLY_Detail`. All twelve names — the original five and these
-      seven — already appear in Farmy's `potential_phantom_view_references.csv`,
-      every one of them via its `missing_view_names` field; no further suite
-      work is needed to surface them, only the reporting step. Their shapes
-      differ from each other and from the original five, worth keeping
-      straight in any report to Leon: two (`ActivityWater Form`, `Order Form
-      Nursery Plants List`) are plain `LINKTOVIEW` calls; one (`New Selling
-      Order Form Finish`) is a `LINKTOROW` call, the same shape as
-      `NurseryForm2b`; one (`Orders Table`) sits inside one branch of a
-      30-plus-branch `SWITCH`; three (`Amendments ALL_Detail`,
-      `MyPlantsReadOnly_Detail`, `Seeds READONLY_Detail`) aren't named
-      directly at all — they're view names synthesized from a
-      `#page=detail&table=...` deep-link URL, a structurally different kind
-      of reference from every other name on this list. Full detail in the
-      private working note:
+      **Four more, found 2026-09-04, not yet sent:** `ActivityWater Form`,
+      `New Selling Order Form Finish`, `Order Form Nursery Plants List`,
+      `Orders Table`. Their shapes differ and are worth keeping straight in
+      any report: two (`ActivityWater Form`, `Order Form Nursery Plants
+      List`) are plain `LINKTOVIEW` calls; one (`New Selling Order Form
+      Finish`) is a `LINKTOROW` call, the same shape as `NurseryForm2b`; one
+      (`Orders Table`) sits inside one branch of a 30-plus-branch `SWITCH`.
+      All four appear in Farmy's `potential_phantom_view_references.csv` via
+      its `missing_view_names` field; no further suite work is needed to
+      surface them, only the reporting step.
+      **Three names STRUCK 2026-09-06 — do not report them.**
+      `MyPlantsReadOnly_Detail`, `Seeds READONLY_Detail` and
+      `Amendments ALL_Detail` are artifacts of this suite, not defects in
+      Leon's app: he wrote `#page=detail&table=<slice>` deep links naming
+      three real slices, and this suite's own `f"{table_name}_Detail"`
+      fallback manufactured the `_Detail` names. See `STATUS.md`, "Three
+      Farmy phantom names are artifacts of this suite, not defects in Leon's
+      app". Reporting them would hand him this suite's guess as though it
+      were his text.
+      **Separate open question, Kirk's call, not settled here:** whether those
+      three deep links actually navigate anywhere in the running app. The
+      slices are real but have no exported view of their own. This is a
+      different and narrower thing to raise with Leon than a broken view
+      reference, and it can only be settled by a tap test in the live app.
+      Full detail on the four remaining names in the private working note:
       `/Users/kirkmasden/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260903_view_dependency_analyzer_code_audit.md`
       (2026-09-04 follow-up section — originally misdated 2026-09-05 in the
-      audit document, corrected there).
-      **Whether to report all twelve to Leon together, or the deep-link-derived
-      three separately given their different shape, is Kirk's call — not made
-      here.**
-      **Before this report goes out, see `STATUS.md`'s "Two Farmy phantom names
-      may be misattributed to source views whose own `action_targets.csv`
-      resolution points elsewhere"** — two of these twelve,
-      `MyPlantsReadOnly_Detail` and `Seeds READONLY_Detail`, may be an
-      artifact of this suite's own edge generation rather than a genuine
-      defect in Leon's app. Not settled; settle it before reporting these
-      two specifically.
+      audit document, corrected there; see also the 2026-09-06 correction
+      note added to that document about the 7-of-10 undercount).
 
 - [x] **A `CLAUDE.md` at the repository root**, per the July plan: CSV schemas,
       which analyzer answers which category of question, the instruction to call
