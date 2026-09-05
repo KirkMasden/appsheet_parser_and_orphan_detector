@@ -597,7 +597,7 @@ answers are unknown; once A is done they become mechanical.
       2026-08-31 (by documentation research, not app testing; see section A's
       closure note above).
 
-- [ ] **Step 5: Prominent-on-Deck exclusion, applied everywhere.**
+- [x] **Step 5: ~~Prominent-on-Deck exclusion, applied everywhere.~~ STRUCK 2026-09-02 — disproved and reverted, never committed; see the record below.**
       Note the direction: this can *increase* orphan counts, unlike every fix so
       far. An increase here is expected, not a regression.
 
