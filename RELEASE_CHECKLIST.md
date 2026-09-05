@@ -433,6 +433,14 @@ reference covers different ground rather than merely more of the same.
       against, alongside Farmy — and **not** a current-app snapshot: it is not
       the discovery-half output below, and it does not reflect any export more
       recent than 2026-08-31.
+      **Both references are stale as of 2026-09-05** — they predate `a15021b`'s
+      `NOT(CONTEXT(...))` fix, so a raw diff against either attributes
+      pre-existing drift to whatever change is under test. The item stays
+      checked: the references were captured, and captured correctly. What was
+      not anticipated is that a reference parse decays as the parser changes.
+      Until they are re-cut, any verification diff must run a control parse at
+      pre-fix HEAD and compare control against post-change. See `STATUS.md`'s
+      Known-defects entry for the measurement.
 - [ ] **Source of new findings: run a fresh export of Kirk's current app, look
       at what gets flagged, and check the surprising results in the running
       app.** That is how this week's discoveries happened. Also covers
