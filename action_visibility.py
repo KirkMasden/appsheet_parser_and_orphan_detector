@@ -247,6 +247,16 @@ def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
             return attach_to_column in view_columns  # Exact match, not substring
 
     elif view_type == 'table':
+        # Display_Overlay (editor Position "Primary") displays on table views
+        # regardless of action type, confirmed by live app test 2026-08-31 —
+        # see APPSHEET_BEHAVIOR.md's "Established behavior" section. AOD's table
+        # branch has carried this case since e0530c8; ADA was the last of the
+        # three strategies without it, leaving Table+Overlay as a two-against-one
+        # split with ADA the odd file out (CONSOLIDATION_PLAN.md section 2,
+        # "Table views"). Reached by omission here rather than by an explicit
+        # rejection, but the same wrong answer.
+        if prominence == 'Display_Overlay':
+            return True
         if prominence == 'Display_Inline' and attach_to_column:
             # Check if column is visible in view - EXACT MATCH
             view_columns = view.get('view_columns', '').split('|||') if view.get('view_columns') else []
