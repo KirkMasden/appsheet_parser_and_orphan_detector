@@ -28,6 +28,8 @@ The practical consequence, and the direction of the error: **the suite can under
 
 When answering a reachability question, say which of these applies rather than presenting a clean answer. "Reachable via X" without qualification is frequently wrong.
 
+**A CSV identity is not an in-app location.** Limitation 3 above has a resolution path the suite cannot execute: the user opens the running app, performs the action, and reports what happened. Directing that test is a different task from locating a component, and the parse does not currently support it. An instruction of the form "the action X on table Y" identifies a row in `appsheet_actions.csv`; it does not tell anyone which screen to open or where on that screen to tap. Resolving an action to a tappable location requires composing several things the suite holds separately — the action's attach-to column, the views that render that column, and a navigation path to one of those views — and no module does this today. Until it does, say plainly that the parse does not record where a component appears on screen, and ask the user what they observe rather than assuming they can find it.
+
 ## How to use this suite well
 
 These rules are not stylistic. Each was learned by getting a wrong answer without it.
