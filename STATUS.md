@@ -242,6 +242,27 @@ Of the four false-positive categories originally reported, three are fixed (see 
 - **Bearing on the entry above:** `action_targets.csv`'s per-table resolution is internally correct in the sense that each table's link is resolved without cross-table contamination, but a correctly-attributed row can still name the wrong view. Do not read "`action_targets.csv` is right where the two files disagree" as a general warrant for its resolved values.
 - Not fixed. Found 2026-09-06 while diagnosing the three Farmy phantom names above.
 
+### `action_target_parser.py` silently drops two whole shapes of `CONTEXT()` condition, so the edges they restrict arrive looking unconditional
+
+- The six condition fields on a `navigation_edges.csv` row (`must_be_in_views`, `must_not_be_in_views`, `must_be_viewtype`, `must_not_be_viewtype`, `must_be_table`, `must_not_be_table`) are populated only for expression shapes `action_target_parser.py` recognizes. Two shapes it does not recognize are dropped in full, with no counter, no warning and no trace:
+  - `LEFT(CONTEXT("View"), N) = "prefix"` inside an action's `only_if_condition`. The IF-branch path handles it; the only-if-condition path does not.
+  - `IN(CONTEXT("View"), LIST(...))`, including under `NOT(...)`. All three call sites use a regex requiring an operator (`=`, `<>`, `!=`) immediately after `CONTEXT(...)`; a comma follows instead, so nothing matches.
+- **Consequence, and why it is worse than a wrong value:** an edge whose restriction was never captured is byte-indistinguishable from a genuinely unconditional edge — six empty strings in both cases. Nothing downstream can tell "no condition" from "condition lost." The restriction is silently discarded and the edge is traversed as if unrestricted.
+- **Confirmed in data (2026-09-06 baselines).** The `LEFT()` shape produces 9 unsatisfiable-but-present edges in Kankaku and 36 in Farmy. Kankaku's 9: `View Ref (Language flag) 3`, `View Ref (Public list) 3` and `View Ref (More dictionaries) J`, table `Options`, each requiring the source view to begin `Options J`; 3 of each action's 6 source views satisfy it, the other 3 do not. Farmy's 36: `Go to Germination - From MyPlants Direct Sow` (table `MyPlants`, requires a source view beginning `Beds`) contributes 12, and `Nursery_Form` (table `BlankTable`, requires a source view beginning `Nursery`) contributes 12 source views against 2 targets for 24.
+- The `IN(CONTEXT(...), LIST(...))` shape has 0 instances in Kankaku and Farmy and 6 in the third app (`20260906_070344_251130_1947_Test_parse`): 2 on Write/set_columns actions, which never reach target extraction and are irrelevant to reachability, and 4 on genuine Navigate actions, each producing one `action_targets.csv` row with all six condition fields empty — confirmed field by field against the parsed CSV.
+- **This settles the open question about `a15021b` and the `NOT(IN(CONTEXT("View"), LIST(...)))` shape.** The answer is not that the inversion is wrong for this shape; the inversion is never reached. `_not_wraps_context_match` and `_invert_operator` are not invoked because the regex never matches, so there is no operator to invert. Unrecognized, not misinverted — and for reachability the worse of the two, since a misinversion at least leaves a value to check.
+- **Related measurement trap:** `count_only_if_contexts`, which produces the run's printed "Context conditions detected" summary, increments on a bare textual match for `CONTEXT(`. Its count therefore includes shapes that were never parsed, and must not be used as a proxy for how many conditions were actually captured.
+- Not fixed. Found 2026-09-06 during read-only reconnaissance for the section B CONTEXT() item.
+
+### Porting `check_context_conditions` into the two reachability modules unchanged would refuse zero edges, by construction
+
+- `navigation_edge_generator.py` writes an edge only after `check_context_conditions(target_row, view['view_name'])` has returned True for that pair, and then copies `target_row`'s six condition fields verbatim onto the edge, with that same view as the edge's `source_view`. Re-running the identical check on the identical fields against the identical source view, later and in another module, cannot find a violation: the edges that would have failed were never written.
+- **Structural, not a property of this data**, though it was also verified empirically: 271 condition-carrying edges in Kankaku and 162 in Farmy, 0 violations.
+- The three edge types that bypass the check — `process_auto_navigation`, `process_dashboard_containment`, `process_related_view_edges` — hard-code all six fields to empty strings, so there is nothing for a later check to evaluate there either.
+- **Why this matters for verification, not just for design:** a literal port would produce no change in any output file. The section B item predicted a restrictive direction and told the implementer to stop and re-examine if a view were newly *cleared* — but the actual failure mode is nothing changing at all, which reads as "correct, and there was nothing to find" rather than "the mechanism has no access to the data it would need." Recorded so that a null result on this fix is treated as a symptom rather than a pass.
+- **Case-matching trap for whoever builds the shared mechanism:** `check_context_conditions` matches View and Table case-sensitively against raw values, and ViewType case-insensitively by deliberate design (AppSheet writes proper-case `ViewType` values while `appsheet_views.csv`'s `view_type` is lowercase). Both `view_orphan_detector.py` and `view_dependency_analyzer.py` canonicalize view names when building their graphs. A shared mechanism fed canonical names rather than raw ones would refuse edges the generator allowed — and that would look like the fix working.
+- Found 2026-09-06 during read-only reconnaissance for the section B CONTEXT() item.
+
 ### The parser doesn't recognize the `#page=fastTable&table=...` deep-link pattern used by chart-data actions
 
 - 6 unparseable navigation expressions in a third app parsed 2026-09-04, all
@@ -274,6 +295,7 @@ Of the four false-positive categories originally reported, three are fixed (see 
   Confirming or ruling this out needs the same kind of targeted,
   field-by-field check `a15021b`'s own verification used, not a diff.
 - Found 2026-09-04. Not fixed. Read-only finding.
+- **Settled 2026-09-06:** the shape is never recognized at all — see "`action_target_parser.py` silently drops two whole shapes of `CONTEXT()` condition"; the inversion is never reached.
 
 ### `broken_usersettings_references.csv` was non-empty for the first time in this project
 
