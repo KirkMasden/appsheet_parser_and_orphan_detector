@@ -857,8 +857,12 @@ class ViewsParser(BaseParser):
                         # Actions are ||| delimited in the slice CSV
                         available_actions = [a.strip() for a in actions_str.split('|||') if a.strip()]
                         
-                        # Check if slice uses auto-assign (shows as **auto** in the data)
-                        if len(available_actions) == 1 and available_actions[0] == '**auto**':
+                        # Check if slice uses auto-assign (shows as **auto** in the data).
+                        # AppSheet's Auto assign overrides the explicit list entirely rather than
+                        # adding to it — confirmed by direct editor observation, 2026-09-05 — so
+                        # **auto** anywhere in the list means wholesale replacement, not only when
+                        # it is the sole entry.
+                        if '**auto**' in available_actions:
                             # Replace with all table actions
                             available_actions = self.table_actions_map.get(info['source_table'], [])
                             if self.debug_mode:
