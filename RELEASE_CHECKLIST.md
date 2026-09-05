@@ -361,6 +361,12 @@ comparison against the current reference output.
       implemented and verified by full re-parse of both apps, or the decision
       to leave it and why is recorded in `STATUS.md`.
 
+      *Suggested for a stronger model (Fable-class):* this is a judgment call, not
+      an evidence question — no re-parse settles it. It fails quietly if decided
+      wrongly (accepting the limitation means it stops being examined), and it now
+      touches three audited modules rather than one, so the decision generalises
+      further than its wording suggests.
+
 ---
 
 ## C. A second reference parse — Kirk's own current app
@@ -606,6 +612,13 @@ answers are unknown; once A is done they become mechanical.
       them. A permissive default buys quiet at the price of never learning it was
       wrong.
 
+      *Suggested for a stronger model (Fable-class):* the asymmetry above is the
+      whole difficulty — one error is silent, the other is loud, and choosing a
+      default means choosing which failure to accept. Worth testing first whether
+      the data-layer framing dissolves the question: if the honest output is
+      "reached only by a Prominent action on a card view, undetermined," there may
+      be no default to pick.
+
 **Caution for whoever runs these:** the plan's predictions were originally computed
 against `20260830_linktoform_verify/20260830_212632_AppsheetFarmyApp_for_Kirk_parse`,
 which predates `e0530c8` and the 82 `navigation_edges.csv` rows it added, and the most
@@ -746,6 +759,17 @@ Recorded so they are not mistaken for oversights.
   produces exactly the false positives this round of work exists to remove.
   The `#page=map` deep links, above in this same section, are the existing
   example of a case deliberately left unresolved for that reason.
+- **The general division of labour between models.** Which model suits which kind
+  of work — Claude Code for specified mechanical tasks, Sonnet for routine
+  guidance and review, Opus for analysis and judgment in conversation, a
+  stronger model for hard irreversible decisions — is Kirk's working practice,
+  recorded outside this repository. It is kept off this list because it is
+  situational and ages faster than the project: model names and capabilities
+  turn over, and a reader on another platform would find the specifics useless.
+  What does appear here are per-item notes, on the two items where the choice
+  carries information a reader could not otherwise infer. The test those two
+  notes apply: hard to reverse in practice, not settleable by running something,
+  and the reasoning genuinely difficult — all three, not one or two.
 
 ---
 
