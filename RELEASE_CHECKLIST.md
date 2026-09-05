@@ -190,7 +190,7 @@ comparison against the current reference output.
       *Done when:* the fallback reflects what section A established, and
       `STATUS.md` records the decision and its basis.
 
-- [ ] **`action_dependency_analyzer.py`'s table-view rule** (if the current run
+- [x] **`action_dependency_analyzer.py`'s table-view rule** (if the current run
       confirms it is wrong).
       Its table branch has no `Display_Overlay` case and falls through to
       `False` — the same wrong answer as the edge generator's explicit
@@ -198,6 +198,13 @@ comparison against the current reference output.
       so the two output-affecting edits could be verified alone.
       *Done when:* fixed, or recorded in `STATUS.md` as deliberately left alone
       with the reason.
+      *Confirmed:* fixed in `bbe981b`, verified by direct pair-by-pair
+      measurement against both reference parses (ADA feeds no CSV, so a CSV diff
+      cannot verify it). Farmy: 7,440 pairs flipped, all False→True. Kankaku: 120
+      pairs flipped, all False→True. Zero pairs flipped the other direction, and
+      every flipped pair had `view_type == 'table'` and `action_prominence ==
+      'Display_Overlay'`. `STATUS.md` defect entry moved to "Recently fixed" with
+      this commit hash.
 
 - [ ] **Audit the six never-examined modules named in `STATUS.md`.**
       `view_orphan_detector.py`, `view_dependency_analyzer.py`,

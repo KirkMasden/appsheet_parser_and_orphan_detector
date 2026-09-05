@@ -190,10 +190,12 @@ The Inline row is a genuine three-way disagreement, not a phrasing difference: N
 | `Do_Not_Display` | **F** — explicit check, overriding the onclick exception | **F** | **F** | **F** [documented] |
 | `Display_Inline` | T only if attach is non-empty and in `view_columns` | T only if attach is non-empty, in `view_columns`, and the column exists | T only if attach is non-empty and exactly in `view_columns` | **T with a caveat** [documented] — the action *replaces* the column content rather than sitting beside it; none of the three model this |
 | `Display_Prominently` | **F** — explicit `else`, comment says unsupported | **F** — no branch | **F** — no branch | **Not established** [documented, weak] — docs name only detail for Prominent. All three agree on F, but on documentation, not observation |
-| `Display_Overlay` | **T** | **T** | **F** — no branch, falls to `return False` | **T — observed**, Leon's app, 2026-08-31, purpose-built External action |
+| `Display_Overlay` | **T** | **T** | **T** | **T — observed**, Leon's app, 2026-08-31, purpose-built External action |
 
-`e0530c8` moved two of the three to T. What remains is a two-against-one split where the
-odd file out is ADA, already recorded as a known defect and listed in checklist section B.
+`e0530c8` moved two of the three to T; `bbe981b` closes the remaining
+two-against-one split by adding the identical case to ADA, the odd file out —
+previously recorded as a known defect and listed in checklist section B. All three
+strategies now agree with observed AppSheet behavior on this cell.
 Calling Table+Overlay "the most divergent cell in the table" is no longer true; that
 description now fits Deck+`Do_Not_Display`.
 
