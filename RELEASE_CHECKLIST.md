@@ -123,12 +123,22 @@ not reopen it (see the item's own note on why it does not block section D either
       `LINKTOVIEW`/`LINKTOROW`/`LINKTOFORM` resolves case-insensitively" bullet,
       with the date and how it was tested.
 
+**Opened 2026-09-05 — the last two undetermined cells, closed by testing rather than by choosing a default.**
+
+- [ ] **Does Prominent (`Display_Prominently`) display on a dashboard view? On a calendar view?**
+      These are the only two view types `APPSHEET_BEHAVIOR.md`'s Unknowns section still lists as unestablished, and between them they cover 4 of Farmy's 319 views. Decided 2026-09-05: with a count that small, two app tests of a few minutes each are cheaper than any argument about which default to accept, and after them no default is needed. Test bed: Kankaku has a dashboard view; the frozen copy of Farmy has the calendar view (the same frozen copy already used for the 2026-08-31 `Go to web` test, so putting a test action on it is established practice). For each: put a `Display_Prominently` action on the view, look, record.
+      *Done when:* both answers are recorded under "Established behavior" in `APPSHEET_BEHAVIOR.md` with the date and how each was tested, the Unknowns section no longer lists either type, and `CONSOLIDATION_PLAN.md` section 2's two `undetermined` rows carry the observed value. If either answer is F, the view type joins the section B form/map fall-through item; if T, nothing in the code changes.
+
 ---
 
 ## B. Code fixes — specified, no decisions needed
 
 Each is a Claude Code task with a predicted diff, verified by full re-parse and
 comparison against the current reference output.
+
+- [ ] **Re-cut both reference parses at current HEAD — before any other section B item is started.**
+      Both saved references predate `a15021b` (`STATUS.md`, "Both saved reference parses are stale"), so every diff against them attributes pre-existing drift to the change under test. Decided 2026-09-05: this is the first execution item, done on its own in a session that gives it full attention, not as a closing task after a fix.
+      *Done when:* fresh parses of both apps exist from the code at the current HEAD; for each parse directory the earliest file mtime inside it is later than the mtime of every `.py` file in the repository (a directory's own timestamp does not establish this — see the caution paragraph in section D); the two new directory paths replace the "Current references, as of `a15021b`" paths in section D's caution paragraph; and `STATUS.md`'s "Both saved reference parses are stale" entry records the new paths and moves to "Recently fixed".
 
 - [x] **`parse_linktorow` greedy regex.**
       `LINKTOROW\s*\((.*)\)` with DOTALL matches from the first opening paren to
@@ -189,6 +199,9 @@ comparison against the current reference output.
       too, since they share the same code path.
       *Done when:* the fallback reflects what section A established, and
       `STATUS.md` records the decision and its basis.
+      **Scope corrected 2026-09-05, and no longer dependent on anything:** section A and `CONSOLIDATION_PLAN.md` section 2 ("The former 'other' bucket, decomposed") have since settled this. The fall-through is wrong for TWO view types, not one: `form` (92 Farmy views, F, documented) and `map` (7 views, F, established 2026-09-05). Fix both. NEG (`is_visible_in_view_neg`) is the only implementation wrong here — AOD and ADA already return F by fall-through. `card`, `dashboard` and `calendar` are NOT part of this fix; they are handled by the section D bucket item below. Note `is_action_visible_in_view` no longer exists (deleted in `3b06a08`); the code to change is `is_visible_in_view_neg` in `action_visibility.py`.
+      *Predicted direction:* edges REMOVED from `navigation_edges.csv` (source views of type form or map), never added; orphan counts flat or rising, never falling. Form's `Form Saved` event route is untouched because `process_event_actions` never calls the visibility function (`CONSOLIDATION_PLAN.md` section 2's note). Every removed edge must trace to a form- or map-type source view; every newly flagged orphan must trace to a removed edge. Stop and re-examine if any edge is added or any orphan count falls.
+      *Sequenced:* after the reference re-cut (top of this section), and may run before or after the `view_orphan_detector.py` CONTEXT() fix below; both are restrictive in direction, so run them as separate commits with a separate re-parse each, never together.
 
 - [x] **`action_dependency_analyzer.py`'s table-view rule** (if the current run
       confirms it is wrong).
@@ -409,6 +422,19 @@ comparison against the current reference output.
       wrongly (accepting the limitation means it stops being examined), and it now
       touches three audited modules rather than one, so the decision generalises
       further than its wording suggests.
+
+      **DECIDED 2026-09-05 (Kirk, in a Fable planning session): option (a), FIX.** Reasoning: `CONTEXT()` conditions are central to how AppSheet apps actually work, so a reachability traversal that ignores them is not an acceptable limitation for a tool whose stated purpose is to expose the app faithfully to AI. The decision covers both modules that share the gap — `view_orphan_detector.py` and `view_dependency_analyzer.py` (`STATUS.md`, "a second instance, not a new gap") — and the fix should be one shared mechanism, not two copies, consistent with the consolidation's lesson about the same rule written three times.
+      *Scope:* port `CONTEXT("View")` / `CONTEXT("ViewType")` evaluation into the BFS so that an edge is traversable from a given source view only if its context condition can be satisfied there, matching the semantics `navigation_edge_generator.py` already applies through `check_context_conditions`. In the same work, settle `STATUS.md`'s open question about the `NOT(IN(CONTEXT("View"), LIST(...)))` shape — establish by field-by-field check, not by diff, whether `a15021b`'s inversion handles it; it is the same mechanism and the same evidence method.
+      *Predicted direction:* RESTRICTIVE — clearances removed, `potential_view_orphans.csv` and `unused_system_views.csv` flat or rising, never falling; downstream orphan files may rise through the documented coupling. Every newly flagged view must be individually explained by naming the edge whose context condition the traversal now rejects, per the "General note for the next inversion-class fix" in the `NOT(CONTEXT(...))` item above — explained removals, not zero removals, is the test. Stop and re-examine if any view is newly CLEARED.
+      *Done when:* both modules evaluate context conditions through one shared function; verified by full re-parse of both apps against the RE-CUT references (top of this section); every newly flagged view accounted for individually; the `NOT(IN(...))` shape settled and recorded; and `STATUS.md`'s two matching Known-defects entries move to "Recently fixed" with the commit hash.
+      *Sequenced:* after the reference re-cut. Not before.
+
+- [ ] **Unsatisfiable column-`Show_If` / attached-action-condition pairs — the narrow mechanical half of the `Show_If` gap.**
+      Decided 2026-09-05 (Kirk, Fable planning session), resolving the fork `STATUS.md` left open under "Column-level `Show_If` is never consulted": the two halves are different sizes and get different treatment. (1) General evaluation of column `Show_If` in the reachability path is an ACCEPTED LIMITATION — the 2026-09-03 census found that all but 2 of 148 Kankaku pairs are either data-dependent or test unrelated variables, which no static analysis settles; it stays documented in `STATUS.md` and CLAUDE.md as it is now. (2) The narrow half IS scoped work: detect a column `Show_If` and the condition of an action attached to that column that test the SAME variable in OPPOSITE senses (the `Schedule position label` / `Group to DW card statistics` instance), so the pair is unsatisfiable by construction.
+      *Output:* a NEW file (suggested name `potential_unsatisfiable_conditions.csv`, one row per column/action pair, carrying both expressions verbatim and the variable they contradict on). NOT a change to any existing orphan file — this is a different kind of finding ("this can never display") from reachability, and keeping it in its own file means every existing output stays byte-identical, which is the verification.
+      *Ambiguity assessment, required before this goes on the list per the "Deliberately not on this list" section's own caution:* the check fires only on a literal contradiction between two expressions over the same variable (`X="On"` versus `X<>"On"`, or `X=a` versus `X=b` with a≠b); anything requiring evaluation — arithmetic, data lookup, `AND`/`OR` combinations whose satisfiability depends on other terms — is out of scope and must not produce a row. If, when specified, the literal-contradiction detector cannot be kept that narrow, this item moves to post-publication without loss.
+      *Done when:* the new CSV is produced for both apps; Kankaku's output contains exactly the two known rows (`Group to DW card statistics`, `Group to WD card statistics` against `Schedule position label`) and Farmy's rows are each hand-checked; every existing output file byte-identical in both apps (logical-key comparison where `available_actions` noise applies); CLAUDE.md's CSV reference gains an entry for the new file; recorded in `STATUS.md`.
+      *Sequenced:* last in section B. Phase one only because it is narrow; it is the first item to drop to post-publication if the publication date needs protecting.
 
 ---
 
@@ -670,6 +696,13 @@ answers are unknown; once A is done they become mechanical.
       "reached only by a Prominent action on a card view, undetermined," there may
       be no default to pick.
 
+      **RESOLVED AS A DECISION, 2026-09-05 (Kirk, Fable planning session) — the bucket no longer exists as a single question, and no permissive-versus-restrictive default is chosen.** `CONSOLIDATION_PLAN.md` section 2 had already decomposed the 120 views by type; the pieces now go three ways:
+      - **`form` (92) and `map` (7): settled F.** These are the section B "Map fall-through" item, which now covers both types — a specified code fix, not a decision.
+      - **`dashboard` (3) and `calendar` (1): to be TESTED, not defaulted** — the new section A item above. Four views do not justify choosing which error to accept when one test each removes the choice.
+      - **`card` (17): the one genuinely open piece, and it is not a default question either.** `APPSHEET_BEHAVIOR.md` (2026-09-05) established that card display is per-slot assignment in the Layout widget, which no prominence-keyed boolean can express. What decides its handling is one fact not yet checked: whether the export carries the Layout widget's per-slot action assignment. Recorded here as a READ-ONLY question for the execution session, with both branches written down so the answer needs no further decision: if the assignment IS in the export, parsing it is a bounded parser task of the same shape as the 2026-08-30 onClick/Layout-JSON fix; if it is NOT, card gets an entry in `APPSHEET_BEHAVIOR.md`'s scope-decisions section as an export gap and keeps its current verdicts. Either branch is POST-PUBLICATION unless the execution session finds it trivial — 17 card views do not hold up phase one.
+      *On the Fable note above:* the data-layer framing (project record, Addendum 6) does bear on this, but not by dissolving it — `VisibilityResult(visible, reason)` is not built (`action_visibility.py` returns bare booleans), so the tool cannot yet report "undetermined" for anything, and building that plumbing touches output schemas the zero-diff method depends on. It stays post-publication, beside the faithfulness work Addendum 6 already assigns there. What actually dissolved the question was the evidence: five of the six cells were settled between 2026-08-31 and 2026-09-05, and the remaining two are one test each.
+      *Done when:* the section B form/map item and the section A dashboard/calendar item are each done per their own conditions, and the card question above has been asked and its branch recorded in `STATUS.md`.
+
 **Caution for whoever runs these:** the plan's predictions were originally computed
 against `20260830_linktoform_verify/20260830_212632_AppsheetFarmyApp_for_Kirk_parse`,
 which predates `e0530c8` and the 82 `navigation_edges.csv` rows it added, and the most
@@ -779,6 +812,12 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
       where cost accumulates, and those documents already contain what it
       would reconstruct.
 
+- [ ] **A README quick-start — and, decided 2026-09-05, NO separate user guide.**
+      Decision (Kirk, Fable planning session): a prose guide for other AppSheet creators is not worth attempting. Under the design ruling that Claude Code (or another platform's equivalent) is the primary interface, a creator's interface IS a conversation with CC over a parse directory, and CLAUDE.md already holds what that conversation needs — purpose, limitations, usage rules, CSV and module reference. A human-voiced guide would duplicate it in a second voice and drift from it. What a stranger actually lacks is UPSTREAM of CLAUDE.md, and that is a page, not a guide.
+      *Content of the quick-start, in this order:* (1) how to produce the inputs — the HTML documentation export, the `actions.txt` / `views1.txt` / `views2.txt` select-all-and-paste captures, and the optional hand-written `bot_actions.txt` — stating plainly WHICH editor (legacy) the capture steps assume, since that is the step that will date first; (2) how to run `master_parser_and_orphan_detector.py` and what the output directory contains, with the `EOFError`-on-no-stdin limitation noted; (3) how to open Claude Code on the output directory, and that CLAUDE.md / AGENTS.md will orient it; (4) the three example prompts from the project record's Addendum 6, verbatim, as the kind of question to ask; (5) one paragraph on what the suite does not see, pointing at CLAUDE.md's section rather than restating it.
+      *Consequence for the survey specimens (actions, tables, format rules):* their reader is CC, via `APPSHEET_BEHAVIOR.md` and CLAUDE.md, not a human guide. They are worth running only where a specimen improves the faithfulness or completeness of what the parse exposes — which is where post-publication effort is directed anyway (Addendum 6) — and not as raw material for documentation that will not be written. Scope reduced, not cancelled.
+      *Done when:* README.md exists at the repository root (extend the existing README if there is one, do not create a second), and the test is met: a reader holding README.md and CLAUDE.md, and no other knowledge of this project, could produce a parse and start a useful CC session. Kirk judges the test.
+
 ---
 
 ## Deliberately not on this list
@@ -810,6 +849,7 @@ Recorded so they are not mistaken for oversights.
   produces exactly the false positives this round of work exists to remove.
   The `#page=map` deep links, above in this same section, are the existing
   example of a case deliberately left unresolved for that reason.
+  **Re-examined 2026-09-05 and kept here, deliberately:** decided (Kirk, Fable planning session) that the `CONTEXT()`-argument check DOES belong in the tool and stays POST-PUBLICATION. It is the cheapest item on the post-publication list with a demonstrated payoff (it found `Context("View Type")` in Kirk's own app, by hand), and its output belongs in a NEW file, never in an existing orphan CSV — it answers "is this expression meaningful," a different kind of question from reachability, so keeping it separate leaves every existing verdict and every existing output file untouched. Note the distinction this session had to draw: this argument check is NOT the same thing as evaluating `CONTEXT()` CONDITIONS for reachability, which is the section B `view_orphan_detector.py` fix and is phase one. Interim, zero-code version, done in the same session as this note: the closed keyword vocabulary is now recorded in `APPSHEET_BEHAVIOR.md`'s "AppSheet validates shape, not meaning" section with its source, so CC can sweep the parsed expressions for out-of-vocabulary arguments today without any parser change. The unsatisfiable-pair check (the fourth instance in that same `APPSHEET_BEHAVIOR.md` section) has been pulled OUT of this bullet into section B as scoped phase-one work, for the reasons given there.
 - **The general division of labour between models.** Which model suits which kind
   of work — Claude Code for specified mechanical tasks, Sonnet for routine
   guidance and review, Opus for analysis and judgment in conversation, a
@@ -860,6 +900,12 @@ sheet side made visible; how that gets built is still open.
 The non-interactive query mode with JSON output, also named in `STATUS.md`'s "Next
 steps", is not part of this project and stays where that file puts it: only if a
 demonstrated need appears.
+
+**Design notes recorded 2026-09-05 (Kirk, Fable planning session) — not a design, not scheduled, recorded so they are not re-derived:**
+
+- **The use case is the asked-for trace, not exhaustive checking.** Kirk's own statement of the goal: CC is able to check the calculations he ASKS it to check, even when the variables and calculations follow a circuitous path between AppSheet and Google Sheets. Exhaustive verification of every calculation is not the goal. Consequence: the dump needs COMPLETE formulas (a trace cannot know in advance which cells and tabs a circuitous path crosses) but only RATIONED values (full values for the cells on the chain under question, not for everything) — which is the Addendum 4 shape, now with its reason stated.
+- **External spreadsheets are first-class sources with a declared state.** Every `IMPORTRANGE` call names its source (spreadsheet ID or URL, and range), so the dump can always record WHAT is imported even when it cannot dump it. Each external source is in one of three states — dumped in full, sampled (enough for tracing structure: formulas and header row; not enough for verifying values), or declared as a boundary — and a small manifest names each source, its state and its dump date. A chain then ends visibly at a file boundary rather than at what looks like a constant. Kirk has one important such source in his own app and may dump it or a sample; the design should support any of the three states for any user.
+- **Six uses, one graph.** The project record's Addendum 7 (to be written) records the six scenarios the same data layer serves — tracing, editorial consistency, targeted calculation checking across the seam, forward feature planning ("I want to add this; is it possible in this app, and how?"), performance diagnosis (suite names the structural suspects — virtual columns running `SELECT`/`FILTER`/`LOOKUP` over large tables, `REF_ROWS` chains, wide tables, heavy sheet-side formulas — and the app's own performance profile is the measurement of record; chat-augmented, since this is trade-offs under measurement), and data-model restructuring with impact analysis (what depends on the tables you would merge or split, on both sides of the seam). The last three are FORWARD questions; CLAUDE.md currently describes only the backward one and will need a short section for them. Documentation these uses require, each a page not a module: a sourced, graded list of expensive patterns and of structural trade-offs in `APPSHEET_BEHAVIOR.md`; and a note in CLAUDE.md that the performance profile output is a candidate dumpable input alongside `bot_actions.txt`.
 
 **On model choice:** the early architectural decisions here are the other place
 extra model capability is worth spending, and arguably the stronger case — phase

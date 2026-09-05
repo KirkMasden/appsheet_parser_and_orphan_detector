@@ -38,6 +38,7 @@ Of the four false-positive categories originally reported, three are fixed (see 
 - Second, independent consequence: the same expression's first clause, `CONTEXT("ViewType") <> "form"`, means the column never renders on a form view, so the `Main Data_Form` edges for these actions are dead as well — for a reason separate from whether form views display actions at all (`RELEASE_CHECKLIST.md` section A's form item, and `APPSHEET_BEHAVIOR.md`'s "Established behavior").
 - **Measured 2026-09-03, against the two current reference parses.** Kankaku: 148 of 315 `Display_Inline` actions attach to a column carrying a non-empty `Show_If` (146 distinct action names); those actions are named by 126 `navigation_edges.csv` rows, reaching 21 distinct target views, 8 of which have no incoming edge from outside this set (`Card Stats`, `Card stats 2`, `Dictionaries`, `Graphic`, `Graphic and card stats`, `Graphic and card stats pre-activation`, `Stats_Detail`, `Stats_Detail 2`). Farmy: 79 of 301 (76 distinct names), 527 edge rows, 31 distinct target views, 3 with no other incoming edge (`Harvests_Other_Detail`, `MyPlantsReadOnly_Detail`, `Seeds READONLY_Detail`). So 11 views across the two apps have reachability resting entirely on edges whose liveness this suite cannot assess.
 - **What the census says about the fix-versus-document fork.** Reading all 148 Kankaku pairs, only 2 are genuine contradictions — an action condition and a column `Show_If` testing the same variable in opposite senses — and both are the pair named above. Every other pair either tests different variables or is data-dependent (`count(Archive[Word])>0`, `[Britannica true/false]`, `INDEX(Cram[Tag],1)=...`), which no static analysis can settle from the app definition alone. The two halves are therefore different sizes: detecting unsatisfiable combinations is a narrow mechanical check, while evaluating column conditions generally is not available. Fork deliberately left open.
+- **Fork settled, 2026-09-05 (Kirk, Fable planning session), along the line the census drew:** general `Show_If` evaluation is an ACCEPTED LIMITATION and stays recorded here and in CLAUDE.md as it is; the narrow mechanical half — literal contradictions between a column `Show_If` and an attached action's condition over the same variable — is scoped phase-one work, output to a NEW file, in `RELEASE_CHECKLIST.md` section B ("Unsatisfiable column-`Show_If` / attached-action-condition pairs"). This entry stays under Known defects because the limitation it records does not go away when the narrow check ships.
 - Caveat on snapshots: the `Show_If` above was read from the live app 2026-09-03, while the attach-to-column and action data come from the 2026-08-31 frozen export. They agree here, but they are not the same snapshot.
 - The contradictory pair is a live instance of the class `RELEASE_CHECKLIST.md`'s "Deliberately not on this list" records as a post-publication candidate: AppSheet accepts both expressions, neither is malformed, and only their combination is unsatisfiable.
 
@@ -122,6 +123,7 @@ Of the four false-positive categories originally reported, three are fixed (see 
   reachability is not a case of undocumented divergence from a design; the
   design never addressed the question either.
 - Not fixed. Read-only finding as of 2026-09-02.
+- **Decision, 2026-09-05: FIX, not document.** Recorded with its reasoning and done-when in `RELEASE_CHECKLIST.md` section B ("Decide: fix `view_orphan_detector.py`'s missing `CONTEXT()` handling..."). Covers `view_dependency_analyzer.py` too (next entry). Sequenced after the reference re-cut.
 
 ### `view_dependency_analyzer.py` also evaluates no `CONTEXT()` conditions and never loads column data — a second instance, not a new gap
 
@@ -140,6 +142,7 @@ Of the four false-positive categories originally reported, three are fixed (see 
   presenting it as new: the suite's most consequential known gap now applies,
   confirmed, to both of the two modules that answer "is this view reachable."
 - Not fixed. Read-only finding as of 2026-09-03.
+- **Decision, 2026-09-05: fixed together with `view_orphan_detector.py` through one shared mechanism** — see the previous entry and `RELEASE_CHECKLIST.md` section B.
 
 ### `load_unused_system_views()` gives no signal distinguishing a missing `unused_system_views.csv` from one recording zero unused views
 
@@ -594,6 +597,7 @@ first time it has been saved as a regression baseline alongside Farmy's.
 - Re-cutting both references is outstanding. It is deliberately not being done in the same session as the fix that exposed the problem: a fresh baseline is what every future diff rests on, and it should be captured and checked by a session that can give it full attention rather than as a closing task.
 - `RELEASE_CHECKLIST.md` section C's regression-guard item stays checked — the reference parses were captured, and captured correctly. What this records is that a reference parse decays, which the checklist item did not anticipate.
 - Found 2026-09-05 during the `b68f854` verification.
+- **Sequenced 2026-09-05 as the FIRST execution item**, ahead of every remaining section B fix — `RELEASE_CHECKLIST.md` section B, top item.
 
 ### `available_actions` is a raw passthrough column in three output files, so byte-comparison on them overstates what changed
 
@@ -733,7 +737,7 @@ Entries from `48eead1` onward carry full verification detail — row counts, byt
 
 Plan from the July 2026 project document, unchanged:
 
-1. A `CLAUDE.md` at this repository root describing the CSV schemas, which analyzer answers which category of question, the instruction to call analyzer methods directly rather than driving the interactive menus, and the known blind spots. Ship an `AGENTS.md` with the same content for non-Anthropic tools.
+1. A `CLAUDE.md` at this repository root describing the CSV schemas, which analyzer answers which category of question, the instruction to call analyzer methods directly rather than driving the interactive menus, and the known blind spots. Ship an `AGENTS.md` with the same content for non-Anthropic tools. **Done `1b28db1`, 2026-09-03** — left in this list unmodified so the July plan reads as it was written; see `RELEASE_CHECKLIST.md` section E, which also records the 2026-09-05 decision that a README quick-start, and NOT a separate user guide, is what follows it.
 2. Extend the visibility layer to the backing Google Sheet, via an Apps Script dump of formulas and displayed values.
 3. A non-interactive query mode with JSON output, canned question recipes, and optionally `SKILL.md` packaging — only if a demonstrated need appears.
 
