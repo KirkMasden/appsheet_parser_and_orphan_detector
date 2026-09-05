@@ -61,9 +61,14 @@ Essentials", <https://support.google.com/appsheet/answer/10107706>.
 
 ## Established behavior
 
-Each entry names how it was established. Direct observation, documentation, and
-reasoned inference are not interchangeable, and an entry's strength is the strength
-of its source.
+Each entry names how it was established. Direct observation, documentation, reasoned
+inference, and third-party report are not interchangeable, and an entry's strength is
+the strength of its source. The fourth category was added 2026-09-05: a report by
+someone outside this project — a community forum post, a relayed vendor answer — is
+weaker than our own observation and stronger than our own guess, and several
+independent ones agreeing is worth more than any one of them. Such reports are named
+with their date and their author's standing where known, so a reader can weigh them
+without re-finding them.
 
 Source: observed in Leon's app, 2026-08-30, by Kirk.
 
@@ -173,13 +178,55 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   rests on an event binding and false when it rests on prominence. 92 of Leon's 319
   views are forms.
 
-- **Card views display actions.** Source: Google's "Card view type" page, which
-  describes the card view as displaying content and actions for a single element, and
-  specifies how many each layout holds — up to four on the full card (two as text,
-  two as icons) and up to three on the compact card. 17 of Leon's 319 views are cards.
-  The per-layout action cap is a client display limit of the same kind as Primary's
-  documented maximum, and is out of scope by the decision recorded under "Scope
-  decisions" below.
+- **Card views display actions, but how many and in what form is a property of the
+  chosen layout, not of prominence.** Mechanism identified 2026-09-05 by direct
+  editor observation in Kankaku (`Card view test`, layout `large`), corroborated by
+  Google's "Card view type" page.
+
+  Actions are assigned **per slot, in the Layout widget** — the panel captioned "Click
+  on an item in the card to customize it for your app." Selecting a slot opens a small
+  pane offering "On Click," from which an action is chosen; Kirk's test view showed
+  `Next (Definition)` assigned this way. The four layouts differ in both capacity and
+  invocation:
+
+  | Layout | Actions | How invoked |
+  |---|---|---|
+  | Full (`large`) | up to 4 | 2 as text, 2 as icons |
+  | Compact (`list`) | up to 3 | in an Actions drop-down menu |
+  | Backdrop | 1 | clicking the card |
+  | Photo | 1 | clicking the card |
+
+  **Two of the four layouts have no action buttons at all** — the card itself is the
+  target. This resolved what first looked like a contradiction: Farmy's `Histories`
+  card view displays no action buttons, and its layout is `photo`. Nothing was missing.
+
+  **The four-action ceiling is a designation limit, not a display limit.** A fifth
+  action cannot be assigned, because there is no slot for it — unlike Primary's
+  documented maximum, where the actions exist and the client shows fewer. The two are
+  currently treated as the same class of thing by the exclusion under "Scope decisions"
+  below. That exclusion was made when they looked alike and has NOT been revisited
+  here; flagged, not decided.
+
+  **The two icon slots are `favourite` (heart) and `share`, and they are buggy.**
+  Third-party reports: July 2022, a user found that setting both to None did not stick
+  — they reappeared on save — and Steve escalated it to AppSheet that August; July 2023,
+  still unfixed, with a further report that the blank-icon workaround also failed;
+  April 2024, a workaround of assigning any action first and then setting None. An
+  earlier 2021 thread describes the same resistance and works around it with a dummy
+  "Do Not Display" action, and a regular there remarks that card view has been buggy
+  since it launched. Kirk reproduced this 2026-09-05: the two text slots accepted an
+  assignment and the heart did not. **No source states that the slots restrict which
+  KINDS of action they accept**; the observed difference between text and icon slots
+  is this bug, not a documented rule. Sources: Google Developer forums, AppSheet Q&A,
+  threads 90088 and 75843.
+
+  **Card layout is not confined to card views** — AppSheet offers "Use Card Layout
+  inside a Detail View," and several of the threads above concern exactly that. So
+  these slots can appear on a view whose `view_type` is `detail`. How often that option
+  is used in Kankaku (140 detail views) or Farmy (94) has NOT been measured, and is an
+  open question for the suite rather than for AppSheet. 17 of Leon's 319 views are
+  cards; Kankaku's 2026-08-31 baseline has none — `Card view test` was created by Kirk
+  on 2026-09-05 for this test and postdates that parse.
 
 - **Gallery views are treated as siblings of deck and table views.** Source: three
   Google pages agree, one of them structural rather than behavioral and stronger for
@@ -193,18 +240,70 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   `navigation_edge_generator.py`'s unconditional permissiveness for gallery.
   Documentation, not observation: no gallery view has been tested directly.
 
-- **Map views: inference, not established.** Google's "Map view type" page describes
-  information about the selected row appearing in a deck-view row at the bottom of
-  the screen, and notes a built-in driving-directions action on each map view. Kirk's
-  inference from this, 2026-08-31: an action will not appear on a map view unless it
-  is properly designated for it, in the same way a deck view requires an action to be
-  on its action bar. **This is a reasoned guess, not a test.** Kirk's own app does not
-  use actions on map views — confirmed more strongly by the 2026-08-31 Kankaku
-  baseline parse: its view types are detail 140, form 35, table 12, deck 9, dashboard
-  1, with no map views at all — and testing it in Leon's app was judged not worth the
-  effort relative to its value. The suite acts on this inference; it should be
-  re-tested by anyone using the suite on an app with actions on map views. 7 of
-  Leon's 319 views are maps.
+- **Map views offer no route at all for an author-created action.** Established
+  2026-09-05 on three independent legs, strongest first.
+
+  **(a) Editor observation, Kirk, 2026-09-05, with a control.** In Farmy's `Food
+  forest Map` view (view type map), View Options offers Map column, Secondary data
+  table, Secondary data column, Map type, Location mode and Minimum Cluster Size —
+  and nothing else. There is no Actions list and no Show action bar toggle. Under
+  Behavior, the Event Actions label appears with no control beside it: no dropdowns,
+  no rows, not even an empty selector. The same app's `Beds Deck` view, checked
+  immediately afterwards as a control, shows all three of the things the map view
+  lacks — Show action bar (on), an Actions list set to Manual listing six selectable
+  actions, and three populated Event Actions dropdowns (Row Selected bound to
+  `Beds_Details`; Row Swiped Left and Right both "Auto assign (None)"). So both routes
+  by which an action could reach a view — view-level designation and event binding —
+  are structurally absent for map, and demonstrably present for deck in the same app
+  on the same day.
+
+  **(b) Five third-party reports, 2020 through 2025, no dissent found.** June 2020,
+  Koichi Tsuji: had asked AppSheet support about setting an overlay action on a map
+  view and was told it was not possible. April 2022, WillowMobileSys: states there is
+  no ability to add actions to a map view, and reports having just re-tested adding an
+  Overlay action himself, without success — the only one of the five that is a direct
+  test. September 2024, Steve (a long-standing community authority), answering
+  separately in two threads the same day: not possible, including specifically as
+  primary or prominent. November 2024, Fabian Weller, the most precise: the only
+  actions displayable on a map view as primary are the Add action and the
+  automatically created pin action — that is, system-generated ones only, with a
+  screenshot. January 2025, Fabian again: no on-click event can be set for a map view,
+  and deck view's on-click event does not function inside a map. One further reply in
+  that last thread, December 2024, offered a workaround binding an action to pin
+  selection; Fabian corrected it a fortnight later as not actually possible, and it
+  reads as generated boilerplate. It is disregarded. Sources are the AppSheet Q&A
+  category of the Google Developer forums, threads 78905, 84689, 166007 and 165909.
+
+  **(c) The documentation's silence.** Google's "Map view type" page describes the
+  selected pin's information appearing in a sidebar detail view or a compact deck-view
+  row, and names a built-in driving-directions action — itself system-generated,
+  consistent with (b). It never mentions author-created actions. Google's "View types"
+  page describes map purely as displaying addresses, XY and LatLong columns, while
+  describing card as displaying content *and actions*; the omission is not an
+  oversight in a list where the distinction is drawn elsewhere.
+
+  **This supersedes the 2026-08-31 inference previously recorded here**, which held
+  that a map action needs designating in the way a deck action needs action-bar
+  membership. That was the right conclusion by the wrong mechanism: there is no gate,
+  because there is no control to set. The distinction matters — `CONSOLIDATION_PLAN.md`
+  section 2 concluded from the gate reading that the map cell "cannot be filled by a
+  boolean at all," and that conclusion no longer holds.
+
+  **What this does and does not establish, stated explicitly.** It establishes what a
+  map view's definition can express, which is the relevant fact for a tool that reads
+  the export rather than the screen: an action that cannot be designated cannot appear
+  in a map view's `referenced_actions` either. It does not establish what the runtime
+  would do with a definition that somehow contained such an action — a distinction
+  worth keeping in view, since the 2026-09-05 `LINKTOROW` finding recorded under "Case
+  sensitivity" showed the runtime being more permissive than the stored data implied.
+  Nothing found in (b) is later than January 2025 and AppSheet ships changes, so this
+  should be re-checked by anyone running the suite against an app that does use actions
+  on map views.
+
+  **Consequence for a restrictive rule.** Unlike form, map has no event route needing
+  protection: a restrictive map rule removes nothing real, because there is no event
+  binding to remove. 7 of Leon's 319 views are maps; Kankaku's 2026-08-31 baseline has
+  none.
 
 - **An inline action renders only if the column it is attached to renders.** An inline action's button appears beside its attach-to column's row; if that column's own `Show_If` is false in the current state, the column is absent and so is the button. This holds for a group whose parent action is inline as well, and therefore for the group's children. Observed in Kirk's running Kankaku app, 2026-09-03: the `Schedule position label` column on the `Definition` table carries `Show_If` `and(CONTEXT("ViewType") <> "form",INDEX(Cram[Enum],1)<>"On")`; in cram mode the row is absent from the view and no button attached to it appears, while out of cram the row is present and shows one button, `Visualize schedule 2`, whose condition is `true`. Five actions attach to this column per the 2026-08-31 parse; they were not checked individually in the app, and the general rule above is what the observation supports. Consequence for this suite is recorded in `STATUS.md`, not here.
 
