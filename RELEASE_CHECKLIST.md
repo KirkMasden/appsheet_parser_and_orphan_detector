@@ -919,3 +919,4 @@ demonstrated need appears.
 extra model capability is worth spending, and arguably the stronger case — phase
 one's remaining work is checkable against code and re-parses, whereas a wrong
 architectural decision in phase two costs weeks before anything reveals it.
+**Confirmed 2026-09-05 (Fable):** this is the first of only three points on the project that meet the stronger-model test — hard to reverse, not settleable by running something, and genuinely difficult to reason about. One session before Claude Code builds anything, with the project record's addenda and the Kankaku formula chains on hand. The other two are downstream of it: judging the first trial runs against Addendum 5's two test cases, one session each, and any genuinely hard real case that arrives later.
