@@ -49,7 +49,8 @@ class NavigationEdgeGenerator:
             'groups_expanded': 0,
             'edges_created': 0,
             'edges_blocked_by_conditions': 0,
-            'edges_blocked_by_visibility': 0
+            'edges_blocked_by_visibility': 0,
+            'view_tables_recovered_by_normalization': 0
         }
     
     def load_action_targets(self) -> bool:
@@ -192,6 +193,32 @@ class NavigationEdgeGenerator:
         # Check if data source is a slice
         if data_source in self.slices:
             return self.slices[data_source].get('source_table', data_source)
+
+        # Already a known table by exact match -- nothing to resolve or
+        # recover. Checked explicitly so the fallback below is reached only
+        # when the value matches neither a known table nor a known slice.
+        if data_source in self.columns_by_table:
+            return data_source
+
+        # Fallback, reached only when the direct match above failed: some
+        # views' data_source arrives with whitespace runs collapsed to a
+        # single space, because views1.txt/views2.txt is a browser
+        # select-and-paste capture of the legacy editor, and HTML rendering
+        # collapses consecutive spaces before the paste ever happens. The
+        # HTML-derived appsheet_columns.csv/appsheet_slices.csv preserve the
+        # true name. Collapse the value and every known table/slice name the
+        # same way; treat the value as the match ONLY if exactly one known
+        # name collapses to that string. Never guess between two.
+        if data_source:
+            normalized = ' '.join(data_source.split())
+            matches = {t for t in self.columns_by_table if ' '.join(t.split()) == normalized}
+            matches |= {s for s in self.slices if ' '.join(s.split()) == normalized}
+            if len(matches) == 1:
+                matched_name = next(iter(matches))
+                self.stats['view_tables_recovered_by_normalization'] += 1
+                if matched_name in self.slices:
+                    return self.slices[matched_name].get('source_table', matched_name)
+                return matched_name
 
         return data_source
 
@@ -889,7 +916,8 @@ class NavigationEdgeGenerator:
         print(f"     ├─ Group actions expanded: {stats['groups_expanded']}")
         print(f"     ├─ Edges created: {stats['edges_created']}")
         print(f"     ├─ Edges blocked by conditions: {stats['edges_blocked_by_conditions']}")
-        print(f"     └─ Edges blocked by visibility: {stats['edges_blocked_by_visibility']}")
+        print(f"     ├─ Edges blocked by visibility: {stats['edges_blocked_by_visibility']}")
+        print(f"     └─ View tables recovered by whitespace normalization: {stats['view_tables_recovered_by_normalization']}")
         
         return True
 
