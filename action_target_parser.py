@@ -20,6 +20,17 @@ class NavigationExpressionParser:
 
     NAV_FUNCTIONS = ('LINKTOVIEW', 'LINKTOROW', 'LINKTOFILTEREDVIEW', 'LINKTOFORM')
 
+    # Opening half of IN(CONTEXT("View"), LIST(...)) -- optionally
+    # NOT(...)-wrapped. Matches only up through LIST's own opening paren;
+    # find_in_list_context_conditions() walks forward from there to find
+    # LIST's and IN's matching close parens, since LIST's contents can
+    # contain commas inside a quoted literal (e.g. LIST("A, B", "C")) that
+    # a regex alone can't safely skip over.
+    IN_LIST_OPEN_RE = re.compile(
+        r'\bIN\s*\(\s*CONTEXT\s*\(\s*"(View|ViewType|Table|VIEW|VIEWTYPE|TABLE)"\s*\)\s*,\s*LIST\s*\(',
+        re.IGNORECASE
+    )
+
     def _expression_calls_nav_function(self, expression: str) -> bool:
         """Return True if expression calls one of the navigation functions."""
         expr_upper = expression.upper()
@@ -55,6 +66,11 @@ class NavigationExpressionParser:
 
         # Add this new attribute to store table->detail view mapping
         self.table_detail_views = {}
+
+        # Non-literal LIST() terms (e.g. a [Column] reference) skipped by
+        # find_in_list_context_conditions() across the whole parse, since
+        # only a quoted string literal can be written to a condition field.
+        self.skipped_list_terms = 0
 
         # Set by parse_linktorow when it skips a self-referential forced-sync
         # call (LINKTOROW([_THISROW], CONTEXT(VIEW))); read by process_action
@@ -487,6 +503,155 @@ class NavigationExpressionParser:
         and vice versa (double negation) — handles both directions."""
         return '<>' if operator in ('=', '==') else '='
 
+    def _find_matching_close_paren(self, text: str, open_pos: int) -> Optional[int]:
+        """Return the index of the ')' matching the '(' at open_pos, tracking
+        quotes so a paren inside a quoted string isn't counted."""
+        depth = 0
+        quote_char = None
+        for i in range(open_pos, len(text)):
+            char = text[i]
+            if quote_char:
+                if char == quote_char and (i == 0 or text[i - 1] != '\\'):
+                    quote_char = None
+            elif char in ('"', "'"):
+                quote_char = char
+            elif char == '(':
+                depth += 1
+            elif char == ')':
+                depth -= 1
+                if depth == 0:
+                    return i
+        return None
+
+    def _split_top_level_commas(self, text: str) -> List[str]:
+        """Split LIST(...)'s inner content on top-level commas only, so a
+        literal containing its own comma (e.g. LIST("A, B", "C")) isn't
+        split in the middle."""
+        parts = []
+        current = []
+        depth = 0
+        quote_char = None
+        for i, char in enumerate(text):
+            if quote_char:
+                current.append(char)
+                if char == quote_char and (i == 0 or text[i - 1] != '\\'):
+                    quote_char = None
+            elif char in ('"', "'"):
+                current.append(char)
+                quote_char = char
+            elif char == '(':
+                depth += 1
+                current.append(char)
+            elif char == ')':
+                depth -= 1
+                current.append(char)
+            elif char == ',' and depth == 0:
+                parts.append(''.join(current))
+                current = []
+            else:
+                current.append(char)
+        parts.append(''.join(current))
+        return parts
+
+    # Straight "..." or smart-quote "..." pair spanning a whole LIST() term,
+    # once _split_top_level_commas has already isolated that term.
+    _LIST_LITERAL_RE = re.compile(
+        r'^(?:"([^"]*)"|' + chr(8220) + r'([^' + chr(8221) + r']*)' + chr(8221) + r')$'
+    )
+
+    def find_in_list_context_conditions(self, condition: str) -> List[Dict]:
+        """Find every IN(CONTEXT(...), LIST(...)) occurrence in `condition`,
+        optionally NOT(...)-wrapped, and return one dict per occurrence:
+        {'context_type', 'operator' ('=' for a bare IN -- an inclusion set,
+        matching the plain CONTEXT(...)="value" shape's own '=' meaning;
+        '<>' for a NOT-wrapped IN -- an exclusion set), 'values' (quoted
+        string literals only, in LIST order), 'skipped_terms' (count of
+        non-literal LIST entries -- a [Column] reference or anything else
+        that isn't a bare quoted string -- dropped rather than written to
+        a condition field, since only a literal view name can be)}.
+
+        Shared by parse_context_condition (IF/IFS branch conditions) and
+        process_action's two only_if_condition sites (group and regular
+        actions) so the regex and LIST-splitting logic exist once. Reuses
+        _not_wraps_context_match/_invert_operator for the NOT(...) test
+        rather than a parallel mechanism: that test only cares that NOT(
+        sits immediately before the match and NOT's own ")" immediately
+        after it, which is exactly as true of a whole IN(...) call as it is
+        of a bare comparison -- passing the IN(...) call's full span
+        (from "IN" to its own closing paren) makes it fit unchanged.
+        """
+        results = []
+        if not condition or 'CONTEXT' not in condition.upper():
+            return results
+        if not re.search(r'\bIN\s*\(', condition, re.IGNORECASE):
+            return results
+
+        for open_match in self.IN_LIST_OPEN_RE.finditer(condition):
+            context_type = open_match.group(1).capitalize()
+            if context_type == 'Viewtype':
+                context_type = 'ViewType'
+
+            list_open_pos = open_match.end() - 1  # the '(' that opens LIST(...)
+            list_close_pos = self._find_matching_close_paren(condition, list_open_pos)
+            if list_close_pos is None:
+                continue
+
+            in_open_pos = condition.find('(', open_match.start())
+            in_close_pos = self._find_matching_close_paren(condition, in_open_pos)
+            if in_close_pos is None:
+                continue
+
+            list_inner = condition[list_open_pos + 1:list_close_pos]
+            values = []
+            skipped_terms = 0
+            for term in self._split_top_level_commas(list_inner):
+                term = term.strip()
+                if not term:
+                    continue
+                literal_match = self._LIST_LITERAL_RE.match(term)
+                if literal_match:
+                    values.append(literal_match.group(1) if literal_match.group(1) is not None else literal_match.group(2))
+                else:
+                    skipped_terms += 1
+
+            operator = '='
+            if self._not_wraps_context_match(condition, open_match.start(), in_close_pos + 1):
+                operator = self._invert_operator(operator)
+
+            results.append({
+                'context_type': context_type,
+                'operator': operator,
+                'values': values,
+                'skipped_terms': skipped_terms,
+            })
+
+        return results
+
+    def _extend_context_lists_from_in_matches(self, condition: str, view_must_be: List[str],
+                                               view_must_not_be: List[str], viewtype_must_be: List[str],
+                                               viewtype_must_not_be: List[str], table_must_be: List[str],
+                                               table_must_not_be: List[str]) -> int:
+        """Run find_in_list_context_conditions() over `condition` and extend
+        the six caller-owned lists in place (mirroring the plain
+        CONTEXT(...)=... finditer loop these lists already come from).
+        Returns the total skipped-term count across all matches, for the
+        caller to add to self.skipped_list_terms."""
+        skipped_total = 0
+        for in_match in self.find_in_list_context_conditions(condition):
+            skipped_total += in_match['skipped_terms']
+            values = in_match['values']
+            if not values:
+                continue
+            context_type = in_match['context_type']
+            operator = in_match['operator']
+            if context_type == "View":
+                (view_must_be if operator == '=' else view_must_not_be).extend(values)
+            elif context_type == "ViewType":
+                (viewtype_must_be if operator == '=' else viewtype_must_not_be).extend(values)
+            elif context_type == "Table":
+                (table_must_be if operator == '=' else table_must_not_be).extend(values)
+        return skipped_total
+
     def count_only_if_contexts(self, only_if_condition: str):
         """Count context conditions in only_if_condition field."""
         if not only_if_condition or 'CONTEXT' not in only_if_condition.upper():
@@ -543,6 +708,24 @@ class NavigationExpressionParser:
             if self._not_wraps_context_match(condition, match.start(), match.end()):
                 operator = self._invert_operator(operator)
             return match.group(1), operator, match.group(3)
+
+        # Check for IN(CONTEXT(...), LIST(...)), optionally NOT(...)-wrapped.
+        # Only the first occurrence is used here, matching this method's
+        # existing single-condition contract (parse_if_expression/
+        # parse_ifs_expression each call it once per branch condition).
+        in_list_matches = self.find_in_list_context_conditions(condition)
+        if in_list_matches:
+            match_info = in_list_matches[0]
+            self.skipped_list_terms += match_info['skipped_terms']
+            context_type = match_info['context_type']
+            if context_type == 'View':
+                self.context_counts['view'] += 1
+            elif context_type == 'ViewType':
+                self.context_counts['viewtype'] += 1
+            elif context_type == 'Table':
+                self.context_counts['table'] += 1
+            self.context_counts['total'] += 1
+            return context_type, match_info['operator'], '|||'.join(match_info['values'])
 
         return None, None, None
     
@@ -953,6 +1136,16 @@ class NavigationExpressionParser:
                         elif operator in ['<>', '!=']:
                             table_must_not_be.append(value)
 
+                # IN(CONTEXT(...), LIST(...)), optionally NOT(...)-wrapped --
+                # extends the same lists the plain-CONTEXT loop above just
+                # populated, so a condition mixing both shapes joins into one
+                # |||-delimited value below rather than the second shape
+                # silently overwriting the first.
+                self.skipped_list_terms += self._extend_context_lists_from_in_matches(
+                    only_if_condition, view_must_be, view_must_not_be,
+                    viewtype_must_be, viewtype_must_not_be, table_must_be, table_must_not_be
+                )
+
                 # Join multiple conditions with |||
                 if view_must_be:
                     target['must_be_in_views'] = '|||'.join(view_must_be)
@@ -1052,6 +1245,16 @@ class NavigationExpressionParser:
                             table_must_be.append(value)
                         elif operator in ['<>', '!=']:
                             table_must_not_be.append(value)
+
+                # IN(CONTEXT(...), LIST(...)), optionally NOT(...)-wrapped --
+                # extends the same lists the plain-CONTEXT loop above just
+                # populated, so a condition mixing both shapes joins into one
+                # |||-delimited value below rather than the second shape
+                # silently overwriting the first.
+                self.skipped_list_terms += self._extend_context_lists_from_in_matches(
+                    only_if_condition, view_must_be, view_must_not_be,
+                    viewtype_must_be, viewtype_must_not_be, table_must_be, table_must_not_be
+                )
 
                 # Join multiple conditions with |||
                 if view_must_be:
