@@ -920,3 +920,42 @@ extra model capability is worth spending, and arguably the stronger case — pha
 one's remaining work is checkable against code and re-parses, whereas a wrong
 architectural decision in phase two costs weeks before anything reveals it.
 **Confirmed 2026-09-05 (Fable):** this is the first of only three points on the project that meet the stronger-model test — hard to reverse, not settleable by running something, and genuinely difficult to reason about. One session before Claude Code builds anything, with the project record's addenda and the Kankaku formula chains on hand. The other two are downstream of it: judging the first trial runs against Addendum 5's two test cases, one session each, and any genuinely hard real case that arrives later.
+
+- [ ] **A known-corruptions section for `CLAUDE.md`, beside "What this suite does not see".**
+      That section states what the suite cannot establish. This one would state
+      what it establishes WRONGLY, where the wrong value is recoverable from data
+      already in the parse, so an assistant reading the CSVs can compensate rather
+      than propagate the error. The distinction matters: a limitation is something
+      to report as unknown, a known corruption with a recovery is something to fix
+      at read time.
+      *First entry, and the reason this item exists:* whitespace collapse in the
+      paste-derived fields. `views_parser.py` takes a view's `data_source` from
+      `views1.txt`/`views2.txt`, which are browser select-and-paste captures, and
+      HTML rendering collapses runs of consecutive spaces before the capture
+      exists — so any table or slice name containing a double space arrives
+      corrupted and matches nothing. The true name survives in the HTML-derived
+      `appsheet_slices.csv`. `get_view_table()` in `navigation_edge_generator.py`
+      now recovers it by normalize-and-rematch (`STATUS.md`, 2026-09-06), but that
+      repair is LOCAL to that method: `appsheet_views.csv` still carries the
+      collapsed string in `data_source` and `source_table`, so every other
+      consumer of those columns — including a phase-two assistant reading the CSVs
+      directly — has the defect unrepaired. Four Farmy views affected; none in
+      Kankaku or the third app.
+      *Recovery procedure to document, with its stop condition:* collapse
+      whitespace runs on the unmatched value and on every known table and slice
+      name; take the match if exactly one; leave it unresolved, and say so, if two
+      or more collapse to the same string. The uniqueness condition was checked
+      and holds in all three apps today, but a future app could break it.
+      *Scope boundary, so this section does not grow without limit:* a recovery
+      procedure is documented ONLY where the correct value is recoverable from
+      data already in the parse. Where it is not, the entry belongs in "What this
+      suite does not see" as a plain limitation instead. Most defects will fall on
+      that side.
+      *Second candidate, no recovery known:* `ref_parent` is set to the literal
+      string `Warning` on 70 Farmy views and `User Settings` on one third-app view
+      — a UI banner line mistaken for a parent header, found 2026-09-06 and not
+      investigated. Whether the true value is recoverable is unknown, so it is
+      named here as a candidate rather than an entry.
+      *Done when:* the section exists in `CLAUDE.md`, `AGENTS.md` is byte-identical
+      to it, and the whitespace entry carries both its recovery and its stop
+      condition.
