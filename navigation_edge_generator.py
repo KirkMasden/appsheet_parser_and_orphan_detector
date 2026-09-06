@@ -188,13 +188,43 @@ class NavigationEdgeGenerator:
     def get_view_table(self, view: Dict) -> str:
         """Get the underlying table for a view, resolving slices if needed."""
         data_source = view.get('data_source', '') or view.get('source_table', '')
-        
+
         # Check if data source is a slice
         if data_source in self.slices:
             return self.slices[data_source].get('source_table', data_source)
-        
+
         return data_source
-    
+
+    def _target_row_belongs_to_view(self, target_row: Dict, view: Dict) -> bool:
+        """Return True if target_row's own source_table matches this view's
+        resolved table. Action names are not unique -- the same name can
+        exist once per table -- and self.targets_by_action is indexed on
+        name alone, so this is the table boundary that keeps a view from
+        being handed another table's copy of a same-named action.
+
+        A target row with no determinable source_table (empty, missing, or
+        literally 'Unknown') is PERMITTED rather than refused: an unknown
+        table means "cannot determine," and under-removal is recoverable
+        while over-removal that looks like a working fix is not.
+
+        Same principle applies to the view's own side: some views carry a
+        data_source that resolves to neither a known table (self.columns_by_table)
+        nor a known slice (self.slices) -- e.g. a slice name whose whitespace
+        was collapsed somewhere upstream of this module, so the exact-string
+        slice lookup in get_view_table() misses. When this view's own table
+        cannot be determined, PERMIT rather than refuse: refusing on a string
+        that matches nothing is over-removal dressed up as precision.
+        """
+        row_table = (target_row.get('source_table') or '').strip()
+        if not row_table or row_table.lower() == 'unknown':
+            return True
+
+        view_table = self.get_view_table(view)
+        if not view_table or (view_table not in self.columns_by_table and view_table not in self.slices):
+            return True
+
+        return row_table == view_table
+
     def check_context_conditions(self, target_row: Dict, view_name: str) -> bool:
         """Check if a view satisfies the context conditions in a target row."""
         view = self.views.get(view_name, {})
@@ -334,8 +364,14 @@ class NavigationEdgeGenerator:
                 continue
             
             child_targets = self.targets_by_action[child_name]
-            
+
             for child_row in child_targets:
+                # Table boundary: the child action name may exist on other
+                # tables too; only the child that belongs to this view's own
+                # table is eligible.
+                if not self._target_row_belongs_to_view(child_row, view):
+                    continue
+
                 # Handle nested groups
                 if child_row.get('action_type') == 'execute_group':
                     # Combine conditions and recurse
@@ -475,8 +511,14 @@ class NavigationEdgeGenerator:
                 continue
             
             target_rows = self.targets_by_action[action_name]
-            
+
             for target_row in target_rows:
+                # Table boundary: the action name may exist on other tables
+                # too; only the row that belongs to this view's own table is
+                # eligible.
+                if not self._target_row_belongs_to_view(target_row, view):
+                    continue
+
                 if target_row.get('action_type') == 'execute_group':
                     # Process group action
                     self.process_group_action(target_row, view, event_type=event_type)
@@ -724,8 +766,14 @@ class NavigationEdgeGenerator:
                 continue
             
             target_rows = self.targets_by_action[action_name]
-            
+
             for target_row in target_rows:
+                # Table boundary: the action name may exist on other tables
+                # too; only the row that belongs to this view's own table is
+                # eligible.
+                if not self._target_row_belongs_to_view(target_row, view):
+                    continue
+
                 if target_row.get('action_type') == 'execute_group':
                     # Check if group action is visible before processing
                     if not is_visible_in_view_neg(target_row, view, stats=self.stats):
