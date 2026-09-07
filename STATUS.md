@@ -157,11 +157,14 @@ Of the four false-positive categories originally reported, three are fixed (see 
   absent — collapse into one, on the read side of the same file the write
   side already collapses two of three for.
 - **Measured consequence, not just a description of the code path:** with
-  the file absent, `build_navigation_graph()` on Kankaku's data loads 585
+  the file absent, `build_navigation_graph()` on Kankaku's data loads 407
   navigation edges (the full, unfiltered `navigation_edges.csv` row count)
-  instead of 384 (with the real, populated file — 64 entries — loaded
+  instead of 365 (with the real, populated file — 64 entries — loaded
   first) — silently, with nothing distinguishing "ran with the exclusion
-  filter" from "ran without it because the file wasn't there."
+  filter" from "ran without it because the file wasn't there." (585/384 as
+  of the 2026-09-04 finding; re-measured 2026-09-07 against current HEAD —
+  the gap this defect produces persists, only the app's own edge count
+  moved, per the LEFT() and form/map fixes recorded elsewhere in this file.)
 - Found 2026-09-04. Not fixed. Read-only finding.
 
 ### Three code-level reachability-rule differences between `view_dependency_analyzer.py` and `view_orphan_detector.py` — no live disagreement found across three apps; the 2026-09-04 depth-cap margin is stale as of 2026-09-07, see the correction below

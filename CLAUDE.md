@@ -58,10 +58,11 @@ These rules are not stylistic. Each was learned by getting a wrong answer withou
 
 ## CSV output reference
 
-Row counts below are from the two reference parses used to generate this section:
+Row counts below are from the three reference parses used to generate this section (re-cut 2026-09-07, current HEAD — the previous 2026-09-02 pair went stale after five same-day code commits moved edge counts substantially in every app; verified rather than assumed, per `STATUS.md`'s matching correction). Most rows below still report Kankaku/Farmy only, matching this section's original scope; the third app is named where a row now covers it (`potential_unsatisfiable_conditions.csv`):
 
-- **Kankaku** = `20260902_180356_260831_1809_Kankaku_V18_baseline_parse`
-- **Farmy** = `20260902_180352_AppsheetFarmyApp_for_Kirk_parse`
+- **Kankaku** = `20260907_102902_260831_1809_Kankaku_V18_baseline_parse`
+- **Farmy** = `20260907_103008_AppsheetFarmyApp_for_Kirk_parse`
+- **Third app** = `20260907_103502_251130_1947_Test_parse`
 
 counted with Python's `csv` module (never `wc -l`, since several fields — `view_configuration`, `settings`, `with_these_properties`, `type_qualifier`, `expression`, and others — hold embedded newlines that a line-count would mis-split).
 
@@ -168,7 +169,7 @@ Fields: `view_name`, `view_type`, `category`, `is_system_view`, `data_source`, `
 
 One row per resolved navigation possibility between two views (or a self-loop) — the graph every orphan/reachability detector traverses. Built by combining `action_targets.csv` with `appsheet_actions.csv`/`appsheet_views.csv`/`appsheet_columns.csv`/`appsheet_slices.csv`. Written by `navigation_edge_generator.py`.
 
-Rows: Kankaku 585, Farmy 1971.
+Rows: Kankaku 407, Farmy 902 (2026-09-02: 585 / 1971 — stale; several fixes since, from the table-less action-to-target join through the section B `CONTEXT()` work to the form/map fall-through fix, each removed or added edges in at least one app).
 
 Fields: `source_view`, `source_view_type`, `target_view`, `source_action`, `parent_action`, `action_type`, `action_availability_type`, `parent_prominence`, `child_prominence`, `event_type`, `is_self_loop`, `must_be_in_views`, `must_not_be_in_views`, `must_be_viewtype`, `must_not_be_viewtype`, `must_be_table`, `must_not_be_table`, `available_actions`, `original_expression`, `source_view_normalized`, `target_view_normalized`, `source_action_normalized`, `must_be_in_views_normalized`, `must_not_be_in_views_normalized`, `must_be_table_normalized`, `must_not_be_table_normalized`.
 
@@ -185,7 +186,7 @@ Fields: `source_view`, `source_view_type`, `target_view`, `source_action`, `pare
 
 Actions the suite found no visible invocation route for — one row per candidate, the full `appsheet_actions.csv` row plus this file's own fields. Written by `actions_orphan_detector.py`.
 
-Rows: Kankaku 2, Farmy 87.
+Rows: Kankaku 2, Farmy 88 (was 87 as of 2026-09-02 — `a7c283a`'s form/map fix added `Go to Take LOCATION Image Form`, table `Location`, an untraced ripple from `Location_Detail`'s second-order reachability loss; `STATUS.md` has the trace).
 
 Fields: `action_name`, `source_table`, `notes`, `orphan_type`, `action_type_plain_english`, `action_type_technical_name`, `referenced_columns`, `referenced_actions`, `action_prominence`, `navigate_target`, `referenced_views`, `attach_to_column`, `modifies_data`, `only_if_condition`, `display_name`, `action_icon`, `needs_confirmation`, `bulk_applicable`, `column_to_edit`, `to_this_value`, `with_these_properties`, `raw_references`, `is_system_generated`, `is_orphan`, `reference_count`.
 
@@ -278,7 +279,7 @@ Fields: the 39 `appsheet_columns.csv` fields plus `total_references`, `columns_r
 
 System-generated views (the `Detail`/`Form`/etc. AppSheet auto-creates per table) not reachable by the same BFS as `potential_view_orphans.csv`. Written by `view_orphan_detector.py`.
 
-Rows: Kankaku 64, Farmy 99.
+Rows: Kankaku 64, Farmy 101 (was 99 as of 2026-09-02 — `a7c283a`'s form/map fix newly flagged `ActivityGermination_Form` and `Location_Detail`; `STATUS.md` has the full trace, including why `Location_Detail` is a second-order loss).
 
 Fields: the 27 `appsheet_views.csv` fields plus `is_unused`, `unused_reason`.
 
