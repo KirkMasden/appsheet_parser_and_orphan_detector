@@ -25,6 +25,7 @@ from view_orphan_detector import ViewOrphanDetector
 from format_rule_orphan_detector import FormatRuleOrphanDetector
 from slice_orphan_detector import SliceOrphanDetector
 from phantom_view_reference_detector import find_phantoms, write_results
+from unsatisfiable_condition_detector import UnsatisfiableConditionDetector
 
 def print_header(title):
     """Print a formatted section header."""
@@ -547,6 +548,12 @@ def run_slice_orphan_detector(output_dir):
     detector = SliceOrphanDetector(output_dir)
     detector.run_analysis()
 
+def run_unsatisfiable_condition_detector(output_dir):
+    """Run the unsatisfiable Show_If/action-condition pair detector on parsed CSV files."""
+    print_header("PHASE 14: Unsatisfiable Condition Detection")
+    detector = UnsatisfiableConditionDetector(output_dir)
+    detector.run_analysis()
+
 def run_phantom_view_detector(output_dir):
     """Run the phantom view reference detector on parsed CSV files."""
     print_header("PHASE 13: Phantom View Reference Detection")
@@ -752,6 +759,7 @@ def main():
             run_format_rule_orphan_detector(parse_dir)
             run_slice_orphan_detector(parse_dir)
             phantom_count = run_phantom_view_detector(parse_dir)
+            run_unsatisfiable_condition_detector(parse_dir)
             
             # Count orphans from CSV files
             import csv
@@ -791,13 +799,20 @@ def main():
             except:
                 orphan_summary['slices'] = 0
 
-            # Count phantom view references  
+            # Count phantom view references
             try:
                 with open(os.path.join(parse_dir, 'potential_phantom_view_references.csv'), 'r') as f:
                     orphan_summary['phantom_references'] = sum(1 for _ in csv.DictReader(f))
             except:
                 orphan_summary['phantom_references'] = 0
-            
+
+            # Count unsatisfiable Show_If/action-condition pairs
+            try:
+                with open(os.path.join(parse_dir, 'potential_unsatisfiable_conditions.csv'), 'r') as f:
+                    orphan_summary['unsatisfiable_conditions'] = sum(1 for _ in csv.DictReader(f))
+            except:
+                orphan_summary['unsatisfiable_conditions'] = 0
+
             # Print final summary
             print_header("Orphan detection complete!")
             print("📊 Summary of potential orphans found:")
@@ -807,6 +822,7 @@ def main():
             print(f"   ⚠️  Format rules: {orphan_summary['format_rules']}")
             print(f"   ⚠️  Slices: {orphan_summary['slices']}")
             print(f"   ⚠️  Phantom view references: {orphan_summary['phantom_references']}")
+            print(f"   ⚠️  Unsatisfiable Show_If/condition pairs: {orphan_summary['unsatisfiable_conditions']}")
             
             total_orphans = sum(orphan_summary.values())
             print(f"\n   📊 Total potential orphans: {total_orphans}")

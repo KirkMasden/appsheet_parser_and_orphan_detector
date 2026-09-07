@@ -224,6 +224,20 @@ Fields: the 10 `appsheet_slices.csv` fields plus `is_orphan`, `reference_count`.
 
 - `is_orphan`: always `Yes` here, same vestige as `potential_action_orphans.csv`.
 
+### `potential_unsatisfiable_conditions.csv`
+
+Answers a different question from every other file above: not "is this reachable," but **"can this pair ever display, regardless of reachability."** A column's `Show_If` and the condition of a `Display_Inline` action attached to that column, tested for a literal contradiction over the same variable — same variable, opposite senses, e.g. `X="On"` on one side and `X<>"On"` on the other. When found, the action can never be visible no matter what the navigation graph says about the view it sits on: it fails before reachability is even relevant. Written by `unsatisfiable_condition_detector.py`. Only if non-empty — absent on a zero result, same convention as every sibling orphan detector (confirmed by reading all five: `view_orphan_detector.py`, `slice_orphan_detector.py`, `format_rule_orphan_detector.py`, `actions_orphan_detector.py`, `column_orphan_detector.py` all guard with `if candidates:` before ever opening their output file — none of them, `format_rule_orphan_detector.py` included, writes a header-only file on zero).
+
+Rows: Kankaku 2, Farmy absent (zero), third app absent (zero).
+
+Fields: `action_name`, `source_table`, `column_name`, `table_name`, `show_if`, `only_if_condition`, `contradicting_variable`, `contradiction_detail`.
+
+- Deliberately narrow, per `RELEASE_CHECKLIST.md` section B's own ambiguity assessment: fires ONLY on a literal contradiction (same variable, opposite `=`/`<>` sense, or an `ISBLANK`/`ISNOTBLANK` family opposite-sense pair). Arithmetic, `COUNT`/`SUM`/`SELECT`/lookup functions, and any pair whose shared variable sits inside an `OR` on either side are left silently uncaught — this is a mechanical check for construction-level impossibility, not general `Show_If` evaluation, which stays an accepted limitation (`STATUS.md`).
+- **This is not a reachability finding and does not interact with any other file here.** A row in this file says the pair can never display even if every navigation/prominence/view-type gate passes; a view or action named in it can still be absent from `potential_view_orphans.csv`/`potential_action_orphans.csv`, and vice versa. The two questions are independent.
+- Candidacy requires the action's `attach_to_column` to name a REAL column on its own table — the 23 Farmy `Display_Inline` actions that attach to a column that does not exist (`STATUS.md`) are silently excluded, not a false negative of this detector.
+- The module's own docstring records three spec decisions a future reader should check before extending this: whether `ISBLANK`/`ISNOTBLANK`/`NOT(ISBLANK(...))` count as one family (yes), whether `[_THISROW].[X]` and bare `[X]` are the same variable (yes, normalized), and that `AND(...)` is decomposed into its conjuncts while `OR(...)` never is.
+- Out of scope by design, not a gap: action-versus-action complementary conditions (two sibling actions on the same column whose own conditions are opposite each other) are a real pattern this file will never catch, since it only ever compares a column's `Show_If` against one attached action's own condition.
+
 ### `potential_usersettings_orphans.csv`
 
 User Settings columns (referenced via `USERSETTINGS()`) the suite found no reference to. Written by `column_orphan_detector.py` (`write_user_settings_orphans_to_csv`). Part of the December 2025 work `STATUS.md` records as shipped with an explicit, still-unverified "needs more testing" caveat.
