@@ -962,7 +962,7 @@ demonstrated need appears.
 
   **TWO THINGS THAT DO NOT DISSOLVE (model's points, carried from the 2026-09-01 note):** graph traversal still has to happen in code — reachability across ~1,850 edges is not a read-the-expression task — and a wrong condition value corrupts the graph before any reader sees the expression. And faithfulness matters more, not less: a reader can only re-read what the parser preserved.
 
-  **A CHEAP PRE-CHECK, worth running before that session rather than arguing about during it (model's suggestion):** hand a model the raw `To cram from session E` expression with no other context and ask where `Session J` routes. If it answers `Cram J`, the approach has evidence behind it. If it does not, the architecture conversation starts from a different place. One question, one minute.
+  **KIRK'S DECISION, 2026-09-07: no constructed pre-check — test by doing real work with the tool once phase two is running.** Two reasons. First, the pre-check as written is not answerable from one expression in isolation: where `Session J` routes depends on the `Session flag` IFS, on which actions exist, and on how AppSheet resolves them, none of which is in that expression, so a model would be guessing rather than demonstrating the approach. Second, every substantive finding in this project has come from real use, not from constructed tests.
 
 **On model choice:** the early architectural decisions here are the other place
 extra model capability is worth spending, and arguably the stronger case — phase
