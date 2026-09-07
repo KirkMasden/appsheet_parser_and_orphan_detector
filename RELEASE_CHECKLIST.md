@@ -781,7 +781,7 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
 
 - [x] **Push.** Done 2026-09-03: 72 commits, `2f0cb81..28164fd`. Pushed without squashing — the recorded plan had been to squash `adfdaac`'s correction into `18e7462` so a public reader never saw the wrong LINKTOFORM count, and that was dropped deliberately: rewriting the base of a 72-commit branch would have invalidated every commit hash cited across `STATUS.md`, `CONSOLIDATION_PLAN.md` and this file, and `adfdaac` sits two commits after the error and names it in its own subject line. Keeping the correction visible in history also matches how these documents already treat superseded reasoning.
 
-- [ ] **Report the broken view references in Leon's app — nine names, not
+- [x] **Report the broken view references in Leon's app — nine names, not
       twelve.**
       The original five, already sent to Leon: `Seeds Form` (the real view is
       `Seeds_Form`), `ActivityForm - Transplant`, `ActivityForm - Germination`,
@@ -824,6 +824,11 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
       (2026-09-04 follow-up section — originally misdated 2026-09-05 in the
       audit document, corrected there; see also the 2026-09-06 correction
       note added to that document about the 7-of-10 undercount).
+
+      **Done 2026-09-07 (Kirk).** All nine names reported to Leon — the
+      original five plus the four found 2026-09-04 — and a closing note
+      sent. This is correspondence outside the repository; no commit
+      records it.
 
 - [x] **A `CLAUDE.md` at the repository root**, per the July plan: CSV schemas,
       which analyzer answers which category of question, the instruction to call
