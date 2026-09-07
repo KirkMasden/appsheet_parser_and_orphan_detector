@@ -305,6 +305,48 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   binding to remove. 7 of Leon's 319 views are maps; Kankaku's 2026-08-31 baseline has
   none.
 
+- **Prominent (`Display_Prominently`) does NOT display on a dashboard view.** Observed
+  2026-09-07 by Kirk in Kankaku's `Search all` dashboard (three Large view entries,
+  Interactive mode off, Use tabs in mobile view off). Two independent grounds:
+
+  **(a) Negative-population argument, the stronger of the two.** Kankaku already
+  contains many unrestricted actions on the table the dashboard reports as its own
+  (see the next entry for why that reported table is not the whole story). If a
+  dashboard rendered its own table's actions, at least some of these would already be
+  visible on it. None are.
+
+  **(b) A fresh confirming case.** Kirk created action `My website` (table `Kankaku`,
+  effect External: go to a website, Position `Primary`) specifically to test this. It
+  does not appear on the dashboard — testing Primary rather than Prominent directly,
+  but on the same question of whether a dashboard renders its reported table's
+  actions at all, and getting the same answer as (a).
+
+  **What the screenshot's bottom bar is, stated so it is not mistaken for evidence
+  against this:** the bar visible at the bottom of the dashboard screenshot is the
+  app's own navigation bar (the bottom-nav row every screen in the app carries), not
+  the dashboard view's own action bar. Its presence is not evidence of an action
+  displaying at dashboard level.
+
+  This closes the dashboard half of the `RELEASE_CHECKLIST.md` section A item that
+  opened both the dashboard and calendar questions 2026-09-05. **The calendar half
+  remains open and unscheduled.**
+
+- **A dashboard's reported `source_table`/`data_source` names one attached table, not
+  the tables of the views actually embedded inside it.** Observed 2026-09-07 by Kirk,
+  in the same `Search all` test above: the editor preview reports `Table: Kankaku` for
+  this dashboard, while it contains three child view entries over three different
+  tables. So a dashboard's reported table in both the editor and this suite's export
+  is one attached value, not a summary of what is actually in play inside the
+  dashboard.
+
+  **Consequence for this suite, recorded in `STATUS.md`:** any reasoning from a
+  dashboard's `source_table` is reasoning from a value that does not mean what it
+  appears to. `navigation_edge_generator.py`'s `process_dashboard_containment`
+  hard-codes all six condition fields to empty for a containment edge — already
+  correct behavior, since a containment edge carries no action and so has nothing to
+  condition, but the reason had not been written down until this observation
+  supplied it.
+
 - **An inline action renders only if the column it is attached to renders.** An inline action's button appears beside its attach-to column's row; if that column's own `Show_If` is false in the current state, the column is absent and so is the button. This holds for a group whose parent action is inline as well, and therefore for the group's children. Observed in Kirk's running Kankaku app, 2026-09-03: the `Schedule position label` column on the `Definition` table carries `Show_If` `and(CONTEXT("ViewType") <> "form",INDEX(Cram[Enum],1)<>"On")`; in cram mode the row is absent from the view and no button attached to it appears, while out of cram the row is present and shows one button, `Visualize schedule 2`, whose condition is `true`. Five actions attach to this column per the 2026-08-31 parse; they were not checked individually in the app, and the general rule above is what the observation supports. Consequence for this suite is recorded in `STATUS.md`, not here.
 
 ## Manual action lists
@@ -497,12 +539,12 @@ Source: Kirk's decision, 2026-08-30. Recorded so these are not re-litigated.
 
 ## Unknowns
 
-What Prominent (export: `Display_Prominently`) does on **calendar** and **dashboard**
-views remains genuinely unestablished — named nowhere in the documentation read for
-this file, and not tested. These are the only two view types left from the original
-six-type list once tracked here; `form`, `card`, `gallery`, and `map` are now
-addressed under "Established behavior" above, each entry naming its own source. This
-is not silence by omission; it is the current honest boundary of what is known.
+What Prominent (export: `Display_Prominently`) does on **calendar** views remains
+genuinely unestablished — named nowhere in the documentation read for this file, and
+not tested. This is the only view type left from the original six-type list once
+tracked here; `form`, `card`, `gallery`, `map`, and now `dashboard` are addressed
+under "Established behavior" above, each entry naming its own source. This is not
+silence by omission; it is the current honest boundary of what is known.
 
 The map cell's consequence for this suite's output — the edges it emits to Map views
 for the "Go to ObservationActivity" action (see STATUS.md) — is addressed in the map
@@ -518,10 +560,12 @@ and, more broadly, whether `Automatic` mode's `referenced_actions` field is itse
 complete — an open question independent of this one (`CONSOLIDATION_PLAN.md`
 section 5's "Deliberately deferred" note).
 
-Calendar and dashboard are each answerable by one test in a running app. Form,
+Calendar remains answerable by one test in a running app, the same way dashboard
+just was; the frozen copy of Farmy holding the calendar view is unscheduled. Form,
 card and gallery were closed by documentation; map rests on Kirk's stated
-inference. Deck is no longer a single grade: both Prominent-on-Deck and
-Overlay-on-Deck are now settled by direct observation (see "Established behavior"
-above) — Prominent-on-Deck for the Manual-list-membership case specifically, not
-yet for Automatic mode. Those are several different grades of evidence and this
-file does not treat them as one.
+inference; dashboard is now settled by direct observation, 2026-09-07 (see
+"Established behavior" above). Deck is no longer a single grade: both
+Prominent-on-Deck and Overlay-on-Deck are now settled by direct observation (see
+"Established behavior" above) — Prominent-on-Deck for the Manual-list-membership
+case specifically, not yet for Automatic mode. Those are several different grades
+of evidence and this file does not treat them as one.

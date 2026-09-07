@@ -308,7 +308,7 @@ platform's actual behavior differs, so this is one row per view type.
 | `form` | 92 | **F** — documented. Actions don't display as buttons on forms | NEG |
 | `card` | 17 | **Displays actions, but not via prominence** — mechanism identified 2026-09-05: per-slot assignment in the Layout widget, with capacity and invocation set by layout (full 4, compact 3, backdrop 1, photo 1; the last two invoked by clicking the card, no buttons). `Display_Overlay` **T** [documented] as a collection view. See `APPSHEET_BEHAVIOR.md` | AOD, ADA — but a boolean keyed on prominence cannot express this cell correctly in any of the three files |
 | `map` | 7 | **F** — established 2026-09-05 on three legs (editor observation with a deck control, five third-party reports 2020–2025, documentation's silence). No designation control and no event binding exists; system-generated actions (Add, pin, driving directions) display, author-created ones cannot be assigned. See `APPSHEET_BEHAVIOR.md` | **NEG.** AOD and ADA are right here, by accident of their restrictive fall-through rather than by a rule |
-| `dashboard` | 3 | **[none]** | undetermined |
+| `dashboard` | 3 | **F** — OBSERVED 2026-09-07 (was undetermined). Kirk, in Kankaku's `Search all` dashboard: no unrestricted table-level action displayed, and a purpose-built Primary action added specifically to test it did not appear either. See `APPSHEET_BEHAVIOR.md` | **NEG.** AOD and ADA are right here, by accident of their restrictive fall-through rather than by a rule |
 | `calendar` | 1 | **[none]** | undetermined |
 
 Two notes for whoever implements this bucket.
