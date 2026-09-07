@@ -18,7 +18,11 @@ shared `_overlay_admitted_on_deck` — see that function's docstring for the rul
 and its evidence. (Step 5's deck-only `Display_Prominently` exclusion was also
 implemented this way, via a since-removed `_prominent_excluded_on_deck` helper of
 the same shape, but was disproved by observation and reverted before being
-committed — see `CONSOLIDATION_PLAN.md` section 5 and `STATUS.md`.)
+committed — see `CONSOLIDATION_PLAN.md` section 5 and `STATUS.md`.) ALSO EXCEPT
+`RELEASE_CHECKLIST.md` section B's form/map fall-through fix (2026-09-07): NEG's
+`is_visible_in_view_neg` returns False, not the original's unconditional True,
+for `form` and `map` view types — see that function's own docstring. AOD and
+ADA already returned False for both by fall-through and needed no change.
 
 All three callers — `action_dependency_analyzer.py` (step 1),
 `actions_orphan_detector.py` (step 2), and `navigation_edge_generator.py`
@@ -163,7 +167,12 @@ def is_visible_in_table_view_neg(action: Dict, view: Dict, stats: Optional[Dict]
 
 
 def is_visible_in_view_neg(action: Dict, view: Dict, stats: Optional[Dict] = None) -> bool:
-    """navigation_edge_generator.py's is_action_visible_in_view, unchanged.
+    """navigation_edge_generator.py's is_action_visible_in_view, EXCEPT
+    RELEASE_CHECKLIST.md section B's form/map fall-through fix (2026-09-07):
+    the original unconditionally returned True for every view type besides
+    detail/deck/table. `form` and `map` now return False instead -- see the
+    inline comment at that branch for the evidence. `card`, `dashboard` and
+    `calendar` are unaffected and still fall through to True.
 
     `stats`, if given, is mutated the way the original mutated
     `self.stats['edges_blocked_by_visibility']` — a dict-like object supporting
@@ -199,8 +208,31 @@ def is_visible_in_view_neg(action: Dict, view: Dict, stats: Optional[Dict] = Non
         return is_visible_in_deck_view_neg(action, view, stats)
     elif view_type == 'table':
         return is_visible_in_table_view_neg(action, view, stats)
+    elif view_type in ('form', 'map'):
+        # RELEASE_CHECKLIST.md section B, "Map fall-through" (scope corrected
+        # 2026-09-05): neither view type displays an author-created action at
+        # any prominence, so unlike detail/deck/table this needs no
+        # per-prominence branch -- a flat refusal matches both cells exactly.
+        # Form: APPSHEET_BEHAVIOR.md's "Actions do not display as buttons on
+        # form views" -- documented (Google's "Actions: The Essentials"),
+        # corroborated by Kirk's own building experience. The Form Saved
+        # event route is untouched: process_event_actions never calls this
+        # function. Map: APPSHEET_BEHAVIOR.md's "Map views offer no route at
+        # all for an author-created action" -- observed with a control
+        # (Kirk, 2026-09-05) plus five third-party reports 2020-2025 plus
+        # documentation's silence, the strongest-graded cell in that file;
+        # no event route exists to protect. `card`, `dashboard` and
+        # `calendar` are deliberately NOT part of this branch -- see
+        # RELEASE_CHECKLIST.md section D's bucket item and the 2026-09-07
+        # dashboard finding; each still falls through to the unconditional
+        # True below.
+        _neg_bump(stats)
+        return False
     else:
-        # For now, other view types just check available_actions
+        # card, dashboard, calendar, and any other unresolved view type:
+        # check available_actions only, pending RELEASE_CHECKLIST.md section
+        # D's bucket item (card's branch is answered but post-publication;
+        # calendar's app test is still open).
         return True
 
 
