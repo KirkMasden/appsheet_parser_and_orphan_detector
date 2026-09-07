@@ -31,6 +31,17 @@ class NavigationExpressionParser:
         re.IGNORECASE
     )
 
+    # LEFT(CONTEXT("View"), N) = "prefix" -- optionally NOT(...)-wrapped.
+    # N is captured for fidelity but not otherwise used: the prefix itself
+    # (group 4) is what find_left_prefix_context_conditions() expands
+    # against the known view list, so a mismatch between N and the
+    # prefix's own length (none observed in this dataset) would not
+    # affect the result either way.
+    LEFT_PREFIX_RE = re.compile(
+        r'LEFT\s*\(\s*CONTEXT\s*\(\s*"(View|ViewType|Table|VIEW|VIEWTYPE|TABLE)"\s*\)\s*,\s*(\d+)\s*\)\s*(=|<>|!=)\s*"([^"]+)"',
+        re.IGNORECASE
+    )
+
     def _expression_calls_nav_function(self, expression: str) -> bool:
         """Return True if expression calls one of the navigation functions."""
         expr_upper = expression.upper()
@@ -67,6 +78,13 @@ class NavigationExpressionParser:
         # Add this new attribute to store table->detail view mapping
         self.table_detail_views = {}
 
+        # Every view name, in appsheet_views.csv's own order, regardless of
+        # type or system/user status -- populated by load_views_csv().
+        # find_left_prefix_context_conditions() expands a LEFT(CONTEXT(...),
+        # N) = "prefix" test against this list rather than treating the
+        # prefix as a complete view name.
+        self.all_view_names = []
+
         # Non-literal LIST() terms (e.g. a [Column] reference) skipped by
         # find_in_list_context_conditions() across the whole parse, since
         # only a quoted string literal can be written to a condition field.
@@ -89,11 +107,14 @@ class NavigationExpressionParser:
             with open(views_file, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
+                    view_name = row.get('view_name', '')
+                    if view_name:
+                        self.all_view_names.append(view_name)
+
                     # Only process system-generated detail views
-                    if (row.get('view_type', '').lower() == 'detail' and 
+                    if (row.get('view_type', '').lower() == 'detail' and
                         row.get('is_system_view', '').strip().lower() == 'yes'):
                         source_table = row.get('source_table', '')
-                        view_name = row.get('view_name', '')
                         if source_table and view_name:
                             self.table_detail_views[source_table] = view_name
             
@@ -652,6 +673,123 @@ class NavigationExpressionParser:
                 (table_must_be if operator == '=' else table_must_not_be).extend(values)
         return skipped_total
 
+    def _left_prefix_is_if_true_selector(self, condition: str, match_start: int, match_end: int) -> bool:
+        """True if this LEFT(...)=... comparison is the condition argument of
+        an enclosing IF(cond, a, b) where a or b is the bare literal TRUE --
+        i.e. the comparison picks between two DATA predicates and is not a
+        view restriction at all. Kankaku's `Next session (settings)` is the
+        only known instance: `IF(LEFT(CONTEXT("View"),20)="Session
+        confirmation", NUMBER([Text2])=[Number], TRUE)` -- the else-branch is
+        TRUE, so the action is available regardless of this test (observed
+        live: it displays on `Session J`, which the prefix doesn't match).
+
+        Narrow, local check in the same spirit as _not_wraps_context_match --
+        it only looks at what immediately encloses this one match -- rather
+        than adding general AND/OR/IF parsing to only_if_condition, which
+        stays a recorded Known defect."""
+        before = condition[:match_start]
+        if_match = re.search(r'\bIF\s*\(\s*$', before, re.IGNORECASE)
+        if not if_match:
+            return False
+        if condition[match_end:].lstrip()[:1] != ',':
+            return False
+
+        if_open_paren = before.rindex('(')
+        if_close_paren = self._find_matching_close_paren(condition, if_open_paren)
+        if if_close_paren is None:
+            return False
+
+        parts = self._split_top_level_commas(condition[if_open_paren + 1:if_close_paren])
+        if len(parts) != 3:
+            return False
+        return any(p.strip().upper() == 'TRUE' for p in parts[1:])
+
+    def find_left_prefix_context_conditions(self, condition: str) -> List[Dict]:
+        """Find every LEFT(CONTEXT(...), N) = "prefix" occurrence in
+        `condition`, optionally NOT(...)-wrapped, and return one dict per
+        occurrence: {'context_type', 'operator' ('=' for a bare LEFT test,
+        '<>' for a NOT-wrapped one), 'values' (every known view name that
+        starts with the prefix, in appsheet_views.csv order), 'raw_prefix'}.
+
+        The prefix is EXPANDED against self.all_view_names rather than
+        written through as though it were one complete view name -- the
+        parse-time expansion the section B sub-decision calls for, so the
+        existing six condition fields need no seventh, prefix-carrying
+        field.
+
+        Skips (returns nothing for) a match that is the condition-argument
+        of an enclosing IF(cond, a, b) where a or b is TRUE -- see
+        _left_prefix_is_if_true_selector. Everywhere else this is a genuine
+        restriction, whether it sits alone, under AND(...), or under OR(...)
+        -- the same flat, structure-blind scan used for the plain
+        CONTEXT(...)=... shape and for IN(), so a clause nested inside
+        AND(...) is reached at zero extra cost. Under OR(...) specifically,
+        this is what lets an OR of a plain clause and a LEFT clause end up
+        correctly unioned into one must_be_in_views field -- not because OR
+        is understood, but because two separate finditer-driven matches
+        against the same field happen to add up to it. That is an artifact
+        of the accumulation, not evidence the structural-blindness defect is
+        fixed.
+
+        Shared by parse_context_condition (IF/IFS branch conditions) and
+        process_action's two only_if_condition sites (group and regular
+        actions), so the regex and prefix-expansion logic exist once.
+        Reuses _not_wraps_context_match/_invert_operator for the NOT(...)
+        test, exactly as find_in_list_context_conditions does, since that
+        test only cares about the immediate text around the match's own
+        span.
+        """
+        results = []
+        if not condition or 'LEFT' not in condition.upper():
+            return results
+
+        for match in self.LEFT_PREFIX_RE.finditer(condition):
+            if self._left_prefix_is_if_true_selector(condition, match.start(), match.end()):
+                continue
+
+            context_type = match.group(1).capitalize()
+            if context_type == 'Viewtype':
+                context_type = 'ViewType'
+
+            operator = match.group(3)
+            prefix = match.group(4)
+            if self._not_wraps_context_match(condition, match.start(), match.end()):
+                operator = self._invert_operator(operator)
+
+            values = [v for v in self.all_view_names if v.startswith(prefix)]
+
+            results.append({
+                'context_type': context_type,
+                'operator': operator,
+                'values': values,
+                'raw_prefix': prefix,
+            })
+
+        return results
+
+    def _extend_context_lists_from_left_matches(self, condition: str, view_must_be: List[str],
+                                                 view_must_not_be: List[str], viewtype_must_be: List[str],
+                                                 viewtype_must_not_be: List[str], table_must_be: List[str],
+                                                 table_must_not_be: List[str]) -> None:
+        """Run find_left_prefix_context_conditions() over `condition` and
+        extend the six caller-owned lists in place, exactly mirroring
+        _extend_context_lists_from_in_matches. Called alongside that method
+        so a condition mixing a plain CONTEXT()=..., an IN(), and a LEFT()
+        clause joins all of them into one |||-delimited value per field,
+        rather than one shape overwriting another."""
+        for left_match in self.find_left_prefix_context_conditions(condition):
+            values = left_match['values']
+            if not values:
+                continue
+            context_type = left_match['context_type']
+            operator = left_match['operator']
+            if context_type == "View":
+                (view_must_be if operator in ('=', '==') else view_must_not_be).extend(values)
+            elif context_type == "ViewType":
+                (viewtype_must_be if operator in ('=', '==') else viewtype_must_not_be).extend(values)
+            elif context_type == "Table":
+                (table_must_be if operator in ('=', '==') else table_must_not_be).extend(values)
+
     def count_only_if_contexts(self, only_if_condition: str):
         """Count context conditions in only_if_condition field."""
         if not only_if_condition or 'CONTEXT' not in only_if_condition.upper():
@@ -698,16 +836,25 @@ class NavigationExpressionParser:
 
             return context_type, operator, match.group(3)
 
-        # Check for LEFT function with CONTEXT
-        left_pattern = r'LEFT\s*\(\s*CONTEXT\s*\(\s*"(View)"\s*\)\s*,\s*\d+\s*\)\s*(=|<>|!=)\s*"([^"]+)"'
-        match = re.search(left_pattern, condition, re.IGNORECASE)
-        if match:
-            self.context_counts['view'] += 1
-            self.context_counts['total'] += 1
-            operator = match.group(2)
-            if self._not_wraps_context_match(condition, match.start(), match.end()):
-                operator = self._invert_operator(operator)
-            return match.group(1), operator, match.group(3)
+        # Check for LEFT(CONTEXT(...), N) = "prefix", expanded against the
+        # known view list rather than treated as one complete view name.
+        # Only the first occurrence is used here, matching this method's
+        # existing single-condition contract (see the IN() branch below).
+        left_matches = self.find_left_prefix_context_conditions(condition)
+        if left_matches:
+            match_info = left_matches[0]
+            values = match_info['values']
+            if values:
+                context_type = match_info['context_type']
+                if context_type == 'View':
+                    self.context_counts['view'] += 1
+                elif context_type == 'ViewType':
+                    self.context_counts['viewtype'] += 1
+                elif context_type == 'Table':
+                    self.context_counts['table'] += 1
+                self.context_counts['total'] += 1
+                operator = '<>' if match_info['operator'] in ('<>', '!=') else '='
+                return context_type, operator, '|||'.join(values)
 
         # Check for IN(CONTEXT(...), LIST(...)), optionally NOT(...)-wrapped.
         # Only the first occurrence is used here, matching this method's
@@ -1146,6 +1293,17 @@ class NavigationExpressionParser:
                     viewtype_must_be, viewtype_must_not_be, table_must_be, table_must_not_be
                 )
 
+                # LEFT(CONTEXT(...), N) = "prefix", expanded against the known
+                # view list -- extends the same lists again, so a condition
+                # mixing this with a plain CONTEXT()=... or an IN() joins all
+                # of them into one field. Skips a match that is really an
+                # IF(cond, a, TRUE)-style data-predicate selector, not a view
+                # restriction (see _left_prefix_is_if_true_selector).
+                self._extend_context_lists_from_left_matches(
+                    only_if_condition, view_must_be, view_must_not_be,
+                    viewtype_must_be, viewtype_must_not_be, table_must_be, table_must_not_be
+                )
+
                 # Join multiple conditions with |||
                 if view_must_be:
                     target['must_be_in_views'] = '|||'.join(view_must_be)
@@ -1252,6 +1410,17 @@ class NavigationExpressionParser:
                 # |||-delimited value below rather than the second shape
                 # silently overwriting the first.
                 self.skipped_list_terms += self._extend_context_lists_from_in_matches(
+                    only_if_condition, view_must_be, view_must_not_be,
+                    viewtype_must_be, viewtype_must_not_be, table_must_be, table_must_not_be
+                )
+
+                # LEFT(CONTEXT(...), N) = "prefix", expanded against the known
+                # view list -- extends the same lists again, so a condition
+                # mixing this with a plain CONTEXT()=... or an IN() joins all
+                # of them into one field. Skips a match that is really an
+                # IF(cond, a, TRUE)-style data-predicate selector, not a view
+                # restriction (see _left_prefix_is_if_true_selector).
+                self._extend_context_lists_from_left_matches(
                     only_if_condition, view_must_be, view_must_not_be,
                     viewtype_must_be, viewtype_must_not_be, table_must_be, table_must_not_be
                 )
