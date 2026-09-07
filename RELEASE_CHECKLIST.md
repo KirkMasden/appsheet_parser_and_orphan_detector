@@ -4,9 +4,9 @@ Everything standing between now and telling Leon the scripts are ready to test.
 Written 2026-08-31. This list is meant to be finite: when every item is done, the
 work stops and testing begins. That is phase one, and everything through section E
 below belongs to it. A phase two exists — a related but separate project, described
-at the end of this file — and it begins only after phase one ends at publication and
-a break is taken. Nothing in phase two is pending release work; it should not be
-sequenced into the sections above it.
+at the end of this file — and it begins only after phase one ends at publication.
+Nothing in phase two is pending release work; it should not be sequenced into the
+sections above it.
 
 Not a status file (see `STATUS.md` for defects), not a specification (see
 `APPSHEET_BEHAVIOR.md` for what AppSheet does), not a design (see
@@ -921,7 +921,7 @@ inconsistent code — which may make it more useful to testers than to Kirk.
 ## Phase two — making the backing Google Sheet visible to AI
 
 Not pending release work. Do not sequence this into phase one above, and do not
-start it before phase one ends at publication and a break is taken.
+start it before phase one ends at publication.
 
 A related but separate project: making an entire AppSheet app visible to AI,
 including the backing Google Sheets and the computation done in them. The existing
