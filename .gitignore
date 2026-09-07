@@ -5,3 +5,9 @@ __pycache__/
 *.sublime-project
 .idea/
 *_parse/
+
+# sheet_capture.gs output, if a downloaded dump ever ends up near the repo
+# instead of the sibling sheet_dumps/ folder — these carry a workbook's
+# raw formulas and values and must never be tracked.
+*_formulas_*.json
+*_values_*.json
