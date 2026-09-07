@@ -1,6 +1,6 @@
 # Project status
 
-Last updated 2026-09-05. Records what is outstanding in this project between working sessions.
+Last updated 2026-09-07. Records what is outstanding in this project between working sessions.
 
 See `APPSHEET_BEHAVIOR.md` for AppSheet's own display rules (positions, deck action
 bars, grouped-action execution) with sources for each. This file stays about defects
@@ -164,7 +164,7 @@ Of the four false-positive categories originally reported, three are fixed (see 
   filter" from "ran without it because the file wasn't there."
 - Found 2026-09-04. Not fixed. Read-only finding.
 
-### Three code-level reachability-rule differences between `view_dependency_analyzer.py` and `view_orphan_detector.py` — no live disagreement found across three apps, but the depth cap runs at its ceiling in one
+### Three code-level reachability-rule differences between `view_dependency_analyzer.py` and `view_orphan_detector.py` — no live disagreement found across three apps; the 2026-09-04 depth-cap margin is stale as of 2026-09-07, see the correction below
 
 - `view_dependency_analyzer.py`'s `is_always_false()` is a strict subset of
   `view_orphan_detector.py`'s `is_always_false_condition()` (missing five

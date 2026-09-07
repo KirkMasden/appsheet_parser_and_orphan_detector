@@ -298,17 +298,19 @@ reason, and step 4 would break it.
 
 ### The former "other" bucket, decomposed
 
-All three files behave identically across every prominence for every type below. **NEG
-returns T unconditionally** via `else: return True`; **AOD contributes F** because no
+All three files behave identically across every prominence for every type below, EXCEPT
+`form` and `map`, where NEG was fixed 2026-09-07 (`a7c283a`) and no longer shares this
+row's description — see that row's own cell. For `card`, `dashboard` and `calendar`,
+**NEG returns T unconditionally** via `else: return True`; **AOD contributes F** because no
 branch matches and the loop continues; **ADA returns F** at the final statement. Only the
 platform's actual behavior differs, so this is one row per view type.
 
 | View type | Views | AppSheet behavior | Which files are wrong |
 |---|---|---|---|
-| `form` | 92 | **F** — documented. Actions don't display as buttons on forms | NEG |
+| `form` | 92 | **F** — documented. Actions don't display as buttons on forms | **None — fixed 2026-09-07 (`a7c283a`).** NEG previously returned T unconditionally here; it now returns F for `form`, matching AOD and ADA |
 | `card` | 17 | **Displays actions, but not via prominence** — mechanism identified 2026-09-05: per-slot assignment in the Layout widget, with capacity and invocation set by layout (full 4, compact 3, backdrop 1, photo 1; the last two invoked by clicking the card, no buttons). `Display_Overlay` **T** [documented] as a collection view. See `APPSHEET_BEHAVIOR.md` | AOD, ADA — but a boolean keyed on prominence cannot express this cell correctly in any of the three files |
-| `map` | 7 | **F** — established 2026-09-05 on three legs (editor observation with a deck control, five third-party reports 2020–2025, documentation's silence). No designation control and no event binding exists; system-generated actions (Add, pin, driving directions) display, author-created ones cannot be assigned. See `APPSHEET_BEHAVIOR.md` | **NEG.** AOD and ADA are right here, by accident of their restrictive fall-through rather than by a rule |
-| `dashboard` | 3 | **F** — OBSERVED 2026-09-07 (was undetermined). Kirk, in Kankaku's `Search all` dashboard: no unrestricted table-level action displayed, and a purpose-built Primary action added specifically to test it did not appear either. See `APPSHEET_BEHAVIOR.md` | **NEG.** AOD and ADA are right here, by accident of their restrictive fall-through rather than by a rule |
+| `map` | 7 | **F** — established 2026-09-05 on three legs (editor observation with a deck control, five third-party reports 2020–2025, documentation's silence). No designation control and no event binding exists; system-generated actions (Add, pin, driving directions) display, author-created ones cannot be assigned. See `APPSHEET_BEHAVIOR.md` | **None — fixed 2026-09-07 (`a7c283a`), same commit as `form`.** NEG previously returned T unconditionally here; it now returns F for `map`, matching AOD and ADA, which were already right by accident of their restrictive fall-through rather than by a rule |
+| `dashboard` | 3 | **F** — OBSERVED 2026-09-07 (was undetermined). Kirk, in Kankaku's `Search all` dashboard: no unrestricted table-level action displayed, and a purpose-built Primary action added specifically to test it did not appear either. See `APPSHEET_BEHAVIOR.md` | **NEG.** AOD and ADA are right here, by accident of their restrictive fall-through rather than by a rule — deliberately NOT part of the `a7c283a` fix above, which was scoped to `form`/`map` only |
 | `calendar` | 1 | **[none]** | undetermined |
 
 Two notes for whoever implements this bucket.

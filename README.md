@@ -6,6 +6,7 @@ The **AppSheet Parser Suite** is a collection of modular Python scripts that ana
 
 - Parses AppSheet HTML documentation into structured CSVs
 - Identifies **orphaned views**, **columns**, **actions**, **slices**, and **format rules**
+- Detects column/action pairs that can **never display**, regardless of reachability — a different question from orphan detection
 - Traces **navigation paths**, **grouped action chains**, and **column dependencies**
 - Offers interactive analyzers for exploring cross-component references
 - Modular design: 18+ focused scripts with clear dependencies and extensibility
@@ -49,9 +50,13 @@ Which editor: the documentation page is available from both the current AppSheet
 
 #### 4. Run the suite
 
+`MyApp_Data` sits alongside the repository, not inside it (see the folder structure below) — from inside `appsheet_parser_and_orphan_detector` after step 1's `cd`, that means going up one level for both the input file and the output location:
+
 ```bash
-python master_parser_and_orphan_detector.py "MyApp_Data/Application Documentation.html"
+python master_parser_and_orphan_detector.py "../MyApp_Data/Application Documentation.html" -o ..
 ```
+
+`-o` sets where the timestamped output folder is created; without it, the default is the current directory — which, run from inside the repo as above, would put your output folder inside the repository itself rather than alongside `MyApp_Data`. `-o ..` puts it in the parent folder instead, matching the layout below.
 
 This will create a timestamped folder with CSV outputs and offer to launch the interactive dependency analyzer.
 
