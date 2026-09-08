@@ -11,3 +11,8 @@ __pycache__/
 # raw formulas and values and must never be tracked.
 *_formulas_*.json
 *_values_*.json
+
+# sheet_derivation tool output, if a run is ever pointed at a path inside
+# the repo instead of the sibling sheet_derivation_output/ folder — derived
+# artifacts are built from private capture data and must never be tracked.
+sheet_derivation_output/
