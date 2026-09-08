@@ -168,7 +168,17 @@ def _scan_identifier_run(s: str, i: int, n: int) -> int:
 
 
 def _classify_identifier_run(run_text: str, s: str, end: int, n: int) -> TokenKind:
-    if end < n and s[end] == "(":
+    # FUNCTION_NAME tolerates whitespace (including newlines) between the
+    # identifier and '(' -- Google Sheets accepts "YEAR (x)" as a call,
+    # the same as "YEAR(x)". The lookahead below never moves `end`, so
+    # the token this run becomes is still just the identifier itself;
+    # any intervening whitespace is picked up as its own WHITESPACE
+    # token on the next iteration of the main scan loop, and R2 tiling
+    # is unaffected. No function name is special-cased.
+    lookahead = end
+    while lookahead < n and s[lookahead] in _WHITESPACE_CHARS:
+        lookahead += 1
+    if lookahead < n and s[lookahead] == "(":
         return TokenKind.FUNCTION_NAME
     if end < n and s[end] == "!":
         return TokenKind.BARE_SHEET_NAME

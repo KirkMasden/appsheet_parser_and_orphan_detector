@@ -279,12 +279,49 @@ class WhitespaceAndFunctionTests(unittest.TestCase):
         self.assertEqual(len(ws), 1)
         self.assertEqual(formula[ws[0].start:ws[0].end], "\n")
 
-    def test_function_name_requires_immediate_paren(self):
-        formula = "=FUNC (A1)"  # space before paren
+    def test_function_name_tolerates_whitespace_before_paren(self):
+        # Google Sheets accepts "FUNC (A1)" as a call, same as "FUNC(A1)".
+        formula = "=FUNC (A1)"
+        tokens = scan_formula(formula)
+        self.assertEqual(
+            kinds(tokens),
+            [
+                TokenKind.OPERATOR,
+                TokenKind.FUNCTION_NAME,
+                TokenKind.WHITESPACE,
+                TokenKind.PUNCTUATION,
+                TokenKind.A1_REFERENCE,
+                TokenKind.PUNCTUATION,
+            ],
+        )
+        self.assertEqual(texts(formula, tokens)[1], "FUNC")
+        self.assertEqual(texts(formula, tokens)[2], " ")
+        assert_tiles(formula, tokens)
+
+    def test_function_name_tolerates_newline_before_paren(self):
+        formula = "=FUNC\n(A1)"
+        tokens = scan_formula(formula)
+        func_tok = [t for t in tokens if t.kind == TokenKind.FUNCTION_NAME][0]
+        self.assertEqual(formula[func_tok.start:func_tok.end], "FUNC")
+        ws_tok = [t for t in tokens if t.kind == TokenKind.WHITESPACE][0]
+        self.assertEqual(formula[ws_tok.start:ws_tok.end], "\n")
+        assert_tiles(formula, tokens)
+
+    def test_identifier_not_followed_by_paren_at_all_stays_identifier(self):
+        formula = "=FUNC + A1"
         tokens = scan_formula(formula)
         self.assertNotIn(TokenKind.FUNCTION_NAME, kinds(tokens))
         ident = [t for t in tokens if t.kind == TokenKind.IDENTIFIER][0]
         self.assertEqual(formula[ident.start:ident.end], "FUNC")
+
+    def test_bare_sheet_name_still_requires_immediate_bang(self):
+        # Only FUNCTION_NAME gained whitespace tolerance; the bang before
+        # a sheet-qualified reference does not.
+        formula = "=Data !A1"
+        tokens = scan_formula(formula)
+        self.assertNotIn(TokenKind.BARE_SHEET_NAME, kinds(tokens))
+        ident = [t for t in tokens if t.kind == TokenKind.IDENTIFIER][0]
+        self.assertEqual(formula[ident.start:ident.end], "Data")
 
 
 class UnknownTokenTests(unittest.TestCase):
