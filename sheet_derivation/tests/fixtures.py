@@ -68,6 +68,50 @@ def build_good_pair() -> Tuple[dict, dict]:
     return formulas_doc, values_doc
 
 
+def build_stage1_pair() -> Tuple[dict, dict]:
+    """A small synthetic capture exercising Stage 1's token classes and
+    normalization decisions: string literals, quoted and bare sheet
+    names, digit-in-identifier, error literals, $-anchored references,
+    and a reference-shaped string that must NOT be treated as a
+    reference. Sheet/function names are invented, unlike Kirk's own
+    capture, per this file's own convention.
+
+    Sheet "Ledger": one column (A) of formulas designed to produce a mix
+    of distinct patterns, including one duplicated pattern (rows 1-2) and
+    one pattern containing a digit-named function.
+    Sheet "Other": referenced by Ledger, one formula of its own.
+    """
+    ledger_formulas = [
+        ["=A1", "=Other!B1", "=CUSTOM2FUNC(A1)"],
+        ["=A2", '="Other!B1"', "=#REF!"],
+        ["=SUM($A$1:$A$2)", "='Odd '' Name'!C1", ""],
+    ]
+    other_formulas = [
+        ["=1", "", ""],
+    ]
+    ledger_values = [[1, 2, 3], [4, 5, ""], [6, "", ""]]
+    other_values = [[1, "", ""]]
+
+    formulas_doc = {
+        "captureDate": CAPTURE_DATE,
+        "spreadsheetName": "Stage1 Test Workbook",
+        "triggerIds": [],
+        "sheets": [
+            _minimal_formulas_sheet("Ledger", ledger_formulas),
+            _minimal_formulas_sheet("Other", other_formulas),
+        ],
+    }
+    values_doc = {
+        "captureDate": CAPTURE_DATE,
+        "spreadsheetName": "Stage1 Test Workbook",
+        "sheets": [
+            _minimal_values_sheet("Ledger", ledger_values),
+            _minimal_values_sheet("Other", other_values),
+        ],
+    }
+    return formulas_doc, values_doc
+
+
 def write_pair(tmpdir: str, formulas_doc: dict, values_doc: dict) -> Tuple[str, str]:
     formulas_path = os.path.join(tmpdir, "Test_formulas_00000000-000000.json")
     values_path = os.path.join(tmpdir, "Test_values_00000000-000000.json")
