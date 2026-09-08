@@ -1,6 +1,6 @@
 # Project status
 
-Last updated 2026-09-07. Records what is outstanding in this project between working sessions.
+Last updated 2026-09-08. Records what is outstanding in this project between working sessions.
 
 See `APPSHEET_BEHAVIOR.md` for AppSheet's own display rules (positions, deck action
 bars, grouped-action execution) with sources for each. This file stays about defects
@@ -892,6 +892,21 @@ Plan from the July 2026 project document, unchanged:
 1. A `CLAUDE.md` at this repository root describing the CSV schemas, which analyzer answers which category of question, the instruction to call analyzer methods directly rather than driving the interactive menus, and the known blind spots. Ship an `AGENTS.md` with the same content for non-Anthropic tools. **Done `1b28db1`, 2026-09-03** — left in this list unmodified so the July plan reads as it was written; see `RELEASE_CHECKLIST.md` section E, which also records the 2026-09-05 decision that a README quick-start, and NOT a separate user guide, is what follows it.
 2. Extend the visibility layer to the backing Google Sheet, via an Apps Script dump of formulas and displayed values.
 3. A non-interactive query mode with JSON output, canned question recipes, and optionally `SKILL.md` packaging — only if a demonstrated need appears.
+
+## Phase two — sheet_derivation build
+
+Not phase-one work; kept separate from "Known defects"/"Recently fixed" above for the
+same reason `RELEASE_CHECKLIST.md` keeps its own "Phase two" section apart from its
+main checklist. See that file's phase-two section for the architecture decisions this
+build follows.
+
+### The local derivation tool's build has begun — stages 0 and 1 complete and committed, 2026-09-08
+
+- **Code lives in `sheet_derivation/`, this repository's own subdirectory.** Its inputs (the raw `sheet_capture.gs` capture — formulas file and values file) and its outputs both live outside this repository, in `sheet_dumps/` and `sheet_derivation_output/`, siblings of the repository directory — deliberately outside it, since the capture is private data. Both paths are guarded in `.gitignore`.
+- **Stage 0** (`c326c4e`, `13a6fb0`) built: the loader (`loader.py`), with three refusal gates over a capture that cannot be trusted; the coordinate model (`coordinates.py`, A1-address conversion and a (sheet, row, column) → formula/value lookup); the residue type and artifact-level stamp (`residue.py`); the artifact base class (`artifact.py`) every later stage's artifact extends; in-process determinism checks (`determinism.py`) and a cross-process determinism check (`serialize.py`, `serialize_stage0.py`); per-sheet counters (`counts.py`) for the accounting invariant later stages enforce; and a canonical serializer for regression-diffing later stages against this one.
+- **Stage 1** (`b26cd9f`, `ac7349a`) built: one token scanner (`tokenizer.py`) that classifies every region of formula text; normalization (`normalize.py`) built on that token stream; and a gate verification module (`verify.py`) — with span tiling (design requirement R2) asserted over all 185,661 non-empty formulas in the reference capture.
+- **106 tests total** (`sheet_derivation/tests/`, all passing) — 45 for stage 0, 61 for stage 1.
+- **Stage 1's gate finding: the capture probe's pattern count was wrong.** The probe (`260908_capture_probe_report.md`) counted 382 distinct formula patterns with one global regex that had no identifier-boundary check — the attested `HEX2DEC(` → `HEX#DEC(` bug (design section 5). Fixing only that (Gate A) gives 384. Gate B then applies the decision not to normalize row numbers inside string literals — the probe's own regex was blind to string-literal boundaries — which raises the count to 388.
 
 ## Private working notes
 
