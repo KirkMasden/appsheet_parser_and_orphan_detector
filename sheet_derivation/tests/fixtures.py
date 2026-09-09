@@ -191,6 +191,58 @@ def build_stage2_pair() -> Tuple[dict, dict]:
     return formulas_doc, values_doc
 
 
+def build_stage3_pair() -> Tuple[dict, dict]:
+    """A small synthetic capture exercising Stage 3's column-profile
+    classification and spill-assessment decisions. Sheet/column layout is
+    invented, unlike Kirk's own capture, per this file's own convention.
+
+    Sheet "Grid": one sheet, 4 rows x 9 columns (A-I), laid out so each
+    column exercises exactly one Stage 3 decision:
+
+      A: two distinct patterns ("=1" at rows 1,3; "=2+3" at row 2) -> multi-pattern.
+      B: one pattern ("=100") filling rows 1-3 with no gap -> single-pattern-contiguous.
+      C: one pattern ("=200") at rows 1, 2, 4 (row 3 empty) -> single-pattern-ragged.
+      D: formula at row 1, value-only rows 2-3 immediately following -> spill run, gap 0.
+      E: formula at row 1, row 2 empty, value-only row 3 -> spill run, gap 1.
+      F: value-only row 1, row 2 empty, formula at row 3 -> no formula ABOVE the
+         run, even though the column holds one elsewhere -> spill residue.
+      G: value-only rows 1-3, no formula anywhere in the column -> spill residue,
+         the Vertical-column-R shape (design section 3.2's own worked example),
+         at fixture scale.
+      H: one formula whose entire body is a ~3000-character string literal --
+         the no-truncation regression fixture (design's own attested 2,844-
+         character real formula).
+      I: one formula containing a stray '?' (an UNKNOWN-classified span, per
+         tokenizer.py) -- the inventory's own UNKNOWN-token residue path.
+    """
+    long_string_literal = '="' + ("A" * 3000) + '"'
+    grid_formulas = [
+        ["=1", "=100", "=200", "=300", "=400", "", "", long_string_literal, "=A1?"],
+        ["=2+3", "=100", "=200", "", "", "", "", "", ""],
+        ["=1", "=100", "", "", "", "=500", "", "", ""],
+        ["", "", "=200", "", "", "", "", "", ""],
+    ]
+    grid_values = [
+        [1, 100, 200, 300, 400, 7, 1, "placeholder", 0],
+        [5, 100, 200, 5, "", "", 2, "", ""],
+        [1, 100, "", 6, 9, 500, 3, "", ""],
+        ["", "", 200, "", "", "", "", "", ""],
+    ]
+
+    formulas_doc = {
+        "captureDate": CAPTURE_DATE,
+        "spreadsheetName": "Stage3 Test Workbook",
+        "triggerIds": [],
+        "sheets": [_minimal_formulas_sheet("Grid", grid_formulas)],
+    }
+    values_doc = {
+        "captureDate": CAPTURE_DATE,
+        "spreadsheetName": "Stage3 Test Workbook",
+        "sheets": [_minimal_values_sheet("Grid", grid_values)],
+    }
+    return formulas_doc, values_doc
+
+
 def write_pair(tmpdir: str, formulas_doc: dict, values_doc: dict) -> Tuple[str, str]:
     formulas_path = os.path.join(tmpdir, "Test_formulas_00000000-000000.json")
     values_path = os.path.join(tmpdir, "Test_values_00000000-000000.json")
