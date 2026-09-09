@@ -1007,10 +1007,14 @@ architectural decision in phase two costs weeks before anything reveals it.
       `appsheet_slices.csv`. `get_view_table()` in `navigation_edge_generator.py`
       now recovers it by normalize-and-rematch (`STATUS.md`, 2026-09-06), but that
       repair is LOCAL to that method: `appsheet_views.csv` still carries the
-      collapsed string in `data_source` and `source_table`, so every other
-      consumer of those columns — including a phase-two assistant reading the CSVs
-      directly — has the defect unrepaired. Four Farmy views affected; none in
-      Kankaku or the third app.
+      collapsed string, unrepaired, in all six fields the same paste-derived
+      `text_mapping` dict supplies — `data_source`, `source_table`, `category`,
+      `position`, `view_type`, and `ref_parent` (stage 5 precheck, 2026-09-09) —
+      so every other consumer of those columns — including a phase-two assistant
+      reading the CSVs directly — has the defect unrepaired. Only `data_source`/
+      `source_table` have a confirmed corrupted instance; the other four share
+      the same root cause and text mapping but are not independently confirmed
+      exposed. Four Farmy views affected; none in Kankaku or the third app.
       *Recovery procedure to document, with its stop condition:* collapse
       whitespace runs on the unmatched value and on every known table and slice
       name; take the match if exactly one; leave it unresolved, and say so, if two

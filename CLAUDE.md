@@ -60,7 +60,7 @@ These rules are not stylistic. Each was learned by getting a wrong answer withou
 
 Row counts below are from the three reference parses used to generate this section (re-cut 2026-09-07, current HEAD — the previous 2026-09-02 pair went stale after five same-day code commits moved edge counts substantially in every app; verified rather than assumed, per `STATUS.md`'s matching correction). Most rows below still report Kankaku/Farmy only, matching this section's original scope; the third app is named where a row now covers it (`potential_unsatisfiable_conditions.csv`):
 
-- **Kankaku** = `20260907_102902_260831_1809_Kankaku_V18_baseline_parse`
+- **Kankaku** = `20260907_111603_260831_1809_Kankaku_V18_baseline_parse`
 - **Farmy** = `20260907_103008_AppsheetFarmyApp_for_Kirk_parse`
 - **Third app** = `20260907_103502_251130_1947_Test_parse`
 
@@ -489,3 +489,85 @@ Answers: *"Run the whole pipeline against one HTML export, in the right order, a
 - Not worth calling its functions directly instead of the classes they wrap — they exist to sequence CLI flags, not to offer a cleaner API than the classes themselves.
 - **Known limitation for scripted use:** raises `EOFError` on its trailing interactive "Would you like to explore dependencies now? (y/n)" prompt when run without stdin — by that point all CSV output is already written, so it's not a parse failure, but a caller driving this from a script without supplying stdin will see the process end in an unhandled exception rather than a clean exit (`STATUS.md`, "Two smaller anomalies from the Kankaku run").
 - Requires: an AppSheet HTML documentation export. Reads/writes: everything documented in the CSV reference above, across one full run.
+
+## Reading the sheet-derivation artifacts
+
+This repository holds two tools. The first, documented above, parses an AppSheet application exported as HTML. The second reads a captured Google Sheets workbook and derives artifacts describing it. They meet in one place: a join between the app's columns and the sheet's headers. Everything else about them is separate, and either can be used without the other.
+
+The artifacts are an index, not an analysis. They tell you what is in the workbook and — equally important — what the tool could not interpret.
+
+### The reading rule
+
+Every artifact carries a residue. Read it before you trust the artifact.
+
+The residue is the list of things the tool could not resolve: an argument it could not follow, a reference it could not classify, a column whose values have no governing formula. An artifact without its residue looks complete when it is not.
+
+This matters most when the answer is an absence. If a dependency graph shows no edge from a cell, that may mean the cell has no dependency, or it may mean the tool could not follow one. The graph alone cannot tell you which. The residue can.
+
+A residue entry names what was not resolved, names the input a reader would have to evaluate, and gives that input's value at the time of capture. It routes you to the raw capture; it does not tell you to stop.
+
+### The tool does not evaluate
+
+It indexes. It reads formula text and captured values and reports what it finds. It does not compute, follow chains, or decide what a formula means.
+
+So when a residue entry says something was not resolved, that is a statement about the tool, not about the data. The capture is closed under evaluation for anything whose inputs are inside it: formula text plus the captured values of every referenced cell is usually enough to determine what happened. Deducing that is the reader's work, and it is legitimate work. What is not legitimate is asserting a conclusion the capture does not support.
+
+Four things genuinely cannot be answered from a capture: content in another workbook reached by an import; a value produced by a volatile function, whose recalculation moment is not recorded; a column holding values and no formula anywhere; and anything written by a bound script, whose source is not captured.
+
+### Every artifact describes a moment
+
+Each artifact carries a capture date and the tool's own commit hash. It describes the workbook as it stood at that moment, not as it stands now. The live workbook may have changed — a sheet, a formula, or the very reference an artifact reports on may no longer exist.
+
+A later capture producing different findings is not evidence that the tool has broken. Read the capture date before treating any finding, or its absence, as current.
+
+### Declared is not measured
+
+Some fields the tool measures. Some a maintainer declares, through the declarations file, where they know something the capture cannot show. Every such field is marked declared rather than measured.
+
+The tool never verifies a declaration against the capture. A declared value is an assertion by a person; treat it as such.
+
+### Read the reliability condition
+
+Every artifact states, once for the whole file, what its findings rest on and what would defeat them. These are not boilerplate. They name the specific construct that would produce a confident wrong answer.
+
+Do not summarize an artifact's findings without reading its condition first.
+
+### Running the tool
+
+A user's only manual step is the capture. They paste the Apps Script into their workbook, authorize it, and run it; the dump it writes is their data and stays outside this repository. Everything after that is yours to run.
+
+The stages run in order and each reads what the one before it produced. Never recompute something an earlier stage already states — stage 4 reads stage 3's column profiles rather than measuring them again, and a stage that recomputes an upstream fact can disagree with it, which is the failure the ordering exists to prevent.
+
+Each stage has a gate: a set of measured numbers it must reproduce. A gate that fails is a finding to report, not a number to adjust. If you find yourself changing an expected value so a gate will pass, stop and report instead.
+
+Artifacts are JSON Lines, one self-contained item per line, with flat CSV projections beside them only where the data is genuinely flat; the projections are marked derived and regenerable, and the JSONL is authoritative. Gate and verification reports are markdown and are written for people. Nothing this tool writes is ever truncated.
+
+### Answering questions from the artifacts
+
+An investigation is produced fresh each time and is not written back into any artifact. It can be wrong, and it is judged on its trace rather than on its answer: which cells were examined, which were enumerated and found irrelevant, and which parts of the conclusion rest on captured values rather than on formula text.
+
+A conclusion reached by inference from a partial view is a failure even when it happens to be correct, and it is indistinguishable from a real success if only the conclusion is inspected. Show the trace.
+
+An exhaustive check is only meaningful per question. "Find every problem" obliges you to invent the catalogue as you go, and a clean report is then indistinguishable from an incomplete search. A question that defines its own boundary does not have that problem.
+
+### The value query
+
+An address in, a value out, over the captured values file. It returns the cell's formula, its value at capture, whether it is a spill origin, and the spill extent where it is one.
+
+It resolves addresses only. It does not evaluate formulas, follow chains, or interpret.
+
+### What exists
+
+Five artifacts are built: the formula inventory, the schema file, the column dependency graph, the dangling sheet-name list, and the AppSheet join. The graph and the dangling list come from a single resolution pass, because a dangling name is one species of unresolved reference and two code paths reaching that judgment separately can disagree.
+
+The join reports agreement between the app's column names and the sheet's header labels, in both directions, and resolves nothing. It never writes back into the schema: nothing on the sheet side is derived from the app side, because a sheet side derived from the app side would agree by construction and the join would measure nothing.
+
+Where a sheet's header row could not be identified, the join reports a marked diagnostic showing how many app column names appear verbatim in the candidate row. It is a diagnostic and not a verdict. On the one workbook this has been run against, six of the eight matched tables sat on tabs whose header row was undetermined, and the labels on those tabs nevertheless matched almost perfectly — so treat an undetermined verdict as uncertainty in the heuristic, not as evidence that a sheet has no headers.
+
+### The fixture record
+
+This tool has been run on one workbook: the one its author built. It has never been run on a workbook whose author it is not.
+
+That matters more than ordinary test coverage. The tool is designed not to encode the shape of any single workbook, and that rule cannot be enforced by reading the code, because every violation of it looks like a reasonable default at the point where it is written. It can only be tested by running the tool over workbooks the author did not build. That has not been done.
+
+Treat any behaviour that seems to assume formula density, a particular sheet layout, or a particular header convention as a candidate defect and report it.
