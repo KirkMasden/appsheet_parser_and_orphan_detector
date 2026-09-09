@@ -1037,6 +1037,33 @@ architectural decision in phase two costs weeks before anything reveals it.
       to it, and the whitespace entry carries both its recovery and its stop
       condition.
 
+- [ ] **A candidate recovery for the `ref_parent` banner-line mis-detection
+      named as the second candidate above.**
+      That item records that whether the true value is recoverable is
+      unknown. A candidate exists: `views1.txt`/`views2.txt`, the raw paste
+      captures, are still on disk, and the banner line the parser mistook
+      for a parent header is still in them — the parser took the wrong
+      line, not an absent one. An assistant reading the surrounding raw
+      text can often tell which line is the parent table and which is
+      editor furniture, in cases where a rule written in advance cannot;
+      this is a reader's judgment applied to evidence already captured,
+      and it is the kind of recovery a parser cannot perform.
+      *Two constraints:* a value recovered this way is a judgment, not a
+      measurement — it belongs in the declarations file, marked declared,
+      and must never be written into a parsed CSV as though the parser had
+      extracted it, because that would erase the distinction between what
+      was measured and what was concluded and leave the next reader unable
+      to tell them apart. And this method does NOT apply to the
+      whitespace-collapse defect named in the item above: that collapse
+      happens in the browser before anything reaches disk, so the raw text
+      file already holds the shortened name and re-reading it recovers
+      nothing — that defect is repaired by cross-referencing the
+      HTML-derived `appsheet_slices.csv` instead.
+      *Done when:* the method has been tried on at least one affected
+      `ref_parent` instance and the outcome — recovered or not recoverable
+      — is recorded, with any recovered value stored as a declaration
+      rather than in a parsed CSV.
+
 - [ ] **Stage 5's join classifies a virtual app column correctly but an AppSheet
       system column as plain unmatched.**
       A virtual app column (`is_virtual` = Yes) is already reported
