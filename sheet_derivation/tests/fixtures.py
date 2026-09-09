@@ -5,10 +5,11 @@ sheet names may appear in tests but must never appear in tool logic; using
 different names here helps confirm that.
 """
 
+import csv
 import json
 import os
 import tempfile
-from typing import Tuple
+from typing import List, Tuple
 
 CAPTURE_DATE = "2099-01-01T00:00:00.000Z"
 
@@ -435,4 +436,116 @@ def write_declarations(tmpdir: str, header_row_overrides: dict) -> str:
     path = os.path.join(tmpdir, "declarations.json")
     with open(path, "w", encoding="utf-8") as fh:
         json.dump({"headerRowOverrides": header_row_overrides}, fh)
+    return path
+
+
+def build_stage5_pair() -> Tuple[dict, dict]:
+    """A synthetic capture exercising Stage 5's join, matched against
+    `build_stage5_appside_rows()` below. Sheet/column layout is invented,
+    unlike Kirk's own capture, per this file's own convention.
+
+      "Ledger" (4 rows x 10 cols): IDENTIFIED header (9 of 9 informative
+      columns show the type-mismatch signal; column G is blank and
+      contributes nothing). Exercises, against the app-side "Ledger"
+      table:
+        A "Qty", B "Price"        -> exact match, both directions
+        C "OldName"               -> label with no app-side counterpart -> unmatched
+        D "Dup", E "Dup"          -> the SAME text at two columns -> label-repeated-
+                                     within-tab at both; the app-side "Dup" column
+                                     matches the repeated text and is reported
+                                     unmatched (ambiguous), not exact
+        F "Trailing Space "       -> whitespace near-miss against app column
+                                     "Trailing Space" (clean, one candidate each way)
+        G ""                      -> no label; outside the join's concern entirely
+        H "Odd   Name" (3 spaces) -> whitespace-collapses the same as app columns
+                                     "Odd  Name" (2 spaces) AND "Odd Name" (1 space)
+                                     -> a LABEL-side collision (two distinct app
+                                     columns, one collapsed form)
+        I "Foo  Bar" (2 spaces), J "Foo Bar" (1 space) -> two DISTINCT labels (not a
+                                     repeated pair -- the raw text differs) that both
+                                     collapse the same as app column "Foo   Bar"
+                                     (3 spaces) -> a COLUMN-side collision
+
+      "Murky" (3 rows x 2 cols): UNDETERMINED header (row 1's text matches
+      its own body's type in both columns, informative but zero
+      mismatch) -- exercises the undetermined-diagnostic path and the
+      tab-header-not-identified column state.
+    """
+    ledger_formulas = [["" for _ in range(10)] for _ in range(4)]
+    ledger_values = [
+        ["Qty", "Price", "OldName", "Dup", "Dup", "Trailing Space ", "", "Odd   Name", "Foo  Bar", "Foo Bar"],
+        [10, 11, 12, 13, 14, 15, "", 16, 17, 18],
+        [20, 21, 22, 23, 24, 25, "", 26, 27, 28],
+        [30, 31, 32, 33, 34, 35, "", 36, 37, 38],
+    ]
+
+    murky_formulas = [["", ""], ["", ""], ["", ""]]
+    murky_values = [
+        ["Name", "Amount"],
+        ["Alice", "Cash"],
+        ["Bob", "Cash"],
+    ]
+
+    formulas_doc = {
+        "captureDate": CAPTURE_DATE,
+        "spreadsheetName": "Stage5 Test Workbook",
+        "triggerIds": [],
+        "sheets": [
+            _minimal_formulas_sheet("Ledger", ledger_formulas),
+            _minimal_formulas_sheet("Murky", murky_formulas),
+        ],
+    }
+    values_doc = {
+        "captureDate": CAPTURE_DATE,
+        "spreadsheetName": "Stage5 Test Workbook",
+        "sheets": [
+            _minimal_values_sheet("Ledger", ledger_values),
+            _minimal_values_sheet("Murky", murky_values),
+        ],
+    }
+    return formulas_doc, values_doc
+
+
+def build_stage5_appside_rows() -> List[dict]:
+    """Rows for a synthetic `appsheet_columns.csv`, matched against
+    `build_stage5_pair()` above. See that function's own docstring for
+    what each row is designed to exercise. Table "Ghost" matches no tab
+    in the capture at all."""
+    rows = []
+
+    def add(table, column, is_virtual="No"):
+        rows.append({"table_name": table, "column_name": column, "is_virtual": is_virtual})
+
+    add("Ledger", "Qty")
+    add("Ledger", "Price")
+    add("Ledger", "Renamed")
+    add("Ledger", "VirtualThing", is_virtual="Yes")
+    add("Ledger", "Dup")
+    add("Ledger", "Trailing Space")
+    add("Ledger", "Odd  Name")   # 2 spaces
+    add("Ledger", "Odd Name")    # 1 space
+    add("Ledger", "Foo   Bar")   # 3 spaces
+
+    add("Murky", "Name")
+    add("Murky", "Amount")
+    add("Murky", "Extra")
+
+    add("Ghost", "GhostCol1")
+    add("Ghost", "GhostCol2", is_virtual="Yes")
+
+    return rows
+
+
+def write_appside_columns_csv(tmpdir: str, rows: List[dict], include_is_virtual: bool = True) -> str:
+    """Writes a minimal `appsheet_columns.csv` -- just the two or three
+    fields Stage 5 actually reads (`table_name`, `column_name`, and
+    `is_virtual` unless `include_is_virtual` is False, which exercises
+    the missing-field residue path)."""
+    fieldnames = ["table_name", "column_name"] + (["is_virtual"] if include_is_virtual else [])
+    path = os.path.join(tmpdir, "appsheet_columns.csv")
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        for r in rows:
+            writer.writerow({k: r.get(k, "") for k in fieldnames})
     return path
