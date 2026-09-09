@@ -13,7 +13,10 @@ from typing import Tuple
 CAPTURE_DATE = "2099-01-01T00:00:00.000Z"
 
 
-def _minimal_formulas_sheet(name: str, formulas, number_formats=None, frozen_rows=0, frozen_columns=0):
+def _minimal_formulas_sheet(
+    name: str, formulas, number_formats=None, frozen_rows=0, frozen_columns=0,
+    named_ranges=None, data_validations=None, conditional_format_rules=None, protected_ranges=None,
+):
     rows = len(formulas)
     cols = len(formulas[0]) if formulas else 0
     if number_formats is None:
@@ -24,10 +27,10 @@ def _minimal_formulas_sheet(name: str, formulas, number_formats=None, frozen_row
         "columnCount": cols,
         "formulas": formulas,
         "numberFormats": number_formats,
-        "namedRanges": [],
-        "dataValidations": [],
-        "conditionalFormatRules": [],
-        "protectedRanges": [],
+        "namedRanges": named_ranges if named_ranges is not None else [],
+        "dataValidations": data_validations if data_validations is not None else [],
+        "conditionalFormatRules": conditional_format_rules if conditional_format_rules is not None else [],
+        "protectedRanges": protected_ranges if protected_ranges is not None else [],
         "frozenRows": frozen_rows,
         "frozenColumns": frozen_columns,
     }
@@ -243,6 +246,113 @@ def build_stage3_pair() -> Tuple[dict, dict]:
     return formulas_doc, values_doc
 
 
+def build_stage4_pair() -> Tuple[dict, dict]:
+    """A small synthetic capture exercising Stage 4's header-detection
+    rule and the three-state header-label field. Sheet/column layout is
+    invented, unlike Kirk's own capture, per this file's own convention.
+
+      "Ledger" (4 rows x 5 cols): IDENTIFIED via the positive (type-
+      mismatch) signal alone -- row 1 holds text over numeric columns A,
+      B, D. Also exercises: a duplicate label (A1 and B1 both "Qty"), a
+      blank header cell (C1) -> no-label-in-identified-header, a fully
+      empty column (E, no formula or value anywhere) -> the stage-3-
+      profile-absent fallback path, and named ranges / data validations /
+      conditional format rules / protected ranges pass-through.
+      "SpillSheet" (4 rows x 4 cols): NOT-IDENTIFIED-CONFIDENT -- column A
+      holds a formula at row 1 whose row 2 cell is a bare value with no
+      formula of its own (a governing downward spill). Also carries a
+      duplicate label (B1 and C1 both "Dup") to exercise duplicate
+      detection running independently of the header verdict -- this
+      sheet's row 1 is classified data, not a header, exactly like this
+      workbook's own two attested duplicate-label sheets.
+      "UndeterminedSheet" (2 rows x 2 cols): neither signal anywhere --
+      column A's row 1 value matches its body's own type (numeric over
+      numeric), column B is empty throughout, and no formula exists
+      anywhere in row 1.
+      "DeclaredSheet" (4 rows x 2 cols): row 1 holds text that would, left
+      to measured detection, itself register as this sheet's identified
+      header (via column B's own type mismatch) -- so declaring row 2 as
+      the true header row is a real override, not a no-op, when the
+      declarations mechanism is exercised against this fixture.
+    """
+    ledger_formulas = [
+        ["", "", "", "", ""],
+        ["", "", "", "", ""],
+        ["", "", "", "", ""],
+        ["", "", "", "", ""],
+    ]
+    ledger_values = [
+        ["Qty", "Qty", "", "Price", ""],
+        [1, 2, 3, 4, ""],
+        [5, 6, 7, 8, ""],
+        [9, 10, 11, 12, ""],
+    ]
+
+    spill_formulas = [
+        ["=100", "", "", ""],
+        ["", "", "", ""],
+        ["", "", "", ""],
+        ["", "", "", ""],
+    ]
+    spill_values = [
+        [100, "Dup", "Dup", ""],
+        [999, 1, 2, 3],
+        ["", 4, 5, 6],
+        ["", 7, 8, 9],
+    ]
+
+    undetermined_formulas = [
+        ["", ""],
+        ["", ""],
+    ]
+    undetermined_values = [
+        [1, ""],
+        [2, ""],
+    ]
+
+    declared_formulas = [
+        ["", ""],
+        ["", ""],
+        ["", ""],
+        ["", ""],
+    ]
+    declared_values = [
+        ["junk1", "junk2"],
+        ["Name", "Age"],
+        ["Alice", 30],
+        ["Bob", 40],
+    ]
+
+    formulas_doc = {
+        "captureDate": CAPTURE_DATE,
+        "spreadsheetName": "Stage4 Test Workbook",
+        "triggerIds": [],
+        "sheets": [
+            _minimal_formulas_sheet(
+                "Ledger", ledger_formulas,
+                named_ranges=[{"name": "QtyRange", "range": "A2:A4"}],
+                data_validations=[{"range": "A1", "rule": "TEXT_IS_NOT_EMPTY"}],
+                conditional_format_rules=[{"range": "D2:D4", "rule": "NUMBER_GREATER"}],
+                protected_ranges=[{"range": "A1:E1", "description": "header"}],
+            ),
+            _minimal_formulas_sheet("SpillSheet", spill_formulas),
+            _minimal_formulas_sheet("UndeterminedSheet", undetermined_formulas),
+            _minimal_formulas_sheet("DeclaredSheet", declared_formulas),
+        ],
+    }
+    values_doc = {
+        "captureDate": CAPTURE_DATE,
+        "spreadsheetName": "Stage4 Test Workbook",
+        "sheets": [
+            _minimal_values_sheet("Ledger", ledger_values),
+            _minimal_values_sheet("SpillSheet", spill_values),
+            _minimal_values_sheet("UndeterminedSheet", undetermined_values),
+            _minimal_values_sheet("DeclaredSheet", declared_values),
+        ],
+    }
+    return formulas_doc, values_doc
+
+
 def write_pair(tmpdir: str, formulas_doc: dict, values_doc: dict) -> Tuple[str, str]:
     formulas_path = os.path.join(tmpdir, "Test_formulas_00000000-000000.json")
     values_path = os.path.join(tmpdir, "Test_values_00000000-000000.json")
@@ -251,3 +361,12 @@ def write_pair(tmpdir: str, formulas_doc: dict, values_doc: dict) -> Tuple[str, 
     with open(values_path, "w", encoding="utf-8") as fh:
         json.dump(values_doc, fh)
     return formulas_path, values_path
+
+
+def write_declarations(tmpdir: str, header_row_overrides: dict) -> str:
+    """Writes a minimal declarations file (design section 8) -- only the
+    header-row-override key any stage currently reads."""
+    path = os.path.join(tmpdir, "declarations.json")
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"headerRowOverrides": header_row_overrides}, fh)
+    return path
