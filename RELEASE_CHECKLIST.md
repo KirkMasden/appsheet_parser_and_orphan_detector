@@ -1028,8 +1028,32 @@ architectural decision in phase two costs weeks before anything reveals it.
       *Second candidate, no recovery known:* `ref_parent` is set to the literal
       string `Warning` on 70 Farmy views and `User Settings` on one third-app view
       — a UI banner line mistaken for a parent header, found 2026-09-06 and not
-      investigated. Whether the true value is recoverable is unknown, so it is
-      named here as a candidate rather than an entry.
+      investigated. This is a separate defect from the whitespace-collapse
+      exposure `ref_parent` shares in the six-field list above; the field
+      naming both is not a contradiction. Whether the true value is
+      recoverable is unknown, so it is named here as a candidate rather than
+      an entry.
       *Done when:* the section exists in `CLAUDE.md`, `AGENTS.md` is byte-identical
       to it, and the whitespace entry carries both its recovery and its stop
       condition.
+
+- [ ] **Stage 5's join classifies a virtual app column correctly but an AppSheet
+      system column as plain unmatched.**
+      A virtual app column (`is_virtual` = Yes) is already reported
+      `no-sheet-column-expected` rather than `unmatched` — stage 5's own
+      denominator-preserving rule handles that case. `_RowNumber`, an implicit
+      system column AppSheet supplies on every
+      table and that no capture will ever show as a sheet column, is not marked
+      virtual, so it falls through to `unmatched` instead. The stage 5 run against
+      Kankaku showed exactly this: `_RowNumber` unmatched in both `Overall` and
+      `Progress` (`stage5_column_summary.csv`).
+      *Why it matters beyond this workbook:* every AppSheet table carries
+      `_RowNumber`, so this is not a Kankaku peculiarity — any future workbook's
+      join will report at least one spurious `unmatched` column per matched
+      table, diluting a state that is supposed to mean "no counterpart was found
+      by exact match or by whitespace-collapse," a real finding, with a column
+      that was never expected to have one.
+      *Done when:* stage 5 classifies `_RowNumber` (and any other AppSheet
+      system column with the same property — no sheet-side counterpart is ever
+      expected) as `no-sheet-column-expected` rather than `unmatched`, and a
+      regression fixture covers it so the distinction can't silently regress.
