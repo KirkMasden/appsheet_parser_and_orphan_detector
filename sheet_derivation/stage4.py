@@ -13,8 +13,9 @@ HEADER DETECTION IS THE NEW WORK HERE, and the rule below is exactly the
 one design section 4.2 states, not the superseded one ("reject any row 1
 containing a formula") the design explicitly names as wrong. Two
 measurements, both already available from the capture/value model this
-tool already has, decide it for row 1 of each sheet -- no other row is
-ever considered a header candidate:
+tool already has, decide it -- per COLUMN first, then rolled up into one
+verdict for row 1 of each sheet. No other row is ever considered a header
+candidate.
 
   - THE POSITIVE SIGNAL: row 1's evaluated value in a column differs in
     TYPE from the dominant type of that column's own evaluated values
@@ -28,28 +29,60 @@ ever considered a header candidate:
     extent reaches past row 1 in that same column. A cell that spills
     into the rows beneath it cannot simultaneously be an independent
     label for those rows -- the column's "body" and its "label" are the
-    same spilled array, so this signal takes precedence over any positive
-    signal found anywhere else in the same row: one genuinely spilling
-    column is enough to call the whole row data, not labels, because a
-    header row cannot contain even one cell that is proven to be data.
-    This is deliberately scoped to DOWNWARD extent only, matching design
-    section 4.2's own words ("governing the column beneath them") --
-    a purely rightward spill from row 1 is a different phenomenon
-    `query.py` can also detect, but it is not what section 4.2 asks this
-    stage to check, and reaching for it anyway would be exactly the kind
-    of workbook-shaped tuning section 3.2 forbids.
+    same spilled array. This is deliberately scoped to DOWNWARD extent
+    only, matching design section 4.2's own words ("governing the column
+    beneath them") -- a purely rightward spill from row 1 is a different
+    phenomenon `query.py` can also detect, but it is not what section 4.2
+    asks this stage to check, and reaching for it anyway would be exactly
+    the kind of workbook-shaped tuning section 3.2 forbids.
+
+THE NEGATIVE SIGNAL DISQUALIFIES THE COLUMN, NOT THE ROW (corrected
+2026-09-09, after the first version of this rule shipped a whole-row veto
+that a real capture showed to be too strong -- Collate, where 5 of 50
+columns spill and the other 45 hold plain typed labels including both of
+this workbook's duplicate-label pairs, and the veto called the entire row
+data). A spilling column is excluded from the row's own verdict entirely
+-- it can be neither positive nor negative evidence for the REST of the
+row, because whether IT is a label is already settled (it is not: see the
+new SPILL_ORIGIN label state below). The row's verdict is then formed
+from whichever columns remain, using the majority threshold below. The
+one case a per-column exclusion cannot avoid: if EVERY column in the row
+is a spill origin, nothing remains to judge the row by, and the row
+itself is confidently data -- this is the only surviving case of
+`not-identified-confident`, and it now means "unanimous", not "any one
+column".
+
+THE POSITIVE SIGNAL NEEDS A THRESHOLD TO BECOME A VERDICT (corrected
+2026-09-09, after a real capture showed several sheets called
+`identified` on one mismatching column out of twenty or more -- a
+confidence of 0.087, not a judgment). `HEADER_POSITIVE_SIGNAL_THRESHOLD`
+below is a plain majority (more than half) of the informative,
+non-excluded columns showing the mismatch -- not fitted to any workbook's
+own numbers, but the ordinary meaning of "the row's columns generally
+look like labels": a collective judgment is a majority position, not one
+vote out of many. Confidence below the threshold is still reported (the
+measurement is not hidden), but the verdict in that case is UNDETERMINED,
+never IDENTIFIED -- an important distinction design section 3.2 draws
+elsewhere between a MEASUREMENT (reported as measured, no threshold
+applied, e.g. the spill gap in stage3.py) and a VERDICT (a decision this
+tool commits to, which does need one). Where this threshold turns a sheet
+a maintainer would recognize as headed into UNDETERMINED, that is the
+threshold's honest cost, not a bug -- the declarations file is the
+remedy, and the artifact says so.
 
 Row 1 is examined column by column; nothing here requires uniformity
-across the row (design's own attested case: a header row can hold formula
-cells among its labels, provided those cells do not spill).
+across the surviving columns (design's own attested case: a header row
+can hold formula cells among its labels, provided those cells do not
+spill).
 
-NOTHING HERE IS TUNED TO ANY WORKBOOK. The two measurements above, their
-precedence, and the resulting three-way verdict (identified /
-not-identified-confident / undetermined) are fixed rules applied
-uniformly to every sheet; no sheet name, column name, or expected count
-appears anywhere in this module or in its tests. Workbook-specific
-comparison -- including whether this rule gets the Vertical and Current
-sheets right -- lives in a throwaway script outside this repository.
+NOTHING HERE IS TUNED TO ANY WORKBOOK. The two measurements above, the
+per-column exclusion, the majority threshold, and the resulting
+three-way verdict (identified / not-identified-confident / undetermined)
+are fixed rules applied uniformly to every sheet; no sheet name, column
+name, or expected count appears anywhere in this module or in its tests.
+Workbook-specific comparison -- including whether this rule gets the
+Vertical and Current sheets right -- lives in a throwaway script outside
+this repository.
 """
 
 import sys
@@ -78,13 +111,30 @@ LABEL_STATE_LABELED = "labeled"
 LABEL_STATE_NO_LABEL_IN_IDENTIFIED_HEADER = "no-label-in-identified-header"
 LABEL_STATE_UNKNOWN_HEADER_NOT_IDENTIFIED = "unknown-header-not-identified"
 LABEL_STATE_NONE_NO_HEADER_IN_SHEET = "none-no-header-in-sheet"
+# The fourth reason a column may lack a label (added 2026-09-09, alongside
+# the three design section 4.2 names): this column's own row-1 cell is a
+# spill origin, so it cannot be a label regardless of what the rest of the
+# row's verdict is -- see this module's own docstring on why the spill
+# signal now disqualifies the column, not the row.
+LABEL_STATE_SPILL_ORIGIN_NOT_LABEL = "spill-origin-not-label"
 
 _LABEL_STATES = (
     LABEL_STATE_LABELED,
     LABEL_STATE_NO_LABEL_IN_IDENTIFIED_HEADER,
     LABEL_STATE_UNKNOWN_HEADER_NOT_IDENTIFIED,
     LABEL_STATE_NONE_NO_HEADER_IN_SHEET,
+    LABEL_STATE_SPILL_ORIGIN_NOT_LABEL,
 )
+
+# A plain majority: MORE than half of the informative, non-excluded
+# columns must show the positive signal before this stage commits to an
+# IDENTIFIED verdict. Chosen for the reasoning stated in this module's own
+# docstring (a verdict is a collective judgment, not one vote among many),
+# not by searching for a number that makes any particular workbook look
+# right -- see this module's docstring and the reliability condition
+# `run_stage4` builds for the same reasoning stated again, in the artifact
+# itself, per this build's own instruction.
+HEADER_POSITIVE_SIGNAL_THRESHOLD = 0.5
 
 
 # ---------------------------------------------------------------------------
@@ -163,10 +213,22 @@ def detect_header(capture: Capture, sheet_name: str) -> HeaderDetection:
         return HeaderDetection(HEADER_SOURCE_MEASURED, HEADER_VERDICT_UNDETERMINED, None, None, evidence)
 
     positive_columns: List[str] = []
-    negative_columns: List[str] = []
+    negative_columns: List[str] = []  # spill-disqualified columns, excluded from the vote below
     informative_count = 0
 
     for col0 in range(fs.column_count):
+        col_letters = col_to_letters(col0)
+
+        is_spilling = False
+        if is_nonempty(fs.formulas[0][col0]):
+            result = query_address(capture, sheet_name, cell_address(0, col0))
+            if result.spill_extent is not None and result.spill_extent.down_to_row1 > 1:
+                is_spilling = True
+
+        if is_spilling:
+            negative_columns.append(col_letters)
+            continue  # excluded entirely: neither positive nor negative evidence for the REST of the row
+
         row1_value = vs.values[0][col0]
         row1_type = value_type_category(row1_value)
         body_categories = [
@@ -177,61 +239,82 @@ def detect_header(capture: Capture, sheet_name: str) -> HeaderDetection:
         if row1_type is not None and body_type is not None:
             informative_count += 1
             if row1_type != body_type:
-                positive_columns.append(col_to_letters(col0))
-
-        if is_nonempty(fs.formulas[0][col0]):
-            result = query_address(capture, sheet_name, cell_address(0, col0))
-            if result.spill_extent is not None and result.spill_extent.down_to_row1 > 1:
-                negative_columns.append(col_to_letters(col0))
+                positive_columns.append(col_letters)
 
     positive_columns.sort(key=letters_to_col)
     negative_columns.sort(key=letters_to_col)
 
-    if negative_columns:
+    if len(negative_columns) == fs.column_count:
+        # Every column is a spill origin -- nothing remains to judge the
+        # row by, and the row itself is confidently data. The only
+        # surviving case of not-identified-confident: unanimous, not "any
+        # one column" (see this module's own docstring on why the veto
+        # moved from the row to the column).
         note = (
-            f"row 1 holds {len(negative_columns)} spill-origin cell(s) whose measured extent reaches "
-            f"beyond row 1 in the same column -- a spilling row 1 is data, not labels, regardless of "
-            f"any type-mismatch signal found elsewhere in the row"
+            f"every column in row 1 ({fs.column_count}) is a spill origin whose measured extent reaches "
+            f"beyond row 1 -- nothing remains to judge the row by, so the whole row is data, not labels"
         )
-        evidence = HeaderEvidence(tuple(positive_columns), tuple(negative_columns), informative_count, fs.column_count, note)
+        evidence = HeaderEvidence((), tuple(negative_columns), 0, fs.column_count, note)
         return HeaderDetection(HEADER_SOURCE_MEASURED, HEADER_VERDICT_NOT_IDENTIFIED_CONFIDENT, None, 1.0, evidence)
 
-    if positive_columns:
-        confidence = len(positive_columns) / informative_count
+    excluded_clause = (
+        f"; {len(negative_columns)} column(s) excluded as spill origins" if negative_columns else ""
+    )
+
+    if informative_count == 0:
         note = (
-            f"{len(positive_columns)} of {informative_count} informative column(s) show row 1's evaluated "
-            f"type differing from the dominant type of that column's own values beneath it, and none of "
-            f"row 1's cells spill"
+            f"none of the {fs.column_count - len(negative_columns)} non-excluded column(s) were "
+            f"informative for the type-mismatch check{excluded_clause}"
         )
-        evidence = HeaderEvidence(tuple(positive_columns), (), informative_count, fs.column_count, note)
-        return HeaderDetection(HEADER_SOURCE_MEASURED, HEADER_VERDICT_IDENTIFIED, 1, confidence, evidence)
+        evidence = HeaderEvidence((), tuple(negative_columns), 0, fs.column_count, note)
+        return HeaderDetection(HEADER_SOURCE_MEASURED, HEADER_VERDICT_UNDETERMINED, None, None, evidence)
+
+    fraction = len(positive_columns) / informative_count
+    evidence = HeaderEvidence(tuple(positive_columns), tuple(negative_columns), informative_count, fs.column_count, "")
+
+    if fraction > HEADER_POSITIVE_SIGNAL_THRESHOLD:
+        note = (
+            f"{len(positive_columns)} of {informative_count} non-excluded informative column(s) "
+            f"({fraction:.1%}) show row 1's evaluated type differing from the dominant type of that "
+            f"column's own values beneath it, clearing the {HEADER_POSITIVE_SIGNAL_THRESHOLD:.0%} majority "
+            f"threshold{excluded_clause}"
+        )
+        evidence = HeaderEvidence(tuple(positive_columns), tuple(negative_columns), informative_count, fs.column_count, note)
+        return HeaderDetection(HEADER_SOURCE_MEASURED, HEADER_VERDICT_IDENTIFIED, 1, fraction, evidence)
 
     note = (
-        f"neither signal was found anywhere in row 1 ({informative_count} of {fs.column_count} column(s) "
-        f"were informative for the type-mismatch check)"
+        f"{len(positive_columns)} of {informative_count} non-excluded informative column(s) "
+        f"({fraction:.1%}) show the type-mismatch signal -- at or below the "
+        f"{HEADER_POSITIVE_SIGNAL_THRESHOLD:.0%} majority threshold this stage requires before asserting "
+        f"a header verdict{excluded_clause}"
     )
-    evidence = HeaderEvidence((), (), informative_count, fs.column_count, note)
-    return HeaderDetection(HEADER_SOURCE_MEASURED, HEADER_VERDICT_UNDETERMINED, None, None, evidence)
+    evidence = HeaderEvidence(tuple(positive_columns), tuple(negative_columns), informative_count, fs.column_count, note)
+    return HeaderDetection(HEADER_SOURCE_MEASURED, HEADER_VERDICT_UNDETERMINED, None, fraction, evidence)
 
 
 # ---------------------------------------------------------------------------
-# Duplicate labels, and the three-state header-label field
+# Duplicate labels, and the four-state header-label field
 #
 # Computed from whichever row is THIS SHEET'S CANDIDATE -- row 1 for every
 # measured sheet (the only row measured detection ever examines, whether
 # or not it concludes that row is a header), or the declared row for a
 # sheet with a declared override (the only candidate that exists once a
 # maintainer has named one). NEVER gated on the header verdict itself.
-# This was a real design choice, not an oversight: measured against the
-# real capture, BOTH of this workbook's attested duplicate-label cases
-# (design section 4.2's own examples) sit in a sheet whose row 1 the
-# detection rule above classifies not-identified-confident (a genuine
-# spill was found), not identified. Gating duplicate detection on the
-# header verdict would silently make both attested duplicates
-# unreportable. Reporting them from the candidate row unconditionally,
-# and leaving header_detection.verdict to say plainly whether that row
-# currently counts as this sheet's header, is the honest alternative --
-# see this module's own docstring for the fuller finding this produced.
+#
+# This was a real design choice, not an oversight, and it stays
+# unconditional even though the reason it was first added no longer holds
+# the way it did: under the original (whole-row-veto) version of this
+# rule, BOTH of this workbook's attested duplicate-label cases (design
+# section 4.2's own examples, Current and Collate) sat in a sheet
+# measured not-identified-confident, and gating duplicate detection on
+# the header verdict would have made both attested duplicates
+# unreportable. Under the corrected per-column rule (2026-09-09), both
+# sheets now measure identified, and both duplicates sit inside an
+# identified header -- exactly what design section 4.2's prose always
+# claimed. Reporting duplicates unconditionally is still the right
+# default: nothing here should have to change again if some THIRD sheet's
+# candidate row is later measured not-identified-confident or
+# undetermined while still containing a literal duplicate value.
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -269,8 +352,16 @@ class HeaderLabel:
 
 
 def _header_label_for_column(
-    header: HeaderDetection, vs_row: Optional[Tuple[Any, ...]], col0: int
+    header: HeaderDetection, vs_row: Optional[Tuple[Any, ...]], col0: int, column_letters: str
 ) -> HeaderLabel:
+    # Checked first, regardless of the row's own verdict: a column whose
+    # own row-1 cell is a spill origin is never a label, whether the REST
+    # of the row was identified as a header, is undetermined, or is itself
+    # entirely spill (see this module's own docstring on why the spill
+    # signal disqualifies the column, not the row). `negative_signal_columns`
+    # is always empty for a declared header, so this never fires there.
+    if column_letters in header.evidence.negative_signal_columns:
+        return HeaderLabel(LABEL_STATE_SPILL_ORIGIN_NOT_LABEL)
     if header.verdict == HEADER_VERDICT_IDENTIFIED or header.source == HEADER_SOURCE_DECLARED:
         value = vs_row[col0]
         if is_nonempty(value):
@@ -397,12 +488,13 @@ def _build_sheet_schema(
 
     columns = []
     for col0 in range(fs.column_count):
+        column_letters = col_to_letters(col0)
         profile = stage3_columns.get((sheet_name, col0))
-        label = _header_label_for_column(header, header_row_values, col0)
+        label = _header_label_for_column(header, header_row_values, col0, column_letters)
         columns.append(
             ColumnSchemaEntry(
                 sheet=sheet_name,
-                column=col_to_letters(col0),
+                column=column_letters,
                 header_label=label,
                 formula_count=profile.total_formula_count if profile else 0,
                 value_count=profile.total_value_count if profile else 0,
@@ -467,13 +559,9 @@ def run_stage4(formulas_path: str, values_path: str, declarations_path: Optional
             )
             residue.append(
                 ResidueEntry(
-                    what=(
-                        f"header detection for {sheet_entry.sheet} found neither a type-mismatch signal "
-                        f"nor a governing-spill signal anywhere in row 1 ({hd.evidence.informative_column_count} "
-                        f"of {hd.evidence.total_column_count} column(s) were informative)"
-                    ),
+                    what=f"header detection for {sheet_entry.sheet} is undetermined: {hd.evidence.note}",
                     locations=(f"{sheet_entry.sheet}!A1:{last_col}1",),
-                    defeating_construct="no measurable header signal in row 1",
+                    defeating_construct="no header verdict reached the majority threshold in row 1",
                     consequence=(
                         "every column's header-label field on this sheet is reported UNKNOWN, not as having "
                         "no label -- whether row 1 is a header is not resolved here. The deciding inputs are "
@@ -512,18 +600,31 @@ def run_stage4(formulas_path: str, values_path: str, declarations_path: Optional
         "Every header label and every duplicate-label finding in this file rests on this stage's own "
         "header-detection judgment for row 1 of each sheet -- or, where declared, on the maintainer's own "
         "assertion via the declarations file, which this tool never verifies against the capture. Measured "
-        "detection rests on exactly two measurements: whether row 1's evaluated value in a column differs "
-        "in type from the dominant type of that column's own evaluated values beneath it (the positive "
-        "signal), and whether row 1's cell in a column is a spill origin whose measured extent reaches "
-        "beyond row 1 in the same column (the negative signal, which takes precedence over any positive "
-        "signal found in the same row, since a spilling cell's own row cannot simultaneously be an "
-        "independent label for the column it spills into). What would defeat this: a header row whose "
-        "labels happen to share the exact evaluated type of the data beneath them, and are not formulas of "
-        "any kind, leaves neither signal to find and is reported UNDETERMINED here, never asserted as "
-        "headerless; a spilling formula whose result is exactly one row tall would not register as a spill "
-        "by this measurement and could be misread as a genuine label; and no row other than row 1 is ever "
-        "considered a header candidate, so a header placed anywhere else in a sheet is invisible to "
-        "measured detection and can only be recovered via a declared override. " + staleness_note
+        "detection rests on exactly two measurements, applied per column: whether row 1's evaluated value "
+        "in a column differs in type from the dominant type of that column's own evaluated values beneath "
+        "it (the positive signal), and whether row 1's cell in a column is a spill origin whose measured "
+        "extent reaches beyond row 1 in the same column (the negative signal). A spilling column is "
+        "excluded from the row's own verdict entirely -- it is neither positive nor negative evidence for "
+        "the REST of the row, because whether IT is a label is already settled (it is not: its own "
+        "header-label field reports 'spill-origin-not-label', regardless of the row's overall verdict). "
+        "The row's verdict is then a majority vote among the columns that remain: more than "
+        f"{HEADER_POSITIVE_SIGNAL_THRESHOLD:.0%} of the informative, non-excluded columns must show the "
+        "positive signal before this stage asserts IDENTIFIED -- a plain majority, chosen because a row-level "
+        "verdict is a collective judgment, not a threshold fitted to make any particular sheet come out a "
+        "particular way. Confidence below that threshold is still reported (the measurement is never "
+        "hidden); only the VERDICT changes to UNDETERMINED, because a verdict is a decision this tool "
+        "commits to and a measurement is not. If every column in a row is a spill origin, nothing remains "
+        "to vote with, and the row is confidently data (not-identified-confident is now a unanimous "
+        "finding, not a one-column veto). What would defeat this: a header row whose labels happen to "
+        "share the exact evaluated type of the data beneath them, and are not formulas of any kind, leaves "
+        "neither signal to find and is reported UNDETERMINED here, never asserted as headerless; a "
+        "spilling formula whose result is exactly one row tall would not register as a spill by this "
+        "measurement and could be misread as a genuine label; a sheet whose real header is a minority of "
+        "its informative columns (below the majority threshold) is reported UNDETERMINED rather than "
+        "identified -- the threshold's honest cost, remediable only by a declared override, never by "
+        "lowering the threshold to fit one sheet; and no row other than row 1 is ever considered a header "
+        "candidate, so a header placed anywhere else in a sheet is invisible to measured detection and can "
+        "only be recovered via a declared override. " + staleness_note
     )
 
     schema = SchemaArtifact(

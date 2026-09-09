@@ -248,32 +248,61 @@ def build_stage3_pair() -> Tuple[dict, dict]:
 
 def build_stage4_pair() -> Tuple[dict, dict]:
     """A small synthetic capture exercising Stage 4's header-detection
-    rule and the three-state header-label field. Sheet/column layout is
+    rule -- corrected 2026-09-09 to disqualify a spilling COLUMN rather
+    than veto the whole ROW, and to require a majority (not just a
+    nonzero count) of informative columns before asserting IDENTIFIED --
+    and the four-state header-label field. Sheet/column layout is
     invented, unlike Kirk's own capture, per this file's own convention.
 
       "Ledger" (4 rows x 5 cols): IDENTIFIED via the positive (type-
-      mismatch) signal alone -- row 1 holds text over numeric columns A,
-      B, D. Also exercises: a duplicate label (A1 and B1 both "Qty"), a
-      blank header cell (C1) -> no-label-in-identified-header, a fully
-      empty column (E, no formula or value anywhere) -> the stage-3-
-      profile-absent fallback path, and named ranges / data validations /
-      conditional format rules / protected ranges pass-through.
-      "SpillSheet" (4 rows x 4 cols): NOT-IDENTIFIED-CONFIDENT -- column A
-      holds a formula at row 1 whose row 2 cell is a bare value with no
-      formula of its own (a governing downward spill). Also carries a
-      duplicate label (B1 and C1 both "Dup") to exercise duplicate
-      detection running independently of the header verdict -- this
-      sheet's row 1 is classified data, not a header, exactly like this
-      workbook's own two attested duplicate-label sheets.
-      "UndeterminedSheet" (2 rows x 2 cols): neither signal anywhere --
-      column A's row 1 value matches its body's own type (numeric over
-      numeric), column B is empty throughout, and no formula exists
-      anywhere in row 1.
-      "DeclaredSheet" (4 rows x 2 cols): row 1 holds text that would, left
-      to measured detection, itself register as this sheet's identified
-      header (via column B's own type mismatch) -- so declaring row 2 as
-      the true header row is a real override, not a no-op, when the
-      declarations mechanism is exercised against this fixture.
+      mismatch) signal alone, no spills at all -- row 1 holds text over
+      numeric columns A, B, D (3 of 3 informative, comfortably above the
+      majority threshold). Also exercises: a duplicate label (A1 and B1
+      both "Qty"), a blank header cell (C1) -> no-label-in-identified-
+      header, a fully empty column (E, no formula or value anywhere) ->
+      the stage-3-profile-absent fallback path, and named ranges / data
+      validations / conditional format rules / protected ranges
+      pass-through.
+      "MixedHeaderSheet" (3 rows x 5 cols): THE CENTRAL CASE THE VETO GOT
+      WRONG, at fixture scale -- 4 of 5 columns (A-D) are genuine typed
+      text labels over numeric bodies, and 1 column (E) holds a formula at
+      row 1 whose row 2 cell is a bare value with no formula (a governing
+      downward spill). Under the corrected rule, E is excluded from the
+      row's own verdict and reports SPILL_ORIGIN_NOT_LABEL; the row is
+      IDENTIFIED on the strength of A-D alone (4 of 4 informative, 100%,
+      comfortably above the majority threshold) -- exactly the shape this
+      workbook's own Collate turned out to have (a handful of spilling
+      columns among a majority of plain labels).
+      "AllSpillSheet" (3 rows x 3 cols): every column's row 1 cell is a
+      spill origin -- nothing remains to judge the row by once each column
+      is excluded, so the row is confidently data (NOT-IDENTIFIED-
+      CONFIDENT is now a UNANIMOUS finding, not a one-column veto), and
+      every column reports SPILL_ORIGIN_NOT_LABEL.
+      "SpillSheet" (4 rows x 4 cols): a smaller mixed case -- column A
+      spills and is excluded; columns B and C independently show the
+      positive signal (2 of 2 informative, 100%), so the row is now
+      IDENTIFIED under the corrected rule (it was NOT-IDENTIFIED-CONFIDENT
+      under the superseded whole-row veto -- kept as a regression fixture
+      for that exact change). Also carries a duplicate label (B1 and C1
+      both "Dup") to exercise duplicate detection running independently of
+      the header verdict.
+      "UndeterminedSheet" (2 rows x 2 cols): a signal WAS measurable but
+      found nothing -- column A's row 1 value matches its body's own type
+      (numeric over numeric: 0 of 1 informative column shows the
+      mismatch, confidence 0.0, not None), column B is empty throughout,
+      and no formula exists anywhere in row 1.
+      "NoSignalSheet" (2 rows x 2 cols): NO signal was even measurable --
+      every column's row 1 cell is blank, so there is nothing to compare
+      against any column's body type at all (0 informative columns,
+      confidence None) -- deliberately distinct from UndeterminedSheet's
+      "measured, found nothing" case above.
+      "DeclaredSheet" (4 rows x 2 cols): row 1 sits EXACTLY AT the
+      majority threshold under measured detection (1 of 2 informative
+      columns, 50% -- not a majority, so UNDETERMINED, not identified,
+      under the corrected rule) -- so declaring row 2 as the true header
+      row is a real override of a real (if boundary-case) measured
+      result, not a no-op, when the declarations mechanism is exercised
+      against this fixture.
     """
     ledger_formulas = [
         ["", "", "", "", ""],
@@ -286,6 +315,28 @@ def build_stage4_pair() -> Tuple[dict, dict]:
         [1, 2, 3, 4, ""],
         [5, 6, 7, 8, ""],
         [9, 10, 11, 12, ""],
+    ]
+
+    mixed_header_formulas = [
+        ["", "", "", "", "=500"],
+        ["", "", "", "", ""],
+        ["", "", "", "", ""],
+    ]
+    mixed_header_values = [
+        ["ColA", "ColB", "ColC", "ColD", 500],
+        [1, 3, 5, 7, 999],
+        [2, 4, 6, 8, ""],
+    ]
+
+    all_spill_formulas = [
+        ["=1", "=2", "=3"],
+        ["", "", ""],
+        ["", "", ""],
+    ]
+    all_spill_values = [
+        [1, 2, 3],
+        [9, 9, 9],
+        ["", "", ""],
     ]
 
     spill_formulas = [
@@ -308,6 +359,15 @@ def build_stage4_pair() -> Tuple[dict, dict]:
     undetermined_values = [
         [1, ""],
         [2, ""],
+    ]
+
+    no_signal_formulas = [
+        ["", ""],
+        ["", ""],
+    ]
+    no_signal_values = [
+        ["", ""],
+        [5, "x"],
     ]
 
     declared_formulas = [
@@ -335,8 +395,11 @@ def build_stage4_pair() -> Tuple[dict, dict]:
                 conditional_format_rules=[{"range": "D2:D4", "rule": "NUMBER_GREATER"}],
                 protected_ranges=[{"range": "A1:E1", "description": "header"}],
             ),
+            _minimal_formulas_sheet("MixedHeaderSheet", mixed_header_formulas),
+            _minimal_formulas_sheet("AllSpillSheet", all_spill_formulas),
             _minimal_formulas_sheet("SpillSheet", spill_formulas),
             _minimal_formulas_sheet("UndeterminedSheet", undetermined_formulas),
+            _minimal_formulas_sheet("NoSignalSheet", no_signal_formulas),
             _minimal_formulas_sheet("DeclaredSheet", declared_formulas),
         ],
     }
@@ -345,8 +408,11 @@ def build_stage4_pair() -> Tuple[dict, dict]:
         "spreadsheetName": "Stage4 Test Workbook",
         "sheets": [
             _minimal_values_sheet("Ledger", ledger_values),
+            _minimal_values_sheet("MixedHeaderSheet", mixed_header_values),
+            _minimal_values_sheet("AllSpillSheet", all_spill_values),
             _minimal_values_sheet("SpillSheet", spill_values),
             _minimal_values_sheet("UndeterminedSheet", undetermined_values),
+            _minimal_values_sheet("NoSignalSheet", no_signal_values),
             _minimal_values_sheet("DeclaredSheet", declared_values),
         ],
     }

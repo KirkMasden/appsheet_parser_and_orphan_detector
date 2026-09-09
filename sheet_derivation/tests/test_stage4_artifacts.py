@@ -44,8 +44,10 @@ class TestStage4ArtifactFiles(unittest.TestCase):
             rows = list(csv.DictReader(fh))
         self.assertEqual(len(rows), len(result.schema.sheets))
         spill_row = next(r for r in rows if r["sheet"] == "SpillSheet")
-        self.assertEqual(spill_row["headerVerdict"], "not-identified-confident")
+        self.assertEqual(spill_row["headerVerdict"], "identified")
         self.assertEqual(spill_row["duplicateLabelCount"], "1")
+        all_spill_row = next(r for r in rows if r["sheet"] == "AllSpillSheet")
+        self.assertEqual(all_spill_row["headerVerdict"], "not-identified-confident")
 
     def test_column_summary_csv_is_flat_one_row_per_column(self):
         result, paths = self._write()
