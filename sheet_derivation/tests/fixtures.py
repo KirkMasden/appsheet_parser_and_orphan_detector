@@ -112,6 +112,85 @@ def build_stage1_pair() -> Tuple[dict, dict]:
     return formulas_doc, values_doc
 
 
+def build_stage2_pair() -> Tuple[dict, dict]:
+    """A small synthetic capture exercising Stage 2's reference-resolution
+    decisions. Sheet/function names are invented, unlike Kirk's own
+    capture, per this file's own convention.
+
+    Sheet "Ledger": the main source sheet.
+    Sheet "Archive": a SECOND source sheet whose column C carries the exact
+      same Gate B pattern as Ledger column A/B -- this is the regression
+      fixture for the bug where a pattern's source location was once read
+      from only its first-found instance (`=Other!B#` occurs in
+      Ledger!A1/A2, Ledger!B1, AND Archive!C1; each must produce its own
+      edge, not just the first one found).
+    Sheet "Other": the real cross-sheet target. Column C carries a value
+      (no formula) used by the one-hop IMPORTRANGE-argument test.
+    "Ghost Sheet" is referenced (quoted, for the space) but never captured
+      -- the dangling name, exercised in both reference position and
+      string-literal position.
+    """
+    ledger_formulas = [
+        [
+            "=Other!B1",
+            "=Other!B1",
+            "='Ghost Sheet'!D1",
+            '="Other!B1"',
+            "=\"'Ghost Sheet'!D1\"",
+            "=ARRAYFORMULA(Other!B1:B2)",
+        ],
+        [
+            "=Other!B2",
+            "",
+            "='Ghost Sheet'!D2",
+            "",
+            "",
+            "=SUM(Other!B1:C2)",
+        ],
+        [
+            '=INDIRECT("Other!B"&ROW())',
+            '=IMPORTRANGE(Other!C1,"Vocab!A1:B2")',
+            '=IMPORTRANGE("https://example.com/x","Vocab!A1:B2")',
+            "",
+            "",
+            "",
+        ],
+    ]
+    archive_formulas = [
+        ["", "", "=Other!B1"],
+    ]
+    other_formulas = [
+        ["=1", "=2", ""],
+    ]
+
+    ledger_values = [[1, 1, "", "Other!B1", "'Ghost Sheet'!D1", [1, 2]],
+                      [2, "", "", "", "", ""],
+                      ["", "", "", "", "", ""]]
+    archive_values = [["", "", 1]]
+    other_values = [[1, 2, "https://example.com/target"]]
+
+    formulas_doc = {
+        "captureDate": CAPTURE_DATE,
+        "spreadsheetName": "Stage2 Test Workbook",
+        "triggerIds": [],
+        "sheets": [
+            _minimal_formulas_sheet("Ledger", ledger_formulas),
+            _minimal_formulas_sheet("Archive", archive_formulas),
+            _minimal_formulas_sheet("Other", other_formulas),
+        ],
+    }
+    values_doc = {
+        "captureDate": CAPTURE_DATE,
+        "spreadsheetName": "Stage2 Test Workbook",
+        "sheets": [
+            _minimal_values_sheet("Ledger", ledger_values),
+            _minimal_values_sheet("Archive", archive_values),
+            _minimal_values_sheet("Other", other_values),
+        ],
+    }
+    return formulas_doc, values_doc
+
+
 def write_pair(tmpdir: str, formulas_doc: dict, values_doc: dict) -> Tuple[str, str]:
     formulas_path = os.path.join(tmpdir, "Test_formulas_00000000-000000.json")
     values_path = os.path.join(tmpdir, "Test_values_00000000-000000.json")
