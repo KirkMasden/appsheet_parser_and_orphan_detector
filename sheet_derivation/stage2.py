@@ -712,33 +712,54 @@ def run_stage2(formulas_path: str, values_path: str) -> Stage2Result:
         "that column depends on another is true of the column and not necessarily of any given cell "
         "in it; this artifact does not, and cannot, resolve that down to individual cells."
     )
+    # Generalized staleness note, shared verbatim by both artifacts below --
+    # written to hold for any capture of any workbook, never naming a sheet,
+    # a cell, or a date. Workbook-specific instances of this condition (which
+    # cells, which date) belong in a throwaway script's own report, never
+    # here -- see this module's own docstring on why.
+    staleness_note = (
+        "This artifact describes the workbook as it stood at the captureDate stamped on it, not the "
+        "live workbook at the moment this artifact is read. The live workbook may have changed since "
+        "that capture was taken -- a sheet, a formula, or the very reference this artifact reports on "
+        "may no longer exist, or may exist differently -- and a later capture of the same workbook "
+        "legitimately producing different findings is not evidence that this tool has broken. Read the "
+        "captureDate before treating any finding, or its absence, as current."
+    )
     graph = DependencyGraphArtifact(
         stamp=build_stamp(capture.capture_date),
         reliability_condition=(
             "Every edge is drawn only from a reference-position sheet-qualified token whose named "
             "sheet is present in this capture; a dangling target or a string-literal occurrence never "
             "produces an edge, only a residue entry (see this artifact's own residue list) and, where "
-            "the name is dangling, an entry in the dangling-name artifact. " + coarse_column_note
+            "the name is dangling, an entry in the dangling-name artifact. " + coarse_column_note + " "
+            + staleness_note
         ),
         residue=tuple(sorted(graph_residue, key=lambda r: r.locations)),
         edges=edges,
     )
 
-    dangling_condition_note = (
-        "This artifact reflects the state of the CAPTURE, not the live workbook at the moment this "
-        "report is read. A name flagged here may have been corrected or removed in the live workbook "
-        "after this capture was taken -- and a later, fresh capture may legitimately show fewer (or "
-        "different) dangling names without anything in this tool having changed. Read the captureDate "
-        "stamped on this artifact before treating any entry, or its absence, as current."
+    dangling_classification_note = (
+        "Every entry's classification as reference position or string literal position rests entirely "
+        "on where Stage 1's tokenizer placed the boundaries of a string literal, never on a heuristic "
+        "guess from surrounding punctuation: a name is classified by which of two disjoint token "
+        "searches found it, one reading the formula's own reference-position tokens, the other reading "
+        "only the interior of a string-literal token the formula's own tokenizer already isolated. That "
+        "determination is exact rather than approximate because Stage 1's token tiling covers every "
+        "character of a formula exactly once, with no gaps and no overlaps, and the two searches are "
+        "applied to spans that cannot overlap either -- there is no third position for either search to "
+        "disagree about. The one construct that would defeat this: a formula containing an unterminated "
+        "string literal (a stray, unclosed quote) folds everything after it, real formula code included, "
+        "into one string-literal token to the end of the formula -- and a reference-shaped name inside "
+        "that fold would be classified string literal position confidently and wrongly, with no residue "
+        "entry anywhere in either artifact to indicate that the classification rests on a broken quote "
+        "rather than a genuine string."
     )
     dangling = DanglingNameArtifact(
         stamp=build_stamp(capture.capture_date),
         reliability_condition=(
-            "Every entry's classification is exact, not heuristic: it is read directly from the "
-            "TokenKind Stage 1's tokenizer assigned to the span the name was found in, never guessed "
-            "from surrounding punctuation. A name is reported once per (name, classification) pair it "
+            dangling_classification_note + " A name is reported once per (name, classification) pair it "
             "actually occurs in; the same name occurring in both positions across different cells would "
-            "produce two entries, not one merged or one dropped. " + dangling_condition_note
+            "produce two entries, not one merged or one dropped. " + staleness_note
         ),
         # This artifact's own residue is empty by construction, not merely
         # empirically: every occurrence this pass finds is classified
