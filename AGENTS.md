@@ -506,6 +506,24 @@ This matters most when the answer is an absence. If a dependency graph shows no 
 
 A residue entry names what was not resolved, names the input a reader would have to evaluate, and gives that input's value at the time of capture. It routes you to the raw capture; it does not tell you to stop.
 
+### One instance is not the pattern
+
+The formula inventory deduplicates formulas into patterns and carries exactly one raw instance per pattern, kept to show the pattern's shape. Two formulas belong to the same pattern whenever the normalization collapses their difference away — and whatever varies between them beyond that (a value, a constant, a specific reference) can differ from the one instance the artifact shows you. Reading that instance tells you the shape every member of the pattern shares. It does not tell you what any particular member says.
+
+This has already produced a wrong answer once. A twelve-row duration table on one sheet had all twelve rows sharing a single pattern, so the inventory carried one of them — and the row it carried was not the row that mattered. One reading of the artifact stopped at that one instance and generalized from it. A second fetched all twelve instances individually and found what the first had missed. The difference between those two runs was the difference between a wrong answer and a right one.
+
+State this as a practice, not a caution: before generalizing from a pattern, fetch its individual instances. The inventory tells you what shape the formulas have, not what numbers are in them.
+
+A related defect existed and is fixed: row digits inside a `$`-anchored absolute reference used to be rewritten the same as a relative row's, so two formulas anchored to genuinely different fixed rows collapsed into one pattern, and one of the two constants was silently absent from the artifact with nothing indicating anything was missing (fixed as of commit `3ece526`). That fix removes one cause of instances diverging within a pattern. It does not remove the others, and this rule stays necessary regardless of it.
+
+### A search that finds nothing has not established that nothing is there
+
+When looking for where a rule or threshold is applied in a workbook, a literal-text search over the formula inventory is not sufficient. A threshold can be computed in a cell whose own text contains no literal form of the number at all — built by arithmetic over other columns, sitting in a small lookup table, and reaching the formulas that depend on it only through a lookup, never through a literal appearing anywhere near them.
+
+This has already produced a wrong answer once. A cell computed a threshold of 300 seconds by summing separate seconds, minutes, hours and days columns, with a 5 sitting in the minutes column; its own text contained neither "300" nor "5 minutes". Its row carried a label, and on the order of twenty thousand formulas on another sheet looked values up against the small table that row belonged to, never referencing the number directly. A literal search for the number found nothing, and an investigation that relied on that search wrongly concluded no second threshold existed.
+
+State the practical consequence: when asking where a rule is applied, enumerate the routes by which a constant can reach a formula, and include lookup tables consumed by reference among them, not as a special case to remember separately. A search that finds nothing has narrowed the question. It has not answered it.
+
 ### The tool does not evaluate
 
 It indexes. It reads formula text and captured values and reports what it finds. It does not compute, follow chains, or decide what a formula means.
