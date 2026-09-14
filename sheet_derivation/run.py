@@ -17,16 +17,15 @@ sheet-side artifacts at all.
 This module fixes exactly that. It computes nothing itself: it calls the
 existing run_stageN functions (stage0.py through stage5.py) for the
 computation and the existing write_stageN_artifacts functions
-(stage3_artifacts.py/stage4_artifacts.py/stage5_artifacts.py) for the
-writing, unchanged, in the same way the untracked gate-check scripts
-already do.
+(stage2_artifacts.py/stage3_artifacts.py/stage4_artifacts.py/
+stage5_artifacts.py) for the writing, unchanged, in the same way the
+untracked gate-check scripts already do.
 
-Stages 0, 1, and 2 have no artifact writer today -- there is no
-stage2_artifacts.py (see stage2.py's own module docstring for why building
-one is a separate piece of work, not attempted here). They still run when
-selected, because stage 3 depends on stage 0/1's work and every later
-stage depends on stage 3's, but they write nothing; this module says so on
-each run rather than passing over them silently.
+Stages 0 and 1 have no artifact writer -- neither produces a standalone
+artifact of its own (see their own module docstrings). They still run
+when selected, because every later stage depends on their work, but they
+write nothing; this module says so on each run rather than passing over
+them silently.
 """
 
 import argparse
@@ -37,6 +36,7 @@ from .loader import discover_capture_files
 from .stage0 import run_stage0
 from .stage1 import run_stage1
 from .stage2 import run_stage2
+from .stage2_artifacts import write_stage2_artifacts
 from .stage3 import run_stage3
 from .stage3_artifacts import write_stage3_artifacts
 from .stage4 import run_stage4
@@ -136,8 +136,11 @@ def main(argv=None) -> int:
             print("stage 1: ran; produces no artifact file")
 
         elif stage == 2:
-            run_stage2(formulas_path, values_path)
-            print("stage 2: ran; produces no artifact file (no stage2_artifacts.py exists yet)")
+            result = run_stage2(formulas_path, values_path)
+            paths = write_stage2_artifacts(result, args.output_dir)
+            print("stage 2: wrote")
+            for path in paths.values():
+                print(f"  {path}")
 
         elif stage == 3:
             result = run_stage3(formulas_path, values_path)
