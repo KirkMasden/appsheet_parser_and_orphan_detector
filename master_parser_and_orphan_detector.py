@@ -589,6 +589,18 @@ def main():
         help='Output directory for CSV files (default: current directory)'
     )
     parser.add_argument(
+        '--output-as-is',
+        action='store_true',
+        help=(
+            'Write parser output directly into the -o/--output directory, with no '
+            'auto-generated timestamped subdirectory. Off by default: without it, '
+            'a full or single-parser run always creates its own '
+            '<timestamp>_<parent-dir-name>_parse subdirectory under -o, exactly as '
+            'before this flag existed. Has no effect on the orphan-detector-only '
+            'flags below, which already use -o/--output as given.'
+        )
+    )
+    parser.add_argument(
         '-s', '--slice-only',
         action='store_true',
         help='Only run the slice parser'
@@ -668,6 +680,10 @@ def main():
     # For orphan detectors, use the provided directory as-is
     if args.column_orphans or args.action_orphans or args.view_orphans or args.format_rule_orphans or args.slice_orphans:
         actual_output_dir = args.output
+    elif args.output_as_is:
+        # Opt-in: write straight into -o, no timestamped subdirectory.
+        actual_output_dir = args.output
+        os.makedirs(actual_output_dir, exist_ok=True)
     else:
         # For parsers, create timestamped subdirectory
         parent_dir = os.path.basename(os.path.dirname(os.path.abspath(args.html_file)))
