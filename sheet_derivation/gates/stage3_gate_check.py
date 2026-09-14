@@ -61,16 +61,16 @@ def w(line=""):
 # ---------------------------------------------------------------------------
 # Expected figures, this workbook's own -- 9 September 2026.
 # ---------------------------------------------------------------------------
-GATE_B_EXPECTED_PATTERNS = 388
+GATE_B_EXPECTED_PATTERNS = 472
 GATE_A_EXPECTED_PATTERNS = 384
 PROBE_WRONG_FIGURE = 382
 EXPECTED_NONEMPTY_FORMULAS = 185661
 EXPECTED_LONGEST_FORMULA_LEN = 2844
 EXPECTED_LONGEST_FORMULA_CELL = ("Options", "E3")
 EXPECTED_CLASSIFICATION_COUNTS = {
-    "single-pattern-contiguous": 82,
+    "single-pattern-contiguous": 81,
     "single-pattern-ragged": 9,
-    "multi-pattern": 53,
+    "multi-pattern": 54,
 }
 VERTICAL_NO_FORMULA_COLUMN = ("Vertical", "R")
 VERTICAL_NO_FORMULA_VALUE_COUNT = 10000
@@ -110,10 +110,18 @@ w()
 w(f"**Non-empty formulas:** measured {s3.workbook_accounting.non_empty_formulas:,}, expected "
   f"{EXPECTED_NONEMPTY_FORMULAS:,} (match: {s3.workbook_accounting.non_empty_formulas == EXPECTED_NONEMPTY_FORMULAS})")
 w()
-w("The 384-to-388 difference is entirely within one sheet (Vertical) and comes from two Gate-A "
-  "patterns that split under the decision not to normalize row numbers inside string literals -- "
+w("The 384-to-472 difference has two independent causes, both within the Vertical sheet. 4 of it "
+  "(2 Gate-A patterns splitting into more Gate-B patterns) is the original cause: two Gate-A "
+  "patterns split under the decision not to normalize row numbers inside string literals -- "
   "named in Stage 1's own gate ledger (`stage1_reference_ledger_report.md`, section 4a): "
-  "`=\"Collate!AK#\"` (Vertical!B1/H1) and `=\"Collate!AB#\"` (Vertical!D1/E1/J1/K1).")
+  "`=\"Collate!AK#\"` (Vertical!B1/H1) and `=\"Collate!AB#\"` (Vertical!D1/E1/J1/K1). The remaining "
+  "84 (42 further Gate-A patterns splitting into more Gate-B patterns) is new as of commit "
+  "3ece526: normalize.py no longer rewrites a row digit immediately preceded by '$' (a fixed "
+  "anchor, not a relative offset), so two formulas differing only in which fixed row they anchor "
+  "to are no longer merged into one pattern. Worked example: Vertical!D3/E3 (and the WD-side pair "
+  "Vertical!J3/K3) reference Collate!$AB$26 and Collate!$AB$21 -- two reference dates months apart "
+  "-- and now correctly form two Gate-B patterns of 9,998 instances each, rather than one merged "
+  "pattern of 19,996.")
 w()
 
 # ---------------------------------------------------------------------------

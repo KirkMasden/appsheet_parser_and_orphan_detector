@@ -12,10 +12,14 @@ nothing there.
 Purpose: settle whether the probe's section 7 claim -- 202 distinct
 patterns contain a cross-sheet reference, against a 33-pair sheet-to-sheet
 edge list, one dangling name ("All vertical", section 15a) -- agrees with
-what Stage 1's real tokenizer measures (stage1.py's own printed figure is
-204), and if not, show exactly which patterns/pairs account for the
-difference, using result.a_to_b_split (already computed by run_stage1) as
-the source of truth for the Gate A/Gate B relationship. Nothing below is
+what Stage 1's real tokenizer measures under Gate B, its actual
+normalization (250, as of commit 3ece526's fix to stop normalizing a
+$-anchored row digit; Gate A's own probe-equivalent figure remains 204,
+unaffected, since that fix is deliberately Gate-B-only -- see item 3
+below, which reports both), and if not, show exactly which patterns/pairs
+account for the difference, using result.a_to_b_split (already computed
+by run_stage1) as the source of truth for the Gate A/Gate B relationship.
+Nothing below is
 hand-asserted without a derivation printed alongside it; where this script
 transcribes a probe number for comparison, that number is never used to
 produce this script's own counts -- it is only compared against them.

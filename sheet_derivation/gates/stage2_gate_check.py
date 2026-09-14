@@ -67,14 +67,15 @@ PROBE_EDGES = {
     ("Options", "Options"): 1, ("Seminar", "Settings"): 1, ("Seminar", "Collate"): 1,
     ("Long Term", "Collate"): 3, ("Long Term", "Progress"): 2, ("Long Term", "Vertical"): 2,
     ("Current", "Main data"): 12, ("Current", "Settings"): 6, ("Current", "Collate"): 2,
-    ("Vertical", "Collate"): 9, ("Vertical", "Long Term"): 2, ("Vertical", "Current"): 2,
-    ("Collate", "Settings"): 36, ("Collate", "Main data"): 32, ("Collate", "Long Term"): 25,
-    ("Collate", "Vertical"): 18, ("Collate", "Progress"): 9, ("Collate", "Seminar"): 9,
-    ("Collate", "Overall"): 8, ("Collate", "Current"): 6, ("Collate", "Archive"): 3,
-    ("Collate", "Collate"): 2, ("Collate", "Options"): 2,
-    ("Overall", "Collate"): 19, ("Overall", "Vertical"): 8, ("Overall", "Settings"): 1,
+    ("Vertical", "Collate"): 13, ("Vertical", "Long Term"): 2, ("Vertical", "Current"): 2,
+    ("Collate", "Settings"): 46, ("Collate", "Main data"): 32, ("Collate", "Long Term"): 32,
+    ("Collate", "Vertical"): 21, ("Collate", "Progress"): 9, ("Collate", "Seminar"): 9,
+    ("Collate", "Overall"): 16, ("Collate", "Current"): 6, ("Collate", "Archive"): 3,
+    ("Collate", "Collate"): 4, ("Collate", "Options"): 2,
+    ("Overall", "Collate"): 31, ("Overall", "Vertical"): 10, ("Overall", "Settings"): 1,
 }
-GATE1_EXPECTED_REFERENCE_BEARING = 204
+GATE1_EXPECTED_REFERENCE_BEARING_GATE_B = 250
+GATE1_EXPECTED_REFERENCE_BEARING_GATE_A = 204
 GATE3_EXPECTED_DANGLING_REFERENCE_POSITION = {"All vertical": ["Vertical!G9356", "Vertical!G9992", "Vertical!G9994"]}
 GATE4_EXPECTED_DANGLING_STRING_LITERAL = {"Vocabulary": 2, "Error": 1}
 GATE5_EXPECTED_STRING_LITERAL_TOKENS = 12
@@ -105,11 +106,16 @@ w("## Gate 1 -- reference-bearing patterns")
 w()
 gate_b_ref = sum(1 for p in s1.gate_b_patterns if stage1.sheet_qualified_reference_positions(p))
 gate_a_ref = sum(1 for p in s1.gate_a_patterns if stage1.sheet_qualified_reference_positions(p))
-w(f"Gate B (real tool): measured {gate_b_ref}, expected {GATE1_EXPECTED_REFERENCE_BEARING} "
-  f"(match: {gate_b_ref == GATE1_EXPECTED_REFERENCE_BEARING})")
-w(f"Gate A (probe-equivalent): measured {gate_a_ref}, expected {GATE1_EXPECTED_REFERENCE_BEARING} "
-  f"(match: {gate_a_ref == GATE1_EXPECTED_REFERENCE_BEARING}) -- Stage 1 established this cannot "
-  f"differ between the two modes; re-confirmed here rather than assumed.")
+w(f"Gate B (real tool): measured {gate_b_ref}, expected {GATE1_EXPECTED_REFERENCE_BEARING_GATE_B} "
+  f"(match: {gate_b_ref == GATE1_EXPECTED_REFERENCE_BEARING_GATE_B})")
+w(f"Gate A (probe-equivalent): measured {gate_a_ref}, expected {GATE1_EXPECTED_REFERENCE_BEARING_GATE_A} "
+  f"(match: {gate_a_ref == GATE1_EXPECTED_REFERENCE_BEARING_GATE_A}) -- before commit 3ece526 this "
+  f"could not differ from Gate B's own figure, since Stage 1's normalization treated a $-anchored row "
+  f"digit the same as a relative one under both modes. 3ece526 fixed that in normalize.py only (the "
+  f"real-tool, Gate B path), leaving verify.py's probe-equivalent normalization deliberately "
+  f"unchanged (design section 5: Gate A exists to reproduce what the probe measured, not to be "
+  f"correct) -- so the two figures now diverge by design and are checked against their own separate "
+  f"expectations rather than one shared one.")
 w()
 
 # ---------------------------------------------------------------------------
@@ -308,7 +314,8 @@ with open(OUTPUT_PATH, "w", encoding="utf-8") as fh:
 
 print(f"Wrote {OUTPUT_PATH} ({len(out)} lines)")
 print()
-print(f"Gate 1: gate_b_ref={gate_b_ref} gate_a_ref={gate_a_ref} (expect {GATE1_EXPECTED_REFERENCE_BEARING})")
+print(f"Gate 1: gate_b_ref={gate_b_ref} (expect {GATE1_EXPECTED_REFERENCE_BEARING_GATE_B}) "
+      f"gate_a_ref={gate_a_ref} (expect {GATE1_EXPECTED_REFERENCE_BEARING_GATE_A})")
 print(f"Gate 2: pairs={len(measured_pairs)} only_mine={only_mine} only_probe={only_probe} mismatches={mismatches}")
 print(f"Gate 3: {[(d.name, len(d.occurrences)) for d in ref_position_entries]}")
 print(f"Gate 4: {measured_counts}")
