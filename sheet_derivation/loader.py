@@ -18,6 +18,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .errors import CaptureIntegrityError
 
+# The naming convention `sheet_capture.gs` itself writes (`<spreadsheet
+# name>_formulas_<timestamp>.json` / `<spreadsheet name>_values_<timestamp>.json`),
+# expressed as glob patterns -- the single place this project names that
+# convention, so nothing else (snapshot.py included) has to restate it or
+# drift from it independently. Also matches a literal `formulas.json` /
+# `values.json`, since both are just "formulas"/"values" somewhere in the
+# filename with a `.json` extension.
+FORMULAS_GLOB_PATTERN = "*formulas*.json"
+VALUES_GLOB_PATTERN = "*values*.json"
+
 
 @dataclass(frozen=True)
 class SheetFormulaData:
@@ -71,23 +81,23 @@ def discover_capture_files(capture_dir: str) -> Tuple[str, str]:
     """Finds the formulas and values files in a directory by pattern.
 
     Never hardcodes a workbook's name -- matches the naming convention
-    `sheet_capture.gs` itself writes (`*_formulas_*.json`, `*_values_*.json`),
-    the same patterns the repo's own .gitignore uses to keep these out.
-    Refuses (rather than guesses) if a pattern matches zero or more than one
-    file, since an ambiguous directory is exactly the case a silent pick
-    would hide.
+    `sheet_capture.gs` itself writes (`*formulas*.json`, `*values*.json`,
+    FORMULAS_GLOB_PATTERN/VALUES_GLOB_PATTERN above), the same patterns the
+    repo's own .gitignore uses to keep these out. Refuses (rather than
+    guesses) if a pattern matches zero or more than one file, since an
+    ambiguous directory is exactly the case a silent pick would hide.
     """
-    formula_matches = sorted(glob.glob(os.path.join(capture_dir, "*formulas*.json")))
-    value_matches = sorted(glob.glob(os.path.join(capture_dir, "*values*.json")))
+    formula_matches = sorted(glob.glob(os.path.join(capture_dir, FORMULAS_GLOB_PATTERN)))
+    value_matches = sorted(glob.glob(os.path.join(capture_dir, VALUES_GLOB_PATTERN)))
 
     if len(formula_matches) != 1:
         raise CaptureIntegrityError(
-            f"Expected exactly one '*formulas*.json' file in {capture_dir!r}, "
+            f"Expected exactly one {FORMULAS_GLOB_PATTERN!r} file in {capture_dir!r}, "
             f"found {len(formula_matches)}: {formula_matches}"
         )
     if len(value_matches) != 1:
         raise CaptureIntegrityError(
-            f"Expected exactly one '*values*.json' file in {capture_dir!r}, "
+            f"Expected exactly one {VALUES_GLOB_PATTERN!r} file in {capture_dir!r}, "
             f"found {len(value_matches)}: {value_matches}"
         )
     return formula_matches[0], value_matches[0]
