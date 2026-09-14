@@ -460,6 +460,16 @@ Answers: *"Which format rules format a column/action that no longer exists or is
 - Requires: `appsheet_format_rules.csv`; visibility/existence checks also read `appsheet_slices.csv`, `appsheet_columns.csv`, `appsheet_actions.csv`, `appsheet_views.csv`, `potential_view_orphans.csv`, `unused_system_views.csv`.
 - Reads: all files just named. Writes: `potential_format_rule_orphans.csv` (only if non-empty).
 
+#### `unsatisfiable_condition_detector.py` — `UnsatisfiableConditionDetector`
+
+Answers: *"Does a `Display_Inline` action's own condition contradict the `Show_If` of the column it attaches to, so the action can never display regardless of live data — a different, independent question from reachability?"*
+
+- Constructor: `UnsatisfiableConditionDetector(parse_directory)`.
+- Worth calling directly: `run_analysis()` (prints progress, writes the file only if non-empty, returns the row list); or `validate_files()` → `load_columns()` → `load_actions()` → `find_unsatisfiable_pairs()` (which itself calls `find_candidates()`, then `extract_terms()`/`find_contradiction()` per candidate) for the list without the printing/writing.
+- Requires: `appsheet_columns.csv`, `appsheet_actions.csv`.
+- Reads: `appsheet_columns.csv`, `appsheet_actions.csv`. Writes: `potential_unsatisfiable_conditions.csv` (only if non-empty, same "write nothing on zero" convention as its siblings above).
+- Narrow by design, per its own module docstring: fires only on a LITERAL contradiction over one shared variable (`=`/`<>`, or the ISBLANK/ISNOTBLANK family) after recursively decomposing top-level `AND(...)`; `OR(...)` and anything else it does not explicitly recognize (arithmetic, lookups, a bare truthy column) is left opaque and can never fire. Action-versus-action complementary conditions — two sibling actions whose own conditions oppose each other — are out of scope by the same column-versus-action-only design, not an oversight.
+
 #### `phantom_view_reference_detector.py` — module-level functions, no class
 
 Answers: *"Does anything in the app — an action target, an action's condition, or a column's `Show_If`/qualifier text — name a view that doesn't exist?"*

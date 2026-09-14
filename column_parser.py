@@ -202,11 +202,6 @@ class ColumnParser(BaseParser):
             {'_context_table': table_name}
         )
         
-        if self.debug_mode and column_info.get('type') == 'Ref':
-            if column_name == "Show WD stats" and table_name == "Kankaku":
-                raw_tq = column_info.get('type_qualifier')
-                print(f"  DEBUG: Raw type_qualifier for {table_name}[{column_name}] = {str(raw_tq)[:500]}")
-
         # Set essential fields
         column_info['table_name'] = table_name
         column_info['column_number'] = column_number

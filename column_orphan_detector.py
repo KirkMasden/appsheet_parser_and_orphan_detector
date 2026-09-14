@@ -9,7 +9,7 @@ Usage:
     python orphan_detector.py "/path/to/parse/directory/"
     
 Example:
-    python orphan_detector.py "/Users/kirkmasden/Desktop/250608 2132 Orphan columns/250610 1836 parse test/20250621_125149_parse/"
+    python orphan_detector.py "/path/to/20260907_111603_MyApp_parse/"
 """
 
 import csv
@@ -501,7 +501,7 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python orphan_detector.py '/path/to/parse/directory/'")
         print("\nExample:")
-        print("python orphan_detector.py '/Users/kirkmasden/Desktop/250608 2132 Orphan columns/250610 1836 parse test/20250621_125149_parse/'")
+        print("python orphan_detector.py '/path/to/20260907_111603_MyApp_parse/'")
         sys.exit(1)
     
     parse_directory = sys.argv[1]

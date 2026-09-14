@@ -9,7 +9,7 @@ The **AppSheet Parser Suite** is a collection of modular Python scripts that ana
 - Detects column/action pairs that can **never display**, regardless of reachability — a different question from orphan detection
 - Traces **navigation paths**, **grouped action chains**, and **column dependencies**
 - Offers interactive analyzers for exploring cross-component references
-- Modular design: 18+ focused scripts with clear dependencies and extensibility
+- Modular design: 22 focused scripts with clear dependencies and extensibility
 
 ---
 

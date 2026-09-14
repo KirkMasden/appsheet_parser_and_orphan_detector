@@ -496,7 +496,7 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python view_orphan_detector.py '/path/to/parse/directory/'")
         print("\nExample:")
-        print("python view_orphan_detector.py '/Users/kirkmasden/Desktop/20250621_125149_parse/'")
+        print("python view_orphan_detector.py '/path/to/20260907_111603_MyApp_parse/'")
         sys.exit(1)
     
     parse_directory = sys.argv[1]
