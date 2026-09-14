@@ -2,7 +2,7 @@
 """
 AppSheet Unsatisfiable Show_If / Action-Condition Pair Detector
 
-RELEASE_CHECKLIST.md section B, "Unsatisfiable column-Show_If /
+maintainer/RELEASE_CHECKLIST.md section B, "Unsatisfiable column-Show_If /
 attached-action-condition pairs" -- the narrow mechanical half of the
 Show_If gap STATUS.md's "Column-level Show_If is never consulted" entry
 left open. General Show_If evaluation is an ACCEPTED LIMITATION (decided

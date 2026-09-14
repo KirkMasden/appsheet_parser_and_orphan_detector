@@ -203,7 +203,7 @@ class ActionOrphanDetector:
     def is_action_visible_in_views(self, action):
         """Check if action is visible in any view based on prominence and view type.
 
-        CONSOLIDATION_PLAN.md step 2: delegates to the shared
+        maintainer/CONSOLIDATION_PLAN.md step 2: delegates to the shared
         action_visibility.is_visible_in_views_aod, which also carries this
         step's Do_Not_Display case-bug fix (see that function's docstring).
         """

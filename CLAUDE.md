@@ -54,7 +54,7 @@ These rules are not stylistic. Each was learned by getting a wrong answer withou
 
 - `STATUS.md` — known defects, recently-fixed entries with commit hashes, and remaining work. Read this before trusting any output.
 - `APPSHEET_BEHAVIOR.md` — a specification of AppSheet's own client behavior, with sources and an Unknowns section. Platform rules live here, not in STATUS.md.
-- `CONSOLIDATION_PLAN.md` — the design for unifying the visibility logic, which is currently implemented in more than one place.
+- `maintainer/CONSOLIDATION_PLAN.md` — the design for unifying the visibility logic, which is currently implemented in more than one place.
 
 ## CSV output reference
 
@@ -233,7 +233,7 @@ Rows: Kankaku 2, Farmy absent (zero), third app absent (zero).
 
 Fields: `action_name`, `source_table`, `column_name`, `table_name`, `show_if`, `only_if_condition`, `contradicting_variable`, `contradiction_detail`.
 
-- Deliberately narrow, per `RELEASE_CHECKLIST.md` section B's own ambiguity assessment: fires ONLY on a literal contradiction (same variable, opposite `=`/`<>` sense, or an `ISBLANK`/`ISNOTBLANK` family opposite-sense pair). Arithmetic, `COUNT`/`SUM`/`SELECT`/lookup functions, and any pair whose shared variable sits inside an `OR` on either side are left silently uncaught — this is a mechanical check for construction-level impossibility, not general `Show_If` evaluation, which stays an accepted limitation (`STATUS.md`).
+- Deliberately narrow, per `maintainer/RELEASE_CHECKLIST.md` section B's own ambiguity assessment: fires ONLY on a literal contradiction (same variable, opposite `=`/`<>` sense, or an `ISBLANK`/`ISNOTBLANK` family opposite-sense pair). Arithmetic, `COUNT`/`SUM`/`SELECT`/lookup functions, and any pair whose shared variable sits inside an `OR` on either side are left silently uncaught — this is a mechanical check for construction-level impossibility, not general `Show_If` evaluation, which stays an accepted limitation (`STATUS.md`).
 - **This is not a reachability finding and does not interact with any other file here.** A row in this file says the pair can never display even if every navigation/prominence/view-type gate passes; a view or action named in it can still be absent from `potential_view_orphans.csv`/`potential_action_orphans.csv`, and vice versa. The two questions are independent.
 - Candidacy requires the action's `attach_to_column` to name a REAL column on its own table — the 23 Farmy `Display_Inline` actions that attach to a column that does not exist (`STATUS.md`) are silently excluded, not a false negative of this detector.
 - The module's own docstring records three spec decisions a future reader should check before extending this: whether `ISBLANK`/`ISNOTBLANK`/`NOT(ISBLANK(...))` count as one family (yes), whether `[_THISROW].[X]` and bare `[X]` are the same variable (yes, normalized), and that `AND(...)` is decomposed into its conjuncts while `OR(...)` never is.
@@ -365,7 +365,7 @@ Answers: *"Given everything parsed so far, what view-to-view navigation edges ac
 - Worth calling directly: `NavigationEdgeGenerator(output_dir).load_action_targets()`, `.load_actions()`, `.load_views()`, `.load_columns()`, `.load_slices()` (each returns `False` and degrades gracefully, not raises, if its file is missing), then whatever top-level generation method wraps `process_group_action`/`process_dashboard_containment`/etc. (`main()` shows the intended call order — read it before scripting this one, since it's the module with the most load-order dependencies of the whole suite).
 - Requires: `action_targets.csv`, `appsheet_actions.csv`, `appsheet_views.csv`, `appsheet_columns.csv`, `appsheet_slices.csv` — i.e., everything above must already exist.
 - Reads: all five files just named. Writes: `navigation_edges.csv`.
-- Hard constraint, load-bearing for the whole suite's orphan counts: its group-child edge loop deliberately performs **no** visibility check (`action_visibility.py`'s module docstring) — that's what lets group-membership invocation routes produce edges at all. Do not "fix" this without reading `CONSOLIDATION_PLAN.md` sections 1 and 6 first.
+- Hard constraint, load-bearing for the whole suite's orphan counts: its group-child edge loop deliberately performs **no** visibility check (`action_visibility.py`'s module docstring) — that's what lets group-membership invocation routes produce edges at all. Do not "fix" this without reading `maintainer/CONSOLIDATION_PLAN.md` sections 1 and 6 first.
 
 ### Analyzers
 

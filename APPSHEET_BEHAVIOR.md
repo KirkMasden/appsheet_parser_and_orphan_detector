@@ -99,16 +99,16 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   action list (the manual-list rule below already accounts for that case,
   independent of prominence), nor anything about Automatic-mode decks — whether
   `referenced_actions` is itself complete there remains an open question
-  (`CONSOLIDATION_PLAN.md` section 5's "Deliberately deferred" note). Google's
+  (`maintainer/CONSOLIDATION_PLAN.md` section 5's "Deliberately deferred" note). Google's
   Position documentation, which names only Detail for Prominent, is now directly
   contradicted by observation for this one case; whether Prominent excludes itself
   under any other deck condition is untested.
 
-  `CONSOLIDATION_PLAN.md` section 5's step 5 applied the opposite rule — excluding
+  `maintainer/CONSOLIDATION_PLAN.md` section 5's step 5 applied the opposite rule — excluding
   `Display_Prominently` from deck views entirely, on the strength of the
   documentation-only reading this entry now supersedes — across all three visibility
   strategies. It has been disproved by the observation above and reverted, 2026-09-02,
-  without ever being committed; see `STATUS.md` and `CONSOLIDATION_PLAN.md` for the
+  without ever being committed; see `STATUS.md` and `maintainer/CONSOLIDATION_PLAN.md` for the
   code-level record.
 - **Primary (export: `Display_Overlay`) DOES display on table views.** Source:
   observed in Leon's app, in Kirk's frozen copy, 2026-08-31, using a purpose-made
@@ -285,7 +285,7 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   **This supersedes the 2026-08-31 inference previously recorded here**, which held
   that a map action needs designating in the way a deck action needs action-bar
   membership. That was the right conclusion by the wrong mechanism: there is no gate,
-  because there is no control to set. The distinction matters — `CONSOLIDATION_PLAN.md`
+  because there is no control to set. The distinction matters — `maintainer/CONSOLIDATION_PLAN.md`
   section 2 concluded from the gate reading that the map cell "cannot be filled by a
   boolean at all," and that conclusion no longer holds.
 
@@ -327,7 +327,7 @@ Source: observed in Leon's app, 2026-08-30, by Kirk.
   the dashboard view's own action bar. Its presence is not evidence of an action
   displaying at dashboard level.
 
-  This closes the dashboard half of the `RELEASE_CHECKLIST.md` section A item that
+  This closes the dashboard half of the `maintainer/RELEASE_CHECKLIST.md` section A item that
   opened both the dashboard and calendar questions 2026-09-05. **The calendar half
   remains open and unscheduled.**
 
@@ -557,7 +557,7 @@ Manual deck whose action list includes it — was run 2026-09-02, and the action
 displayed. What remains untested is the other half of that same isolating test: a
 `Display_Prominently` action on a deck whose `action_display_mode` is `Automatic`,
 and, more broadly, whether `Automatic` mode's `referenced_actions` field is itself
-complete — an open question independent of this one (`CONSOLIDATION_PLAN.md`
+complete — an open question independent of this one (`maintainer/CONSOLIDATION_PLAN.md`
 section 5's "Deliberately deferred" note).
 
 Calendar remains answerable by one test in a running app, the same way dashboard

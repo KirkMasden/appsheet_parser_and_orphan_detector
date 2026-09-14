@@ -82,7 +82,7 @@ Expect the assistant to ask you to look at your running app and report what you 
 
 **What the suite does not see.** The suite reports whether a navigation path *exists* in your app definition, not whether it can *fire* — conditions that depend on live data, column-level `Show_If`, and anything done by bots are outside what a static parse can settle, so a view or action reported as reachable may not be, and an orphan reported is a **candidate**, not a confirmed dead component. `CLAUDE.md`'s section "What this suite does not see" states these limits precisely, and `STATUS.md` records every known defect; read both before acting on a finding, and treat "delete this" as a decision for you, not the tool.
 
-Other project documents at the repository root, for anyone who wants to go deeper: `APPSHEET_BEHAVIOR.md` records AppSheet's display rules as this project has observed or documented them, with the strength of each source; `CONSOLIDATION_PLAN.md` and `RELEASE_CHECKLIST.md` record the design and the worklist. They are working documents and are not needed to use the suite.
+Other project documents, for anyone who wants to go deeper: `APPSHEET_BEHAVIOR.md`, at the repository root, records AppSheet's display rules as this project has observed or documented them, with the strength of each source. `maintainer/RELEASE_CHECKLIST.md` and `maintainer/CONSOLIDATION_PLAN.md` record the pre-publication worklist and a completed refactor plan — the maintainer's own working documents, not aimed at a user or an agent, which is why they live in their own `maintainer/` directory rather than at the root alongside `STATUS.md` and `APPSHEET_BEHAVIOR.md`. None of the three are needed to use the suite.
 
 ---
 
@@ -99,6 +99,47 @@ AppSheetAnalysis/
 │   └── bot_actions.txt (optional)
 └── venv/
 ```
+
+---
+
+### 🗂️ Workspace layout for sheet_derivation
+
+`sheet_derivation/` is a second tool in this same repository: it reads a captured Google Sheets workbook (via `sheet_capture.gs`) and derives artifacts describing it, joining against the app-side CSVs above where the two overlap. It uses its own workspace layout, in the same parent directory as this repository (the **workspace**):
+
+```
+AppSheetAnalysis/
+├── appsheet_parser_and_orphan_detector/  # This repository
+├── apps/
+│   └── <snapshot>/
+│       ├── Application Documentation.html
+│       ├── actions.txt
+│       ├── views1.txt
+│       ├── views2.txt
+│       ├── formulas.json
+│       └── values.json
+└── output/
+    └── <snapshot>/
+        ├── app/             # the app-side CSVs
+        ├── sheet/           # the stage 2-5 JSONL and CSV artifacts
+        ├── gates/           # gate reports (maintainer use)
+        └── investigations/  # agent-written reports
+```
+
+Recommended snapshot naming, for runs from now on: `<appname>_<YYYYMMDD_HHMMSS>` — the same name for both the `apps/<snapshot>/` directory and its `output/<snapshot>/` counterpart, so the two are found together by construction. (Directories from before this convention used a doubled timestamp and role words like `baseline`/`regression_reference`; those stay exactly as they are — see `STATUS.md`'s 2026-09-14 entry.)
+
+**The input side is flat, deliberately.** One directory per snapshot under `apps/`, named however the user likes, holding all six prepared files undifferentiated — the four app-side files from AppSheet's own export and the paste procedure above, and the two capture files from `sheet_capture.gs`. One app export and one sheet capture per snapshot, so the pairing cannot drift.
+
+**The output side is structured, deliberately.** `output/<snapshot>/` mirrors the snapshot name and separates what was produced into `app/`, `sheet/`, `gates/`, and `investigations/`.
+
+**The rule behind the asymmetry:** flat where a human assembles, structured where a human or an agent reads. Assembling a snapshot's input is the step a user can get wrong — six files with fixed names in one folder is the easiest shape to get right by hand, and the easiest to get visibly wrong (a folder with four files looks, at a glance, like a folder with all six). Reading the output is a different job, done by a human or an agent who benefits from the structure instead. Do not "fix" this into one shape or the other — the asymmetry is the point, not an inconsistency.
+
+Because a flat input directory can silently be missing half of what a snapshot needs, `python -m sheet_derivation.snapshot <snapshot_dir>` reports exactly what it found and what it didn't — which app-side files are present, which capture files are present, and anything present but not recognized — rather than leaving a missing half invisible until something downstream fails confusingly.
+
+`sheet_derivation`'s own stages, its runner, and its maintainer gate-check scripts are all still ordinary command-line programs — every one of them (`python -m sheet_derivation.stageN`, `python -m sheet_derivation.run`, `python -m sheet_derivation.gates.<name>`) can be run directly from a terminal, same as the app-side parsers and detectors above. An `apps/<snapshot>/` directory can be passed directly as a capture directory to any of them (its `formulas.json`/`values.json` are found the same way any other capture directory's files are); nothing about this layout is required for direct invocation to work, and an explicit path argument always overrides any default.
+
+**The gate scripts' own `--output-dir` default is `<workspace>/output/gates` — not any snapshot's own `output/<snapshot>/gates/`.** It exists so an ad hoc gate-check run has somewhere sensible to land without an argument, but it is one shared location, not a per-snapshot one: a later run there overwrites an earlier one's reports. For a run whose reports are meant to be kept as part of a specific snapshot's record, pass `--output-dir` explicitly, pointed at that snapshot's own `output/<snapshot>/gates/`.
+
+Existing parse-output directories from before this layout, and `sheet_derivation_output/`, are untouched by this convention — they stay exactly where they are, cited exactly as before; only new runs use `apps/`/`output/`.
 
 ---
 

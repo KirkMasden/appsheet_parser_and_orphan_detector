@@ -5,7 +5,7 @@ not left to dict, set, or glob iteration order, which can vary by Python
 hash seed or filesystem between runs. This is not a style preference: the
 app-side suite shipped a defect where view names came out of a set and
 output order varied run to run, until it was sorted in August 2026
-(RELEASE_CHECKLIST.md / STATUS.md). A tool whose entire value proposition
+(maintainer/RELEASE_CHECKLIST.md / STATUS.md). A tool whose entire value proposition
 is that a re-run can be diffed against the last one cannot have that
 property anywhere.
 

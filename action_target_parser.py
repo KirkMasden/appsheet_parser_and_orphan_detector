@@ -511,7 +511,7 @@ class NavigationExpressionParser:
         parser's pre-existing (uninverted) behavior for that shape rather
         than attempting a semantic transform this code does not support.
         Confirmed absent from both reference apps as of 2026-09-02
-        (CONSOLIDATION_PLAN.md/STATUS.md's NOT(CONTEXT(...)) defect entries).
+        (maintainer/CONSOLIDATION_PLAN.md/STATUS.md's NOT(CONTEXT(...)) defect entries).
         """
         before = condition[:match_start]
         if not re.search(r'NOT\s*\(\s*$', before, re.IGNORECASE):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Action visibility — CONSOLIDATION_PLAN.md step 1.
+Action visibility — maintainer/CONSOLIDATION_PLAN.md step 1.
 
 A behavior-preserving extraction of the three existing "is this action visible
 in this view" implementations: navigation_edge_generator.py (NEG),
@@ -8,7 +8,7 @@ actions_orphan_detector.py (AOD), and action_dependency_analyzer.py (ADA). Each
 function below is a direct translation of one file's original method — `self`
 and instance state replaced by explicit parameters, nothing else changed,
 EXCEPT the Do_Not_Display case bug in the AOD and ADA strategies
-(CONSOLIDATION_PLAN.md section 3's `.replace('_', ' ')` mismatch), fixed in
+(maintainer/CONSOLIDATION_PLAN.md section 3's `.replace('_', ' ')` mismatch), fixed in
 AOD by step 2 and in ADA by step 2b — see ADA's own docstring for why its
 fix was deferred past step 2. The NEG strategy never had it (it compares
 the raw underscored `action_prominence` directly and needed no fix). ALSO EXCEPT
@@ -18,8 +18,8 @@ shared `_overlay_admitted_on_deck` — see that function's docstring for the rul
 and its evidence. (Step 5's deck-only `Display_Prominently` exclusion was also
 implemented this way, via a since-removed `_prominent_excluded_on_deck` helper of
 the same shape, but was disproved by observation and reverted before being
-committed — see `CONSOLIDATION_PLAN.md` section 5 and `STATUS.md`.) ALSO EXCEPT
-`RELEASE_CHECKLIST.md` section B's form/map fall-through fix (2026-09-07): NEG's
+committed — see `maintainer/CONSOLIDATION_PLAN.md` section 5 and `STATUS.md`.) ALSO EXCEPT
+`maintainer/RELEASE_CHECKLIST.md` section B's form/map fall-through fix (2026-09-07): NEG's
 `is_visible_in_view_neg` returns False, not the original's unconditional True,
 for `form` and `map` view types — see that function's own docstring. AOD and
 ADA already returned False for both by fall-through and needed no change.
@@ -29,7 +29,7 @@ All three callers — `action_dependency_analyzer.py` (step 1),
 (step 3) — have been switched to this module. The NEG, AOD, and ADA
 functions below are each in production use.
 
-Hard constraint carried over from CONSOLIDATION_PLAN.md section 1/section 6:
+Hard constraint carried over from maintainer/CONSOLIDATION_PLAN.md section 1/section 6:
 none of this is called from navigation_edge_generator.py's
 `process_group_action` child-edge loop, and it must not be — that loop's
 current, deliberate lack of a visibility check is what lets group-membership
@@ -39,10 +39,10 @@ invocation routes (STATUS.md, `48eead1`/`f4d931a`) produce edges at all.
 from typing import Callable, Dict, Iterable, List, Optional
 
 
-# --- Shared rule: CONSOLIDATION_PLAN.md step 6 ------------------------------
+# --- Shared rule: maintainer/CONSOLIDATION_PLAN.md step 6 ------------------------------
 
 def _overlay_admitted_on_deck(prominence: str, view_type: str) -> bool:
-    """CONSOLIDATION_PLAN.md step 6: Primary/`Display_Overlay` on a DECK view is
+    """maintainer/CONSOLIDATION_PLAN.md step 6: Primary/`Display_Overlay` on a DECK view is
     a view-level floating button, not a member of the row-level action bar, so it
     must not be gated by `referenced_actions`, `show_action_bar`, or
     `action_display_mode` — the deck-side counterpart of the fix `e0530c8` already
@@ -51,7 +51,7 @@ def _overlay_admitted_on_deck(prominence: str, view_type: str) -> bool:
     collection views, deck named among them (`APPSHEET_BEHAVIOR.md`'s Deck+Overlay
     entry). Deck only — gallery is out of scope for this step; AOD/ADA's gallery
     rejection of `Display_Overlay` (a bar gate that can never open, since gallery
-    carries no `ShowActionBar` key at all — see `CONSOLIDATION_PLAN.md` section 2's
+    carries no `ShowActionBar` key at all — see `maintainer/CONSOLIDATION_PLAN.md` section 2's
     Gallery table) remains untouched, as does step 4's own, separate exclusion of
     `Display_Overlay` from its gallery scope.
     """
@@ -90,7 +90,7 @@ def is_visible_in_detail_view_neg(action: Dict, view: Dict, stats: Optional[Dict
 
 def is_visible_in_deck_view_neg(action: Dict, view: Dict, stats: Optional[Dict] = None) -> bool:
     """navigation_edge_generator.py's is_action_visible_in_deck_view, plus
-    CONSOLIDATION_PLAN.md step 6's Display_Overlay-as-floating-button admission.
+    maintainer/CONSOLIDATION_PLAN.md step 6's Display_Overlay-as-floating-button admission.
 
     For deck views:
     - Display_Overlay is admitted outright (step 6; see
@@ -103,7 +103,7 @@ def is_visible_in_deck_view_neg(action: Dict, view: Dict, stats: Optional[Dict] 
 
     This branch reads no other prominence value and no `show_action_bar` or
     `action_display_mode` field, unlike AOD's and ADA's deck/gallery branches —
-    see CONSOLIDATION_PLAN.md section 2's Deck views entry.
+    see maintainer/CONSOLIDATION_PLAN.md section 2's Deck views entry.
     """
     prominence = action.get('action_prominence', '')
     if _overlay_admitted_on_deck(prominence, view.get('view_type', '')):
@@ -168,7 +168,7 @@ def is_visible_in_table_view_neg(action: Dict, view: Dict, stats: Optional[Dict]
 
 def is_visible_in_view_neg(action: Dict, view: Dict, stats: Optional[Dict] = None) -> bool:
     """navigation_edge_generator.py's is_action_visible_in_view, EXCEPT
-    RELEASE_CHECKLIST.md section B's form/map fall-through fix (2026-09-07):
+    maintainer/RELEASE_CHECKLIST.md section B's form/map fall-through fix (2026-09-07):
     the original unconditionally returned True for every view type besides
     detail/deck/table. `form` and `map` now return False instead -- see the
     inline comment at that branch for the evidence. `card`, `dashboard` and
@@ -209,7 +209,7 @@ def is_visible_in_view_neg(action: Dict, view: Dict, stats: Optional[Dict] = Non
     elif view_type == 'table':
         return is_visible_in_table_view_neg(action, view, stats)
     elif view_type in ('form', 'map'):
-        # RELEASE_CHECKLIST.md section B, "Map fall-through" (scope corrected
+        # maintainer/RELEASE_CHECKLIST.md section B, "Map fall-through" (scope corrected
         # 2026-09-05): neither view type displays an author-created action at
         # any prominence, so unlike detail/deck/table this needs no
         # per-prominence branch -- a flat refusal matches both cells exactly.
@@ -223,14 +223,14 @@ def is_visible_in_view_neg(action: Dict, view: Dict, stats: Optional[Dict] = Non
         # documentation's silence, the strongest-graded cell in that file;
         # no event route exists to protect. `card`, `dashboard` and
         # `calendar` are deliberately NOT part of this branch -- see
-        # RELEASE_CHECKLIST.md section D's bucket item and the 2026-09-07
+        # maintainer/RELEASE_CHECKLIST.md section D's bucket item and the 2026-09-07
         # dashboard finding; each still falls through to the unconditional
         # True below.
         _neg_bump(stats)
         return False
     else:
         # card, dashboard, calendar, and any other unresolved view type:
-        # check available_actions only, pending RELEASE_CHECKLIST.md section
+        # check available_actions only, pending maintainer/RELEASE_CHECKLIST.md section
         # D's bucket item (card's branch is answered but post-publication;
         # calendar's app test is still open).
         return True
@@ -240,7 +240,7 @@ def is_visible_in_view_neg(action: Dict, view: Dict, stats: Optional[Dict] = Non
 
 def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
     """action_dependency_analyzer.py's is_action_visible_in_view, with the
-    Do_Not_Display case bug fixed (CONSOLIDATION_PLAN.md step 2b).
+    Do_Not_Display case bug fixed (maintainer/CONSOLIDATION_PLAN.md step 2b).
 
     Deliberately left carrying the bug by step 2, since ADA had just gone
     live on this module in step 1 (`84a651d`) and fixing it then would have
@@ -252,7 +252,7 @@ def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
     before/after verification (363 Do_Not_Display/deck pairs across both
     reference apps flipped True→False, none the other way).
 
-    Note ADA's function boundary (CONSOLIDATION_PLAN.md section 2's Pre-gates):
+    Note ADA's function boundary (maintainer/CONSOLIDATION_PLAN.md section 2's Pre-gates):
     unlike NEG and AOD, the available_actions gate is in ADA's *caller*
     (analyze_view_dependencies), not in this function. Preserved here rather
     than folded in, so the extraction changes no verdict and no boundary.
@@ -284,7 +284,7 @@ def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
         # see APPSHEET_BEHAVIOR.md's "Established behavior" section. AOD's table
         # branch has carried this case since e0530c8; ADA was the last of the
         # three strategies without it, leaving Table+Overlay as a two-against-one
-        # split with ADA the odd file out (CONSOLIDATION_PLAN.md section 2,
+        # split with ADA the odd file out (maintainer/CONSOLIDATION_PLAN.md section 2,
         # "Table views"). Reached by omission here rather than by an explicit
         # rejection, but the same wrong answer.
         if prominence == 'Display_Overlay':
@@ -296,7 +296,7 @@ def is_visible_in_view_ada(action: Dict, view: Dict) -> bool:
             return attach_to_column in view_columns  # Exact match, not substring
 
     elif view_type in ['deck', 'gallery']:
-        # CONSOLIDATION_PLAN.md step 6: Display_Overlay admitted outright on
+        # maintainer/CONSOLIDATION_PLAN.md step 6: Display_Overlay admitted outright on
         # deck (view-level floating button), ahead of the bar gate below.
         # _overlay_admitted_on_deck is a no-op for gallery, out of scope for
         # this step.
@@ -323,14 +323,14 @@ def is_visible_in_views_aod(
     column_exists: Callable[[str, str], bool],
 ) -> bool:
     """actions_orphan_detector.py's is_action_visible_in_views, with the
-    Do_Not_Display case bug fixed (CONSOLIDATION_PLAN.md step 2).
+    Do_Not_Display case bug fixed (maintainer/CONSOLIDATION_PLAN.md step 2).
 
     Existential, not pointwise: loops every view and returns True at the first
-    match (CONSOLIDATION_PLAN.md section 1). `column_exists` replaces the
+    match (maintainer/CONSOLIDATION_PLAN.md section 1). `column_exists` replaces the
     original's lazily-cached `self.column_exists` method — pass a callable with
     the same `(column_name, table_name) -> bool` signature.
 
-    CONSOLIDATION_PLAN.md section 3: the original compared
+    maintainer/CONSOLIDATION_PLAN.md section 3: the original compared
     `action_prominence.replace('_', ' ')` against spaced literals
     ('Display Prominently', etc.). Three of four values round-trip correctly
     through that transform; 'Do_Not_Display' does not — it becomes 'Do Not
@@ -407,7 +407,7 @@ def is_visible_in_views_aod(
                         return True
 
         elif view_type in ['deck', 'gallery']:
-            # CONSOLIDATION_PLAN.md step 6: Display_Overlay admitted outright
+            # maintainer/CONSOLIDATION_PLAN.md step 6: Display_Overlay admitted outright
             # on deck (view-level floating button), ahead of the bar gate
             # below. _overlay_admitted_on_deck is a no-op for gallery, out of
             # scope for this step.

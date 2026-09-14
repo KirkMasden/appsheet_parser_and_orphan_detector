@@ -540,7 +540,7 @@ case-INSENSITIVE unless a specific mechanism has been tested and found otherwise
 Reasoning: case-insensitive is the permissive choice — it resolves more names,
 produces more edges, and reports fewer orphans, so its errors are the silent kind
 rather than the complaint-generating kind, the same asymmetry argument already made
-in `RELEASE_CHECKLIST.md` section D. Its one known cost is the `Water Tanks` shape
+in `maintainer/RELEASE_CHECKLIST.md` section D. Its one known cost is the `Water Tanks` shape
 recorded in `APPSHEET_BEHAVIOR.md`'s Case sensitivity section — a possible false
 negative, a view cleared as reachable that AppSheet itself might not actually
 resolve — and that cost is accepted.

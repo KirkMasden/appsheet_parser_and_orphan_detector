@@ -656,7 +656,7 @@ class ActionDependencyAnalyzer:
     def is_action_visible_in_view(self, action, view):
         """Check if an action is actually visible in a specific view.
 
-        CONSOLIDATION_PLAN.md step 1: delegates to the shared
+        maintainer/CONSOLIDATION_PLAN.md step 1: delegates to the shared
         action_visibility.is_visible_in_view_ada, a behavior-preserving copy of
         this method's former body. No rule changed by this switch.
         """

@@ -10,7 +10,7 @@ sections above it.
 
 Not a status file (see `STATUS.md` for defects), not a specification (see
 `APPSHEET_BEHAVIOR.md` for what AppSheet does), not a design (see
-`CONSOLIDATION_PLAN.md` for how the visibility logic gets unified). This is the
+`maintainer/CONSOLIDATION_PLAN.md` for how the visibility logic gets unified). This is the
 ordered worklist.
 
 Each item states what "done" means. An item is not done until its finish
@@ -71,7 +71,7 @@ addition and does not reopen it.
       untested and unchanged), but its assumption about this specific rule did not
       survive contact with an app test. No longer "blocks section D step 5" — step 5
       was implemented on the old assumption, disproved by this same 2026-09-02 test,
-      and reverted without being committed (`CONSOLIDATION_PLAN.md` section 5).
+      and reverted without being committed (`maintainer/CONSOLIDATION_PLAN.md` section 5).
 
 Optional, only if convenient: confirm the manual-action-list exclusion on a
 non-deck view type, which would close the open question already recorded under
@@ -87,7 +87,7 @@ not reopen it (see the item's own note on why it does not block section D either
       view correctly (heading "Card statistics for 数珠", Card made date, Status:
       Scheduled), despite its expression naming `"Card Stats"` with a capital S and
       no view of that name existing. **AppSheet's `LINKTOROW` view-name argument is
-      case-insensitive at runtime.** `CONSOLIDATION_PLAN.md` section 4's
+      case-insensitive at runtime.** `maintainer/CONSOLIDATION_PLAN.md` section 4's
       case-insensitive-by-default decision therefore no longer carries a known cost
       — the one accepted cost was exactly this shape, and it is not a cost. Neither
       Kankaku's `Card stats` nor Farmy's `Water Tanks` is affected by the failure
@@ -107,7 +107,7 @@ not reopen it (see the item's own note on why it does not block section D either
       app's actual view is `Card stats` (lowercase s). Tap "Go to card stats" in
       the running Kankaku app and see whether it navigates to `Card stats`.
       If it navigates: the open question is settled empirically for the first
-      time, and `CONSOLIDATION_PLAN.md` section 4's case-insensitive-by-default
+      time, and `maintainer/CONSOLIDATION_PLAN.md` section 4's case-insensitive-by-default
       decision stops carrying a known cost — that decision's one accepted cost
       is exactly this shape.
       If it does nothing: this suite has been clearing views that are genuinely
@@ -127,8 +127,8 @@ not reopen it (see the item's own note on why it does not block section D either
 
 - [ ] **Does Prominent (`Display_Prominently`) display on a dashboard view? On a calendar view?**
       These are the only two view types `APPSHEET_BEHAVIOR.md`'s Unknowns section still lists as unestablished, and between them they cover 4 of Farmy's 319 views. Decided 2026-09-05: with a count that small, two app tests of a few minutes each are cheaper than any argument about which default to accept, and after them no default is needed. Test bed: Kankaku has a dashboard view; the frozen copy of Farmy has the calendar view (the same frozen copy already used for the 2026-08-31 `Go to web` test, so putting a test action on it is established practice). For each: put a `Display_Prominently` action on the view, look, record.
-      *Done when:* both answers are recorded under "Established behavior" in `APPSHEET_BEHAVIOR.md` with the date and how each was tested, the Unknowns section no longer lists either type, and `CONSOLIDATION_PLAN.md` section 2's two `undetermined` rows carry the observed value. If either answer is F, the view type joins the section B form/map fall-through item; if T, nothing in the code changes.
-      **Dashboard half DONE 2026-09-07 (Kirk).** Answer: F — a `Display_Prominently` action does not display on a dashboard view. Recorded under "Established behavior" in `APPSHEET_BEHAVIOR.md` with both grounds (negative population, and a purpose-built `My website` test action), the Unknowns section no longer lists `dashboard`, and `CONSOLIDATION_PLAN.md` section 2's `dashboard` row carries the observed value. Per this item's own done-when, an F answer would join the section B form/map fall-through item — **not done as part of this documentation-only pass**; that is a code change and belongs to whoever picks up section B next, not silently folded in here. **The calendar half remains open and unscheduled** — this checklist item stays unchecked until it is done too.
+      *Done when:* both answers are recorded under "Established behavior" in `APPSHEET_BEHAVIOR.md` with the date and how each was tested, the Unknowns section no longer lists either type, and `maintainer/CONSOLIDATION_PLAN.md` section 2's two `undetermined` rows carry the observed value. If either answer is F, the view type joins the section B form/map fall-through item; if T, nothing in the code changes.
+      **Dashboard half DONE 2026-09-07 (Kirk).** Answer: F — a `Display_Prominently` action does not display on a dashboard view. Recorded under "Established behavior" in `APPSHEET_BEHAVIOR.md` with both grounds (negative population, and a purpose-built `My website` test action), the Unknowns section no longer lists `dashboard`, and `maintainer/CONSOLIDATION_PLAN.md` section 2's `dashboard` row carries the observed value. Per this item's own done-when, an F answer would join the section B form/map fall-through item — **not done as part of this documentation-only pass**; that is a code change and belongs to whoever picks up section B next, not silently folded in here. **The calendar half remains open and unscheduled** — this checklist item stays unchecked until it is done too.
 
 ---
 
@@ -200,8 +200,8 @@ comparison against the current reference output.
       too, since they share the same code path.
       *Done when:* the fallback reflects what section A established, and
       `STATUS.md` records the decision and its basis.
-      **Scope corrected 2026-09-05, and no longer dependent on anything:** section A and `CONSOLIDATION_PLAN.md` section 2 ("The former 'other' bucket, decomposed") have since settled this. The fall-through is wrong for TWO view types, not one: `form` (92 Farmy views, F, documented) and `map` (7 views, F, established 2026-09-05). Fix both. NEG (`is_visible_in_view_neg`) is the only implementation wrong here — AOD and ADA already return F by fall-through. `card`, `dashboard` and `calendar` are NOT part of this fix; they are handled by the section D bucket item below. Note `is_action_visible_in_view` no longer exists (deleted in `3b06a08`); the code to change is `is_visible_in_view_neg` in `action_visibility.py`.
-      *Predicted direction:* edges REMOVED from `navigation_edges.csv` (source views of type form or map), never added; orphan counts flat or rising, never falling. Form's `Form Saved` event route is untouched because `process_event_actions` never calls the visibility function (`CONSOLIDATION_PLAN.md` section 2's note). Every removed edge must trace to a form- or map-type source view; every newly flagged orphan must trace to a removed edge. Stop and re-examine if any edge is added or any orphan count falls.
+      **Scope corrected 2026-09-05, and no longer dependent on anything:** section A and `maintainer/CONSOLIDATION_PLAN.md` section 2 ("The former 'other' bucket, decomposed") have since settled this. The fall-through is wrong for TWO view types, not one: `form` (92 Farmy views, F, documented) and `map` (7 views, F, established 2026-09-05). Fix both. NEG (`is_visible_in_view_neg`) is the only implementation wrong here — AOD and ADA already return F by fall-through. `card`, `dashboard` and `calendar` are NOT part of this fix; they are handled by the section D bucket item below. Note `is_action_visible_in_view` no longer exists (deleted in `3b06a08`); the code to change is `is_visible_in_view_neg` in `action_visibility.py`.
+      *Predicted direction:* edges REMOVED from `navigation_edges.csv` (source views of type form or map), never added; orphan counts flat or rising, never falling. Form's `Form Saved` event route is untouched because `process_event_actions` never calls the visibility function (`maintainer/CONSOLIDATION_PLAN.md` section 2's note). Every removed edge must trace to a form- or map-type source view; every newly flagged orphan must trace to a removed edge. Stop and re-examine if any edge is added or any orphan count falls.
       *Sequenced:* after the reference re-cut (top of this section), and may run before or after the `view_orphan_detector.py` CONTEXT() fix below; both are restrictive in direction, so run them as separate commits with a separate re-parse each, never together.
       **Fixed 2026-09-07.** `is_visible_in_view_neg` now returns `False` for `form` and `map`, no per-prominence branching, matching both `APPSHEET_BEHAVIOR.md` cells exactly. Verified BY CONSTRUCTION, not by row enumeration — 1,189 edges removed across 322 distinct action groups is past the point where individual explanation is the standard; the candidate set (direct/via_group edges whose source is form/map-type) makes scope leakage structurally impossible, confirmed at 0 leaks in any app. Corrected counts (the pre-implementation reconnaissance was computed against a now-stale, pre-`LEFT()`-fix baseline): Kankaku 174 removed, Farmy 860, third app 143; 0 added anywhere. Exactly two views newly flagged, both Farmy (`unused_system_views.csv` 99→101: `ActivityGermination_Form`, `Location_Detail` — the second a cascading, second-order loss); `potential_view_orphans.csv` unchanged at 54, since `Images_Form - Seeds`'s one edge is an event-bypassed `via_group` route (`event_type='form saved'`) the fix correctly preserves — the fix ended up more correct than its own pre-implementation gate predicted. Full detail, including the two already-known-phantom false positives in the naive reachable-set diff and the untraced `potential_action_orphans.csv` ripple, in `STATUS.md`'s matching "Recently fixed" entry.
 
@@ -314,7 +314,7 @@ comparison against the current reference output.
       is stable across runs. Farmy has 7 confirmed-inverted rows (`ViewType`
       shape) and 10 more (`View`-name shape) whose inversion is not yet
       established; Kankaku has not been checked at all. Found while accounting
-      for why `CONSOLIDATION_PLAN.md` step 6's Farmy edge count came in below
+      for why `maintainer/CONSOLIDATION_PLAN.md` step 6's Farmy edge count came in below
       its predicted floor — `Add - Beds_Form` was the one case in that
       accounting with no other explanation. See `STATUS.md`'s matching entry.
       Done `a15021b`. Scope, corrected after a scan-methodology bug (space-only
@@ -437,7 +437,7 @@ comparison against the current reference output.
       *Corrected done-when, replacing the direction-only prediction above.* A null result is a FAILURE, not a pass. Whichever branch is taken, the fix must refuse the 9 Kankaku and 36 Farmy edges named in the `STATUS.md` entry, and exactly one view must be newly flagged: Farmy's `ActivityForm - Germination`, whose 13 incoming edges all derive from one action and whose only condition-satisfying source view, `Beds Inline MyPlants Deck`, is itself unreachable from any root. Kankaku gains no newly flagged view: all three targets stay reachable via the same action's satisfiable source views. Stop and re-examine if any view is newly CLEARED, if any other view is newly flagged, or if nothing changes.
       *Two interactions to watch, both established rather than anticipated.* The 6-edge depth cap in `view_dependency_analyzer.py` is live, not theoretical: Farmy already runs 19 root-target pairs at the full six edges, and refusing edges can lengthen surviving paths, so the analyzer may report no path where the orphan detector's uncapped BFS still finds one — a new disagreement between the two modules, manufactured by this fix compounding with a pre-existing difference. And the case-matching trap recorded in the second `STATUS.md` entry above applies to any shared mechanism fed canonicalized view names.
       *Sequencing note, Kirk's call, not decided here:* `ActivityForm - Germination` flips only because its one satisfying source view is unreachable, and reachability in Farmy is currently inflated by the table-less action-to-target join recorded in `STATUS.md` ("`navigation_edge_generator.py` joins actions to targets by name alone"). Doing this fix first means explaining its removals against an edge list known to contain fabricated edges.
-      **BRANCH CHOSEN 2026-09-06 (Kirk): branch (a), upstream.** Extend `action_target_parser.py` to capture the two missing shapes so the existing six condition fields are populated, and let `check_context_conditions` — which is already correct — do the refusing. Reasoning: it fixes the data rather than the reading of it, so every consumer of `navigation_edges.csv` benefits at once including the three orphan detectors never yet audited; and branch (b) would put a second expression parser in the consumers, which is precisely the duplication `CONSOLIDATION_PLAN.md` exists to undo and which has already cost this project one wrong answer in the visibility rules.
+      **BRANCH CHOSEN 2026-09-06 (Kirk): branch (a), upstream.** Extend `action_target_parser.py` to capture the two missing shapes so the existing six condition fields are populated, and let `check_context_conditions` — which is already correct — do the refusing. Reasoning: it fixes the data rather than the reading of it, so every consumer of `navigation_edges.csv` benefits at once including the three orphan detectors never yet audited; and branch (b) would put a second expression parser in the consumers, which is precisely the duplication `maintainer/CONSOLIDATION_PLAN.md` exists to undo and which has already cost this project one wrong answer in the visibility rules.
       *Sub-decision, taken with it:* a `LEFT(CONTEXT("View"), N) = "prefix"` test is EXPANDED at parse time against the known view list — the prefix resolves to the set of view names that actually begin with it, written into `must_be_in_views` in the existing format — rather than a seventh, prefix-carrying field being added. Simpler, and it keeps the field vocabulary unchanged. Known cost, accepted: the expansion is fixed at parse time, so a view renamed after the parse would need a re-parse to be reflected. That is already true of everything else in these CSVs.
       **SEQUENCED 2026-09-06: the table-less join fix goes FIRST**, before this item. `STATUS.md`, "`navigation_edge_generator.py` joins actions to targets by name alone" — Farmy's reachability is currently inflated by fabricated cross-table edges, and this item's done-when turns on one view (`ActivityForm - Germination`) flipping because its only satisfying source view is unreachable. That judgment must be made against an edge list that is not fabricating edges.
 
@@ -515,7 +515,7 @@ reference covers different ground rather than merely more of the same.
 
 ---
 
-## D. Consolidation — `CONSOLIDATION_PLAN.md`
+## D. Consolidation — `maintainer/CONSOLIDATION_PLAN.md`
 
 Do not start before section A. Steps 4 and 5 are only judgment calls because the
 answers are unknown; once A is done they become mechanical.
@@ -529,7 +529,7 @@ answers are unknown; once A is done they become mechanical.
       ADA's own answer, old implementation vs. new** (Farmy 970 actions × 319
       views = 309,430 pairs; Kankaku 560 actions × 197 views = 110,320 pairs; 0
       disagreements in either). This, not the CSV diff below, is what verifies
-      the step: nothing programmatic consumes ADA's answer (`CONSOLIDATION_PLAN.md`
+      the step: nothing programmatic consumes ADA's answer (`maintainer/CONSOLIDATION_PLAN.md`
       section 1), so a full re-parse would show zero diff even if the
       extraction were wrong. A full re-parse of both apps against their saved
       references was also run and came back byte-identical on every output
@@ -607,7 +607,7 @@ answers are unknown; once A is done they become mechanical.
       is tracked as step 3b below. **Increment-count figure corrected:** step
       3's grep (block A0) found eight `+= 1` sites, not nine — corrected here,
       in `STATUS.md`'s `84a651d` caution paragraph, and in
-      `CONSOLIDATION_PLAN.md` section 1.
+      `maintainer/CONSOLIDATION_PLAN.md` section 1.
       **Verified by a 204,827-pair differential comparison of NEG's own
       answer, old implementation vs. new** (Farmy 463 navigation targets × 319 views =
       147,697 pairs; Kankaku 290 navigation targets × 197 views = 57,130 pairs), run via
@@ -686,7 +686,7 @@ answers are unknown; once A is done they become mechanical.
       explains why an increase would not have looked alarming, not standing
       guidance that this step should still run. See `APPSHEET_BEHAVIOR.md`'s
       "Established behavior" entry for Prominent-on-Deck and
-      `CONSOLIDATION_PLAN.md` section 5's step 5 entry for the full record.
+      `maintainer/CONSOLIDATION_PLAN.md` section 5's step 5 entry for the full record.
 
 - [x] **Step 6: Deck/`Display_Overlay` parity, added to the plan 2026-09-01.**
       Done `96d8897`. Admitted Primary/`Display_Overlay` on deck views as a
@@ -710,7 +710,7 @@ answers are unknown; once A is done they become mechanical.
       871 and 16; ADA 0/1713 and 0/60; AOD (existential) 0/0 in both apps —
       why no orphan cleared: every action that gained deck visibility already
       had another reachable path. Full detail in `STATUS.md`'s matching
-      "Recently fixed" entry and `CONSOLIDATION_PLAN.md` section 5's step 6
+      "Recently fixed" entry and `maintainer/CONSOLIDATION_PLAN.md` section 5's step 6
       entry, including why the pre-implementation floor overstated Kankaku's
       real result by two orders of magnitude.
       *Done when:* met — see above.
@@ -734,7 +734,7 @@ answers are unknown; once A is done they become mechanical.
       "reached only by a Prominent action on a card view, undetermined," there may
       be no default to pick.
 
-      **RESOLVED AS A DECISION, 2026-09-05 (Kirk, Fable planning session) — the bucket no longer exists as a single question, and no permissive-versus-restrictive default is chosen.** `CONSOLIDATION_PLAN.md` section 2 had already decomposed the 120 views by type; the pieces now go three ways:
+      **RESOLVED AS A DECISION, 2026-09-05 (Kirk, Fable planning session) — the bucket no longer exists as a single question, and no permissive-versus-restrictive default is chosen.** `maintainer/CONSOLIDATION_PLAN.md` section 2 had already decomposed the 120 views by type; the pieces now go three ways:
       - **`form` (92) and `map` (7): settled F.** These are the section B "Map fall-through" item, which now covers both types — a specified code fix, not a decision.
       - **`dashboard` (3) and `calendar` (1): to be TESTED, not defaulted** — the new section A item above. Four views do not justify choosing which error to accept when one test each removes the choice.
       - **`card` (17): the one genuinely open piece, and it is not a default question either.** `APPSHEET_BEHAVIOR.md` (2026-09-05) established that card display is per-slot assignment in the Layout widget, which no prominence-keyed boolean can express. What decides its handling is one fact not yet checked: whether the export carries the Layout widget's per-slot action assignment. Recorded here as a READ-ONLY question for the execution session, with both branches written down so the answer needs no further decision: if the assignment IS in the export, parsing it is a bounded parser task of the same shape as the 2026-08-30 onClick/Layout-JSON fix; if it is NOT, card gets an entry in `APPSHEET_BEHAVIOR.md`'s scope-decisions section as an export gap and keeps its current verdicts. Either branch is POST-PUBLICATION unless the execution session finds it trivial — 17 card views do not hold up phase one.
@@ -765,7 +765,7 @@ code before trusting any predicted diff — this advice was reconfirmed three ti
 during step 6 (the pre-implementation floor for Kankaku, ~343 edges almost all from
 `Session flag`, overstated the real result of 5 by nearly two orders of magnitude,
 because it was not evaluated against `check_context_conditions` on a fresh parse —
-`CONSOLIDATION_PLAN.md` section 5's step 6 entry has the full accounting), and again
+`maintainer/CONSOLIDATION_PLAN.md` section 5's step 6 entry has the full accounting), and again
 during the `NOT(CONTEXT(...))` fix, whose own predicted done-when ("edges added, never
 removed") had to be corrected against what a fresh re-parse actually showed (see this
 section's own entry above).
@@ -779,7 +779,7 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
 
 ## E. Before contacting Leon
 
-- [x] **Push.** Done 2026-09-03: 72 commits, `2f0cb81..28164fd`. Pushed without squashing — the recorded plan had been to squash `adfdaac`'s correction into `18e7462` so a public reader never saw the wrong LINKTOFORM count, and that was dropped deliberately: rewriting the base of a 72-commit branch would have invalidated every commit hash cited across `STATUS.md`, `CONSOLIDATION_PLAN.md` and this file, and `adfdaac` sits two commits after the error and names it in its own subject line. Keeping the correction visible in history also matches how these documents already treat superseded reasoning.
+- [x] **Push.** Done 2026-09-03: 72 commits, `2f0cb81..28164fd`. Pushed without squashing — the recorded plan had been to squash `adfdaac`'s correction into `18e7462` so a public reader never saw the wrong LINKTOFORM count, and that was dropped deliberately: rewriting the base of a 72-commit branch would have invalidated every commit hash cited across `STATUS.md`, `maintainer/CONSOLIDATION_PLAN.md` and this file, and `adfdaac` sits two commits after the error and names it in its own subject line. Keeping the correction visible in history also matches how these documents already treat superseded reasoning.
 
 - [x] **Report the broken view references in Leon's app — nine names, not
       twelve.**
@@ -844,8 +844,8 @@ answers. This was confirmed on 2026-08-31, when a `wc -l` count of
       analyzer answers which class of question, and the documented blind
       spots) and has no verification loop to catch a shallow result. Kirk has
       credits for Claude Fable and this is the phase-one task where that
-      capability fits. Practical note: hand the model `RELEASE_CHECKLIST.md`,
-      `STATUS.md`, `CONSOLIDATION_PLAN.md`, `APPSHEET_BEHAVIOR.md`, and the two
+      capability fits. Practical note: hand the model `maintainer/RELEASE_CHECKLIST.md`,
+      `STATUS.md`, `maintainer/CONSOLIDATION_PLAN.md`, `APPSHEET_BEHAVIOR.md`, and the two
       2026-09-02 audit reports — private working notes, kept outside this
       repository —
       (`~/Documents/雑学/260505 0852 AppSheet orphan script possible issues/260902_view_orphan_path_analysis_notes.md`,
