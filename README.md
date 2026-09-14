@@ -115,8 +115,8 @@ AppSheetAnalysis/
 │       ├── actions.txt
 │       ├── views1.txt
 │       ├── views2.txt
-│       ├── formulas.json
-│       └── values.json
+│       ├── <spreadsheet name>_formulas_<YYYYMMDD-HHmmss>.json
+│       └── <spreadsheet name>_values_<YYYYMMDD-HHmmss>.json
 └── output/
     └── <snapshot>/
         ├── app/             # the app-side CSVs
@@ -124,6 +124,10 @@ AppSheetAnalysis/
         ├── gates/           # gate reports (maintainer use)
         └── investigations/  # agent-written reports
 ```
+
+The last two files are `sheet_capture.gs`'s own output names, unrenamed — see below for where they come from. A literal `formulas.json`/`values.json` is recognized exactly the same way, so either naming works; nothing here requires renaming a capture you've already taken.
+
+**Where the two capture files come from.** Paste `sheet_capture.gs` into the workbook's Apps Script editor (Extensions → Apps Script), authorize it, and run its `captureWorkbook()` function. It writes both files to a Google Drive folder named `sheet_dumps`, created at your Drive's root the first time it runs — not next to the workbook, and not downloaded to your machine automatically. Open that folder in Drive and download the two files yourself into `apps/<snapshot>/`, alongside the four app-side files above.
 
 Recommended snapshot naming, for runs from now on: `<appname>_<YYYYMMDD_HHMMSS>` — the same name for both the `apps/<snapshot>/` directory and its `output/<snapshot>/` counterpart, so the two are found together by construction. (Directories from before this convention used a doubled timestamp and role words like `baseline`/`regression_reference`; those stay exactly as they are — see `STATUS.md`'s 2026-09-14 entry.)
 
@@ -135,7 +139,19 @@ Recommended snapshot naming, for runs from now on: `<appname>_<YYYYMMDD_HHMMSS>`
 
 Because a flat input directory can silently be missing half of what a snapshot needs, `python -m sheet_derivation.snapshot <snapshot_dir>` reports exactly what it found and what it didn't — which app-side files are present, which capture files are present, and anything present but not recognized — rather than leaving a missing half invisible until something downstream fails confusingly.
 
-`sheet_derivation`'s own stages, its runner, and its maintainer gate-check scripts are all still ordinary command-line programs — every one of them (`python -m sheet_derivation.stageN`, `python -m sheet_derivation.run`, `python -m sheet_derivation.gates.<name>`) can be run directly from a terminal, same as the app-side parsers and detectors above. An `apps/<snapshot>/` directory can be passed directly as a capture directory to any of them (its `formulas.json`/`values.json` are found the same way any other capture directory's files are); nothing about this layout is required for direct invocation to work, and an explicit path argument always overrides any default.
+**The exact commands, both halves, run from inside this repository's own directory** (so `apps/` and `output/` — one level up, alongside the repository — are reached with `../`, matching the "Run the suite" step above):
+
+```bash
+python master_parser_and_orphan_detector.py "../apps/<snapshot>/Application Documentation.html" -o "../output/<snapshot>/app" --output-as-is
+```
+
+```bash
+python -m sheet_derivation.run "../apps/<snapshot>" "../output/<snapshot>/sheet"
+```
+
+The two are always separate commands — nothing in this repository runs both together, and there is no required order between them (stage 5's optional `--appside-parse-dir` is the only place one reads the other's output, and only if you point it there). `--output-as-is` on the first command is what makes it write straight into `../output/<snapshot>/app`; without it (as in the "Run the suite" step above, for the older sibling-folder layout), it creates its own additional timestamped subfolder underneath whatever `-o` is given instead, which is what every parse-directory name already cited elsewhere in this project's own documents was produced by, and still is by default.
+
+`sheet_derivation`'s own stages, its runner, and its maintainer gate-check scripts are all still ordinary command-line programs — every one of them (`python -m sheet_derivation.stageN`, `python -m sheet_derivation.run`, `python -m sheet_derivation.gates.<name>`) can be run directly from a terminal, same as the app-side parsers and detectors above. An `apps/<snapshot>/` directory can be passed directly as a capture directory to any of them (its two capture files are found by pattern — matching `sheet_capture.gs`'s own naming or a literal `formulas.json`/`values.json` alike — the same way `python -m sheet_derivation.snapshot` finds them, above); nothing about this layout is required for direct invocation to work, and an explicit path argument always overrides any default.
 
 **The gate scripts' own `--output-dir` default is `<workspace>/output/gates` — not any snapshot's own `output/<snapshot>/gates/`.** It exists so an ad hoc gate-check run has somewhere sensible to land without an argument, but it is one shared location, not a per-snapshot one: a later run there overwrites an earlier one's reports. For a run whose reports are meant to be kept as part of a specific snapshot's record, pass `--output-dir` explicitly, pointed at that snapshot's own `output/<snapshot>/gates/`.
 
