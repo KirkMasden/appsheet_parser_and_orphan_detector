@@ -55,6 +55,7 @@ These rules are not stylistic. Each was learned by getting a wrong answer withou
 - `STATUS.md` — known defects, recently-fixed entries with commit hashes, and remaining work. Read this before trusting any output.
 - `APPSHEET_BEHAVIOR.md` — a specification of AppSheet's own client behavior, with sources and an Unknowns section. Platform rules live here, not in STATUS.md.
 - `maintainer/CONSOLIDATION_PLAN.md` — the design for unifying the visibility logic, which is currently implemented in more than one place.
+- `AGENT_REPORT_FORMAT.md` — agent-facing, not human-facing: what to verify before reporting a finding back to the maintainer, and the shape that report should take. Read it before writing one, not after.
 
 ## CSV output reference
 
