@@ -1,16 +1,29 @@
 """Stage 1: normalization built on the token stream (design section 5,
 Stage 1 spec R3-R5).
 
-Two formulas belong to the same pattern when they differ only in row
-numbers within A1-style references. The rule is asymmetric on purpose
+Two formulas belong to the same pattern when they differ only in RELATIVE
+row numbers within A1-style references. The rule is asymmetric on purpose
 (design section 5): over-splitting costs a line in the inventory,
 over-merging hides a one-off formula inside a crowd with no trace it was
 ever there. Everything here is written to split on doubt, never merge.
 
+A row number preceded by '$' is not a relative offset -- it is a fixed
+anchor, e.g. the 26 in 'Collate!$AB$26'. Two formulas differing only in
+which anchor row they point at are not the same pattern: normalizing an
+anchored row away would silently drop one of two genuinely different
+constants from the inventory (only one raw instance is kept per pattern),
+with nothing in the artifact indicating anything went missing. Whether a
+row is anchored is read from the token's own text -- a '$' immediately
+before the digit run -- never inferred from context or from a cell's
+column.
+
 This is the ONLY normalization path artifact-producing code may use. The
 probe-equivalent, string-literal-normalizing comparison mode required for
 Gate A lives in verify.py, not here, and nothing in this module imports
-it -- see verify.py's docstring for why.
+it -- see verify.py's docstring for why. verify.py's own regex reproduces
+the probe's historical behavior, anchored-row blindness included; it is
+not changed by this rule, since Gate A's whole purpose is comparison
+against what the probe actually measured, not against what is correct.
 """
 
 import re
@@ -18,15 +31,33 @@ from typing import Tuple
 
 from .tokenizer import Token, TokenKind
 
-_TRAILING_DIGITS_RE = re.compile(r"[0-9]+$")
+# An optional '$' immediately before the trailing digit run, captured so
+# the replacement can tell the two cases apart -- see _rewrite_trailing_digits.
+_TRAILING_DIGITS_RE = re.compile(r"(\$?)([0-9]+)$")
 
 
 def _rewrite_trailing_digits(span_text: str) -> str:
-    """An A1_REFERENCE token's text, e.g. 'M153', '$AB$153', 'J' (no
-    digits -- the digits-omitted column-only form). Replaces the trailing
-    digit run with '#' if one exists; a column-only reference has nothing
-    to rewrite and is returned unchanged."""
-    return _TRAILING_DIGITS_RE.sub("#", span_text, count=1)
+    """An A1_REFERENCE token's text, e.g. 'M153', '$AB$153', 'AB$153',
+    'J' (no digits -- the digits-omitted column-only form). Replaces the
+    trailing digit run with '#' UNLESS it is immediately preceded by '$'
+    (a fixed anchor, not a relative row offset) -- '$AB$153' and 'AB153'
+    are therefore rewritten differently ('$AB$153' unchanged, 'AB153' ->
+    'AB#'), because only one of the two digit runs is a relative offset a
+    pattern should collapse across. A column-only reference has no digit
+    run to rewrite and is returned unchanged either way.
+
+    Written as a single regex with a captured, optional leading '$'
+    rather than a lookbehind on the digit run itself: a lookbehind here
+    would only block a match from STARTING immediately after a '$', not
+    the digit run as a whole, so a greedy `[0-9]+` would back off and
+    match a shorter, un-anchored suffix of the same run instead of
+    correctly leaving the whole thing alone (checked directly: naively
+    written, '$AB$26' would incorrectly become '$AB$2#').
+    """
+    def _replace(match: "re.Match") -> str:
+        return match.group(0) if match.group(1) == "$" else "#"
+
+    return _TRAILING_DIGITS_RE.sub(_replace, span_text, count=1)
 
 
 def normalize_pattern(formula: str, tokens: Tuple[Token, ...]) -> str:
