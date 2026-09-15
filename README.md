@@ -15,7 +15,7 @@ The **AppSheet Parser Suite** is a collection of modular Python scripts that ana
 
 ### 📘 Full Technical Documentation
 
-The full documentation—including setup, architecture, and phase-by-phase explanations—is hosted here:
+The full documentation—including setup and guidance on working with an AI agent—is hosted here:
 
 👉 [Read the full documentation](https://files.kirkmasden.com/AppSheet/appsheet-parser-docs-complete.html)
 
