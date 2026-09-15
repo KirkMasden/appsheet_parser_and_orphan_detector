@@ -32,6 +32,14 @@ When answering a reachability question, say which of these applies rather than p
 
 **A CSV identity is not an in-app location.** Limitation 3 above has a resolution path the suite cannot execute: the user opens the running app, performs the action, and reports what happened. Directing that test is a different task from locating a component, and the parse does not currently support it. An instruction of the form "the action X on table Y" identifies a row in `appsheet_actions.csv`; it does not tell anyone which screen to open or where on that screen to tap. Resolving an action to a tappable location requires composing several things the suite holds separately — the action's attach-to column, the views that render that column, and a navigation path to one of those views — and no module does this today. Until it does, say plainly that the parse does not record where a component appears on screen, and ask the user what they observe rather than assuming they can find it.
 
+## What the scripts need to run
+
+The scripts are written in Python 3 and need one third-party library, `beautifulsoup4`. Nothing else is required.
+
+Check for both before running anything, and install whatever is missing — asking the user's permission first if you do not already have it. The published setup instructions tell users that their agent will do this, so they are not expecting to have prepared anything in advance.
+
+If the user has already created a virtual environment (README.md describes one, for running the scripts by hand from a terminal), use it rather than installing alongside it.
+
 ## How to use this suite well
 
 These rules are not stylistic. Each was learned by getting a wrong answer without it.
