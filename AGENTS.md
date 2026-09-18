@@ -40,6 +40,16 @@ Check for both before running anything, and install whatever is missing — aski
 
 If the user has already created a virtual environment (README.md describes one, for running the scripts by hand from a terminal), use it rather than installing alongside it.
 
+Before parsing, run `python -m sheet_derivation.snapshot <folder>` on the user's input folder. It reports which of the expected input files are present and which are missing, and warns if two files look like the same capture. It only reads the directory listing, changes nothing, and tells the user what is missing before a parse fails on it.
+
+`bot_actions.txt` is optional and written by hand: one action name per line, listing the actions the user's bots call. The suite has no other way to know an action is called by a bot, so without this file those actions are reported as orphan candidates. If the user's app uses bots and the file is absent, say so rather than treating the orphan list as complete.
+
+## The workspace layout
+
+Each set of files to be parsed goes in its own folder under apps/, with all the prepared files sitting directly in it and no subfolders. What the scripts produce is sorted into subfolders: output/<name>/ takes the same name as the input folder and separates the results into app/, sheet/, gates/ and investigations/.
+
+The difference is deliberate: keep it simple where a human assembles, sorted where a human or an agent reads. Assembling the input folder is the step a user can get wrong, and a handful of files with fixed names in one folder is the easiest shape to get right by hand. Reading the output is a different job, done by a human or an agent who benefits from the sorting instead. Do not "fix" this into one shape or the other; the difference is the point, not an inconsistency.
+
 ## How to use this suite well
 
 These rules are not stylistic. Each was learned by getting a wrong answer without it.
@@ -57,6 +67,8 @@ These rules are not stylistic. Each was learned by getting a wrong answer withou
 **Check attributions before asserting them.** Three attributions were asserted without checking in one session of this project; two were wrong. Each check would have cost seconds.
 
 **Say when the data does not answer the question.** These CSVs are incomplete in known ways, recorded in STATUS.md. An explicit "the parse does not record this" is more useful than an inference presented as a finding.
+
+The code uses the word "snapshot" — the module `sheet_derivation.snapshot`, the `<snapshot>` path token — but Kirk does not want it in anything he or his users read. Use plain descriptions instead: "the folder of files to be parsed", "the captured data", "the app's files". Use the word only when naming the module or command itself.
 
 ## Where to look
 
@@ -576,6 +588,10 @@ A user's only manual step is the capture. They paste the Apps Script into their 
 The stages run in order and each reads what the one before it produced. Never recompute something an earlier stage already states — stage 4 reads stage 3's column profiles rather than measuring them again, and a stage that recomputes an upstream fact can disagree with it, which is the failure the ordering exists to prevent.
 
 Each stage has a gate: a set of measured numbers it must reproduce. A gate that fails is a finding to report, not a number to adjust. If you find yourself changing an expected value so a gate will pass, stop and report instead.
+
+The gate-check scripts under sheet_derivation/gates/ only write reports. A failing comparison does not stop anything and nothing downstream reads their exit codes; the report is for you to read and investigate. This is separate from the three refusal gates in loader.py, which do halt a run by raising CaptureIntegrityError when the two capture files disagree.
+
+Their --output-dir default is <workspace>/output/gates — not any input folder's own output/<name>/gates/. It exists so an ad hoc gate-check run has somewhere sensible to land without an argument, but it is one shared location: a later run there overwrites an earlier one's reports. For a run whose reports are meant to be kept as part of a specific folder's record, pass --output-dir explicitly, pointed at that folder's own output/<name>/gates/.
 
 Artifacts are JSON Lines, one self-contained item per line, with flat CSV projections beside them only where the data is genuinely flat; the projections are marked derived and regenerable, and the JSONL is authoritative. Gate and verification reports are markdown and are written for people. Nothing this tool writes is ever truncated.
 
