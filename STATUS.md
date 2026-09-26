@@ -55,6 +55,7 @@ Of the four false-positive categories originally reported, three are fixed (see 
 ### Malformed `type_qualifier` JSON silently drops two Kankaku columns
 
 - `Settings[Update success]` and `Settings[Update success J]` have unescaped quotes inside the `Show_If` string in their `type_qualifier` blob, so `json.loads()` fails on them. Their Show_If is visibly non-empty in the raw field but uncountable by any consumer that parses the blob. Found 2026-09-03. Two rows in one app; the frequency in other apps is unknown.
+- Recurred unchanged in the Kankaku V19 export of 2026-09-25: the same two columns, and no others, fail `json.loads()`.
 
 ### 23 Farmy inline actions attach to columns that do not exist
 
@@ -684,6 +685,27 @@ first time it has been saved as a regression baseline alongside Farmy's.
 - **Consequence.** The parsed CSV's action type cannot be trusted for any add-row action in any app. Reasoning from the CSV alone concludes such an action edits existing rows when it creates new ones — a material difference when asking what an action does to a table. Until fixed, confirm action type from the raw HTML for any action with a `ReferencedTable` and an `Assignments` list.
 - Found 2026-09-21, during a Kankaku investigation. Not fixed.
 
+### The sheet join pairs each table with a tab by the table's own name, ignoring the worksheet the export names
+
+- Stage 5 looks up each table's tab with `sheets_by_name.get(table)` (`sheet_derivation/stage5.py`, line 512) — the table's name, not its source. The HTML export records the source for every table in its "Worksheet Name/Qualifier" row (`for="SourceQualifier"`), beside a "Source Path" row (`for="SourcePath"`); nothing in the parser or in `sheet_derivation/` reads either field today (confirmed by grep over every `.py` and `.gs` file, 2026-09-26).
+- **Confirmed instance.** On the Kankaku V19 real-use run of 2026-09-25 (output folder `output/KankakuV19_20260925_194211/sheet/`), the `Kankaku` table, whose export gives its worksheet as `Main data`, was reported `table-matching-no-tab`, all 157 of its column rows with it. `stage5_column_summary.csv` holds 172 `table-matching-no-tab` rows in all (counted with Python's `csv` module): those 157 plus 15 for `_Per User Settings`, a native AppSheet table with no worksheet, for which no tab is correct.
+- The same result was already visible when stage 5 was built on the V18 capture ("`Kankaku` and `_Per User Settings` matching none", under "Phase two" below) but was recorded as a gate number, not recognized as a defect.
+- **Consequence.** Table names that differ from their tab names are common, so on many apps the join fails quietly for those tables: their columns are reported as having no tab rather than being compared with the tab they actually read.
+- **Planned fix.** Parse `SourceQualifier` from the export — `sheet_derivation/appside_parse.py` already reads the neighbouring `DefnFolderName` row in `extract_app_identity`, so the pattern is in place — and join each table to the tab it names. Not fixed.
+
+### The documented sheet-side command produces no join, and nothing tells the user
+
+- `README.md`'s sheet-side command (`python -m sheet_derivation.run "../apps/MyApp_20260914_101500" "../output/MyApp_20260914_101500/sheet"`) does not pass `--appside-parse-dir`. `run.py` declares that argument optional with no default, so stage 5 runs with no app-side results and writes an ABSENT placeholder (`_absent_join` in `sheet_derivation/stage5.py`).
+- Confirmed by running exactly that command against the Kankaku V19 input folder into a scratch directory, 2026-09-26: `stage5_column_summary.csv` and `stage5_label_summary.csv` each hold a header line and nothing else; `stage5_join.jsonl` holds one meta line with `"present": false` and a reliability condition beginning "This artifact is ABSENT: no app-side parse directory was given". The console printed only "stage 5: wrote" and the three paths — no mention that the join is absent. A user who does not open the JSONL has no way to know.
+- The published documentation page probably carries the same command. It lives on the server, not in this repository, and has not been checked.
+- **Planned fix.** `run.py` should find the app-side results automatically when the documented layout is used (`output/<name>/app/` beside `output/<name>/sheet/`), and the README and the published page should be updated to match. Not fixed.
+
+### Unexplained, not yet known to be defects — Kankaku V19 real-use run, 2026-09-25
+
+- **View count.** The export parses to 197 views (`appsheet_views.csv`, counted with Python's `csv` module), but `views1.txt` and `views2.txt` list 247, as reported by the run. The 247 figure was not independently recounted. Which side is right, and why the two differ, is not established.
+- **Header rows undetermined on six tabs, including one whose row 1 is plainly a header.** Stage 4 reports `Main data`, `Options`, `Seminar`, `Settings`, `Stats` and `Welcome` as header-undetermined (`stage4_sheet_summary.csv`). `Main data`'s row 1 has all 40 cells filled, with no formulas, and 39 of the `Kankaku` table's 41 non-virtual app columns appear there verbatim; the other two are `_RowNumber`, which is not a sheet column, and `DW last view Change Time`, whose header carries the trailing space already recorded under "Phase two" below. Why stage 4 does not identify it is not established.
+- **Two columns skipped for malformed type settings.** These are `Settings[Update success]` and `Settings[Update success J]`, the same two already recorded above under "Malformed `type_qualifier` JSON silently drops two Kankaku columns" — a recurrence in V19, not a new finding.
+
 ## Recently fixed
 
 Entries from `48eead1` onward carry full verification detail — row counts, byte-identical claims, named views. Earlier entries are compressed summaries; for the fuller reasoning behind one of those, read that commit's own message rather than expecting it here.
@@ -959,6 +981,19 @@ build follows.
 - **The undetermined diagnostic — measurement, never derivation.** Six of the eight matched tables sit on tabs stage 4 reports header-undetermined; for each, this stage separately reads row 1's raw evaluated values directly from the CAPTURE (never from stage 4, which correctly withholds label text for a verdict it never reached) and reports, as a clearly-separated diagnostic, how many app column names agree with row 1 verbatim or after whitespace-collapse. This never changes the `tab-header-not-identified` state those same columns carry in the join proper, and stage 4's own three output files were hashed before and after this stage ran and confirmed byte-identical — nothing on the sheet side is derived from the app side, per design section 4.4's own 2026-09-09 rejection of that exact proposal.
 - **Every precheck gate held, each explained by a named cell, nothing tuned:** 10 AppSheet tables, 8 matching a tab by exact name (`Kankaku` and `_Per User Settings` matching none); `Settings` 35/35 header labels matched; `Options` 23/23; `Archive` 32 header labels, 31 matched, the expected single miss confirmed by direct inspection — `Archive!V1` (`Main data!X1` carries the identical defect) holds `"DW last view Change Time "` with a trailing space against the app-side column `"DW last view Change Time"`, surfaced correctly as a whitespace near-miss rather than an unmatched header, the working test of that state. Workbook-wide: 1,064 app columns and 75 header labels (all `exact-match`; `Overall` 34 + `Progress` 41) each partitioned into exactly one state, asserted at build time.
 - **264 tests total** (`sheet_derivation/tests/`, all passing, 1 additional real-join determinism test opt-in via an environment variable and skipped by default) — 45/61/26/35/50 for stages 0-4, 47 for stage 5 (stage5 core 31, the app-side loader 7, the artifact-file writer 7, cross-process determinism 2).
+
+### Planned: a check that an export and a capture belong to the same app
+
+- On 2026-09-25 a Kankaku V19 export was nearly paired with a capture of an unrelated workbook. The input-folder check (`python -m sheet_derivation.snapshot`) reads file names only and could not catch it. The export carries no spreadsheet ID, Drive file ID or URL for any table (searched in the raw HTML of both Kankaku exports, 2026-09-25), so an ID match is not available.
+- **Planned: a structure check.** Every Google table's worksheet name (`SourceQualifier`) should appear among the capture's sheet names. It depends on the same `SourceQualifier` parsing as the join fix above ("The sheet join pairs each table with a tab by the table's own name").
+- **Intended behaviour.** Warn when the evidence is partial or cannot decide. Stop, with an explicit override, when none of the app's worksheet names appear in the capture, because a mismatched pair produces reports that look valid — consistent with the loader's existing refusal when the two capture files disagree.
+- **Limit.** The structure check cannot tell sibling versions apart: all nine worksheet names in the Kankaku V19 export appear in both the V18 and the V19 capture.
+- **Idea only, not planned: matching the Drive folder.** `sheet_capture.gs` would record the spreadsheet's ID and its folder path, compared with the folder part of each table's `SourcePath` (e.g. `/appsheet/data/KankakuV19-231380/`). It is the only way found to tell sibling versions such as V18 and V19 apart, but it needs changes on both sides, works only for new captures, and fails if the workbook is moved out of the app folder. Pursue it only if a sibling mix-up actually happens.
+- **Names alone give false alarms.** Both Kankaku exports give the file in `SourcePath` as `Kankaku.gsheet`, while the captures name the workbooks `260411 Kankaku V18` and `Kankaku V19`. The genuine pairs would fail a name comparison.
+
+### Idea: flag blank cells in sheet columns the app always fills with an initial value
+
+- On Kankaku V19, cards entered by hand directly into the sheet had blank `Cram only`, `Early bird` and `Early date` cells where the app would have written values, and that broke the session-increment step ("Update session start number with session increment" selected no card; see `APPSHEET_BEHAVIOR.md`, "Blank operands in `=` and `<>`"). A flag for blank cells in columns that carry an app-side initial value would have pointed straight at them. Idea only, not planned.
 
 ## Private working notes
 

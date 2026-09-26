@@ -477,6 +477,40 @@ on its own; none is inferred from a sibling.
   stored view name (`View: Card Stats | Table: Card stats`), so a case error is
   invisible in that display.
 
+## Blank operands in `=` and `<>`
+
+UNSETTLED. Two sources agree that `=` returns TRUE when one operand is blank,
+whatever the other holds, and disagree about which operand:
+
+- **Right-hand operand blank.** Source, Google's documentation, the `ISBLANK()`
+  help page (<https://support.google.com/appsheet/answer/10107337?hl=en>): "the
+  is-equal-to operator (`=`) will always return `TRUE` if the second operand is a
+  blank value, regardless of the first operator." The page says nothing about `<>`.
+- **Left-hand operand blank.** Source, community forum: an AppSheet expert (Steve,
+  23 April 2021,
+  <https://discuss.google.dev/t/comparing-column-values-before-and-after/65372/2>):
+  "There is a quirk with the is-equal operator (and the is-not-equal operator) where
+  if the left-side operand is blank, the expression is TRUE regardless of the
+  right-side value."
+
+The documentation is the stronger source by kind, but it is a single sentence on a
+page about a different function; the forum answer is a single expert statement, and
+it is the only one of the two that mentions `<>`. Neither has been tested here. Both
+could be partly true, but neither source says so.
+
+Why it matters: expressions like `[Start at session no] = 0` or `[Cram only] <> TRUE`
+put the column on the left, and the column is the side that may be blank. Under the
+forum reading, a blank column makes both expressions TRUE; under the documentation's
+reading, a blank on the left is not covered at all.
+
+Observed context, which does not settle the question: on Kankaku V19, 2026-09-25,
+rows entered directly into the sheet had blank Yes/No and date cells (`Cram only`,
+`Early bird`, `Early date`) that the app would normally fill, and the action "Update
+session start number with session increment" stopped selecting any card. Filling
+the cells fixed it. The cells were filled together, so which blank was decisive, and
+through which operator, was not isolated. Settling it needs a test in the expression
+tester with a blank column on each side of `=` and of `<>`.
+
 ## AppSheet validates shape, not meaning
 
 AppSheet rejects most malformed expressions at save time, so this suite's real
@@ -569,3 +603,7 @@ Prominent-on-Deck and Overlay-on-Deck are now settled by direct observation (see
 "Established behavior" above) — Prominent-on-Deck for the Manual-list-membership
 case specifically, not yet for Automatic mode. Those are several different grades
 of evidence and this file does not treat them as one.
+
+How `=` and `<>` treat a blank operand — left or right — is unsettled, with a
+documentation source and a forum source disagreeing; see "Blank operands in `=` and
+`<>`" above.
