@@ -28,14 +28,17 @@ did not, so that gap surfaces immediately rather than downstream as a
 confusing failure (or, worse, no failure at all).
 
 A folder can also hold all six files and still be wrong: an export from
-one app beside a capture of an unrelated workbook. When both the export
-and a capture file are present, this module runs the same pairing check
-run.py runs (pairing.py): it compares the worksheet names the export
-gives for its Google tables with the capture's sheet names, warns when
-some are missing, and exits with status 3 when none are present, unless
---allow-mismatch is given. That check reads the export and one capture
-file; everything else here is the directory listing only. Nothing here
-writes anything.
+one app beside a capture of an unrelated workbook, or beside .txt files
+pasted from another app. When the export is present, this module runs the
+pairing check (pairing.py): the worksheet names the export gives for its
+Google tables against the capture's sheet names -- the same comparison
+run.py makes -- and, here only, the view and action names in the three
+.txt files against the export's (run.py reads none of those files). It
+warns when some names are missing, and exits with status 3 when none of
+the worksheet names, or almost none of a .txt file's names, are present,
+unless --allow-mismatch is given. That check reads the export, one
+capture file and the .txt files; everything else here is the directory
+listing only. Nothing here writes anything.
 """
 
 import argparse
@@ -50,8 +53,10 @@ from .pairing import (
     OVERRIDE_OPTION,
     PairingResult,
     check_pairing,
+    check_txt_pairing,
     find_capture_file_for_sheet_names,
     format_pairing,
+    format_txt_pairing,
 )
 
 APP_SIDE_FILES: Tuple[str, ...] = (
@@ -252,12 +257,23 @@ def main(argv=None) -> int:
     print(format_report(contents))
 
     pairing = pairing_for(contents)
-    if pairing is None:
+    txt_results = (
+        check_txt_pairing(contents.snapshot_dir)
+        if "Application Documentation.html" in contents.app_side_found else []
+    )
+    if pairing is None and not txt_results:
         return 0
     print("")
-    for line in format_pairing(pairing, allow_mismatch=args.allow_mismatch):
-        print(line)
-    if pairing.stops and not args.allow_mismatch:
+    stops = False
+    if pairing is not None:
+        for line in format_pairing(pairing, allow_mismatch=args.allow_mismatch):
+            print(line)
+        stops = stops or pairing.stops
+    for result in txt_results:
+        for line in format_txt_pairing(result, allow_mismatch=args.allow_mismatch):
+            print(line)
+        stops = stops or result.stops
+    if stops and not args.allow_mismatch:
         return EXIT_PAIRING_STOPPED
     return 0
 

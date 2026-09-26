@@ -552,7 +552,8 @@ def write_appside_columns_csv(tmpdir: str, rows: List[dict], include_is_virtual:
 
 
 def write_export_html(tmpdir: str, tables: List[Tuple[str, str, str]], include_qualifier: bool = True,
-                      filename: str = "Application Documentation.html", columns: dict = None) -> str:
+                      filename: str = "Application Documentation.html", columns: dict = None,
+                      views: List[str] = None, actions: List[str] = None) -> str:
     """Writes a minimal HTML export holding one table block per
     `(table, worksheet, data_source)` entry, in the row format AppSheet's
     own export uses. A worksheet of None writes no "Worksheet
@@ -560,7 +561,9 @@ def write_export_html(tmpdir: str, tables: List[Tuple[str, str, str]], include_q
     table; `include_qualifier=False` writes none for any table, as an
     export lacking the field would. `columns`, when given, maps a table to
     its columns as `(name, is_virtual, is_system)` tuples and writes the
-    export's schema section for them; a flag of None omits that row."""
+    export's schema section for them; a flag of None omits that row.
+    `views` and `actions`, when given, write one view or action block per
+    name, as the export's views and actions sections do."""
     def row(field, label, value):
         return (f'<tr><td><label class="" for="{field}" data-toggle="tooltip" title="x">{label}'
                 f'</label></td><td>{value}</td></tr>\n')
@@ -588,6 +591,11 @@ def write_export_html(tmpdir: str, tables: List[Tuple[str, str, str]], include_q
                 parts.append(row("IsSys", "System Defined?", "Yes" if is_system else "No"))
             if is_virtual is not None:
                 parts.append(row("IsVirtual", "Virtual?", "Yes" if is_virtual else "No"))
+            parts.append("</tbody>\n</table>\n")
+    for kind, names in (("View name", views or []), ("Action name", actions or [])):
+        for k, name in enumerate(names):
+            parts.append(f'<table class="react-bridge-group" data-type="Controls" data-index="{k}">\n<tbody>\n')
+            parts.append(row("Name", kind, name))
             parts.append("</tbody>\n</table>\n")
     parts.append("</body></html>\n")
     path = os.path.join(tmpdir, filename)

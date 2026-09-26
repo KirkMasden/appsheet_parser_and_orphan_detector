@@ -298,7 +298,7 @@ class ViewsParser(BaseParser):
             # Load just views1.txt
             views1_data = self.parse_views_file(views1_path)
             self.update_view_mappings(views1_data)
-            print(f"  ✅ Loaded {len(views1_data)} view mappings from views1.txt")
+            print(f"  ✅ Loaded {self._real_view_count(views1_data)} view mappings from views1.txt")
             return True
             
         elif not views1_exists and views2_exists:
@@ -308,7 +308,7 @@ class ViewsParser(BaseParser):
             # Load just views2.txt
             views2_data = self.parse_views_file(views2_path)
             self.update_view_mappings(views2_data)
-            print(f"  ✅ Loaded {len(views2_data)} view mappings from views2.txt")
+            print(f"  ✅ Loaded {self._real_view_count(views2_data)} view mappings from views2.txt")
             return True
         
         # Both files exist - proceed with comparison
@@ -317,8 +317,13 @@ class ViewsParser(BaseParser):
         views1_data = self.parse_views_file(views1_path)
         views2_data = self.parse_views_file(views2_path)
         
-        views1_count = len(views1_data)
-        views2_count = len(views2_data)
+        # Count only real views: an entry with neither a data source nor a
+        # view type is a line of the paste that is not a view (a section note
+        # such as "These views are accessed via...", or a slice group heading
+        # "X (slice)"). Those entries are harmless in the mappings -- no view
+        # carries those names -- but counting them overstated both totals.
+        views1_count = self._real_view_count(views1_data)
+        views2_count = self._real_view_count(views2_data)
         
         print(f"  📊 Found views1.txt ({views1_count} views) and views2.txt ({views2_count} views)")
         
@@ -340,14 +345,15 @@ class ViewsParser(BaseParser):
             
             # Just use views1 data
             self.update_view_mappings(views1_data)
-            print(f"  ✅ Loaded {len(views1_data)} views")
+            print(f"  ✅ Loaded {self._real_view_count(views1_data)} views")
             return True
         
         # Identify system views
         system_view_names = set(with_system.keys()) - set(without_system.keys())
         self.system_views = system_view_names
         
-        print(f"  ✅ Found {len(system_view_names)} system views and {len(without_system)} user views")
+        real_system_count = self._real_view_count({k: with_system[k] for k in system_view_names})
+        print(f"  ✅ Found {real_system_count} system views and {self._real_view_count(without_system)} user views")
         
         # Use the complete data (with system views)
         self.update_view_mappings(with_system)
@@ -359,6 +365,15 @@ class ViewsParser(BaseParser):
         
         return True
     
+    @staticmethod
+    def _real_view_count(views_data):
+        """Number of entries in a parsed views file that are views: those
+        carrying a data source or a view type from their detail line."""
+        return sum(
+            1 for info in views_data.values()
+            if info.get('data_source') is not None or info.get('view_type') is not None
+        )
+
     def update_view_mappings(self, views_data):
         """Update the view mappings with data from parsed file."""
         for view_name, info in views_data.items():

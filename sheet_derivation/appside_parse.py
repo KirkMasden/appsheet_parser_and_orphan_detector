@@ -334,6 +334,49 @@ def extract_table_sources(html_path: Optional[str]) -> Optional[ExportTableSourc
     )
 
 
+# ---------------------------------------------------------------------------
+# View and action names. Views, actions and format rules share one block
+# type in the export (`data-type="Controls"`); each block's name row says
+# which it is by its label ("View name", "Action name", "Rule name").
+# ---------------------------------------------------------------------------
+
+_CONTROLS_BLOCK_RE = re.compile(
+    r'<table[^>]*data-type="Controls"[^>]*>(.*?)</table>', re.IGNORECASE | re.DOTALL
+)
+_CONTROL_NAME_RE = re.compile(
+    r'for="Name"[^>]*>\s*([^<]*?)\s*</label></td><td>([^<]*)</td>', re.IGNORECASE
+)
+
+
+@dataclass(frozen=True)
+class ExportControlNames:
+    views: Tuple[str, ...]  # export order
+    actions: Tuple[str, ...]  # export order; an action name recurs once per table
+
+
+def extract_control_names(html_path: Optional[str]) -> Optional[ExportControlNames]:
+    """Every view name and action name the export defines. None if
+    `html_path` is None."""
+    if html_path is None:
+        return None
+    with open(html_path, "r", encoding="utf-8", errors="replace") as fh:
+        content = fh.read()
+    views, actions = [], []
+    for block_match in _CONTROLS_BLOCK_RE.finditer(content):
+        m = _CONTROL_NAME_RE.search(block_match.group(1))
+        if not m:
+            continue
+        label = m.group(1).strip().lower()
+        name = html.unescape(m.group(2)).strip()
+        if not name:
+            continue
+        if label == "view name":
+            views.append(name)
+        elif label == "action name":
+            actions.append(name)
+    return ExportControlNames(views=tuple(views), actions=tuple(actions))
+
+
 def hash_file(path: str) -> str:
     """SHA-256 hex digest of a file's exact bytes, read in chunks so a
     46 MB capture file is never held whole just to be hashed."""

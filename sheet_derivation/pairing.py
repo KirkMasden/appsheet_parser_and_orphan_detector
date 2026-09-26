@@ -19,6 +19,13 @@ Four verdicts:
     export naming no Google worksheet, no readable capture file). Reported;
     the run continues.
 
+The same comparison covers the three pasted .txt files (2026-09-26): the
+view names in views1.txt and views2.txt against the export's views, and
+the names of the user-created actions in actions.txt against the export's
+actions (`check_txt_pairing`). A few unmatched names WARN; when fewer than
+TXT_STOP_FRACTION of them are in the export, the check STOPS, with the
+same override.
+
 What this check cannot do: tell sibling versions of one app apart. Two
 copies of an app read identically named worksheets, so their captures
 pass this check against either export. Matching the Drive folder in each
@@ -31,10 +38,11 @@ Nothing here names a table, a worksheet or any fact about one app.
 import fnmatch
 import json
 import os
+import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-from .appside_parse import extract_table_sources
+from .appside_parse import extract_control_names, extract_table_sources
 from .loader import FORMULAS_GLOB_PATTERN, VALUES_GLOB_PATTERN
 
 EXPORT_HTML_NAME = "Application Documentation.html"
@@ -44,6 +52,27 @@ VERDICT_MATCH = "match"
 VERDICT_PARTIAL = "partial"
 VERDICT_NONE = "none"
 VERDICT_UNDECIDABLE = "undecidable"
+
+VIEWS_TXT_FILES = ("views1.txt", "views2.txt")
+ACTIONS_TXT_FILE = "actions.txt"
+
+# The .txt check STOPS when fewer than this fraction of a file's names are
+# in the export ("none or almost none"). Files pasted from the same app's
+# editor match all or nearly all their names -- only a view or action
+# renamed between the export and the paste is missing -- while files from
+# an unrelated app match only by coincidence: shared generic view names
+# such as a dashboard's, since the generic system-generated actions (Add,
+# Edit, Delete...) are left out of the comparison for exactly this reason.
+# One in five leaves a wide margin on both sides; anything between it and
+# a full match WARNS.
+TXT_STOP_FRACTION = 0.2
+
+_POSITION_WORDS = ("first", "next", "middle", "later", "last")
+_WHITESPACE_RUN_RE = re.compile(r"\s+")
+
+
+def _collapse(s: str) -> str:
+    return _WHITESPACE_RUN_RE.sub(" ", s).strip()
 
 
 @dataclass(frozen=True)
@@ -160,6 +189,128 @@ def check_pairing(
             reason=f"could not read sheet names from {capture_path!r}: {exc}",
         )
     return compare(sources.google_worksheets(), sheet_names, export_path, capture_path)
+
+
+# ---------------------------------------------------------------------------
+# The pasted .txt files
+# ---------------------------------------------------------------------------
+
+def read_view_names_txt(path: str) -> Tuple[str, ...]:
+    """View names in a views1.txt/views2.txt paste of the editor's view
+    list. A line is a view name only when the line after it is that view's
+    own detail line: one holding "Data:" (possibly after a position word),
+    one starting "Type:" (a dashboard), or a bare position word. Section
+    notes ("These views are accessed via...") and slice group headings
+    ("X (slice)") are followed by another name, not a detail line, so they
+    are never counted."""
+    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        lines = [l.strip() for l in fh.read().split("\n")]
+    names = []
+    for i in range(len(lines) - 1):
+        line, nxt = lines[i], lines[i + 1]
+        if not line or "Data:" in line or line.startswith("Type:"):
+            continue
+        if "Data:" in nxt or nxt.startswith("Type:") or nxt in _POSITION_WORDS:
+            names.append(line)
+    return tuple(dict.fromkeys(names))
+
+
+def read_user_action_names_txt(path: str) -> Tuple[str, ...]:
+    """Names of the actions an actions.txt paste marks as user-created
+    ("Effect: ..."), in either the narrow layout (name, then its "Effect:"
+    line) or the wide one (both on one line). System-generated actions are
+    left out: their names (Add, Edit, Delete...) recur in every app."""
+    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        lines = [l.strip() for l in fh.read().split("\n")]
+    names = []
+    for i, line in enumerate(lines):
+        if not line:
+            continue
+        if "Effect:" in line and not line.startswith("Effect:"):
+            names.append(line.split("Effect:")[0].strip())
+        elif i + 1 < len(lines) and lines[i + 1].startswith("Effect:") and "Effect:" not in line:
+            names.append(line)
+    return tuple(dict.fromkeys(n for n in names if n))
+
+
+@dataclass(frozen=True)
+class TxtPairingResult:
+    kind: str  # "views" or "actions"
+    verdict: str
+    files: Tuple[str, ...]
+    names: Tuple[str, ...]  # distinct names read from the file(s)
+    unmatched: Tuple[str, ...]
+    reason: Optional[str] = None
+
+    @property
+    def stops(self) -> bool:
+        return self.verdict == VERDICT_NONE
+
+
+def compare_names(kind: str, files: Tuple[str, ...], names: Tuple[str, ...], export_names: Tuple[str, ...]) -> TxtPairingResult:
+    """Names are compared after collapsing whitespace, because a browser
+    paste collapses runs of spaces the export keeps."""
+    if not names:
+        return TxtPairingResult(kind, VERDICT_UNDECIDABLE, files, (), (), f"no {kind} names found in {list(files)}")
+    export_set = {_collapse(n) for n in export_names}
+    unmatched = tuple(n for n in names if _collapse(n) not in export_set)
+    matched_fraction = (len(names) - len(unmatched)) / len(names)
+    if not unmatched:
+        verdict = VERDICT_MATCH
+    elif matched_fraction < TXT_STOP_FRACTION:
+        verdict = VERDICT_NONE
+    else:
+        verdict = VERDICT_PARTIAL
+    return TxtPairingResult(kind, verdict, files, names, unmatched)
+
+
+def check_txt_pairing(folder: str, export_path: Optional[str] = None) -> List[TxtPairingResult]:
+    """One result for the view files and one for actions.txt, each only
+    when its file(s) are present. Empty when there is no export."""
+    export_path = export_path or find_export_html(folder)
+    if export_path is None:
+        return []
+    exported = extract_control_names(export_path)
+    results = []
+    view_files = tuple(f for f in VIEWS_TXT_FILES if os.path.isfile(os.path.join(folder, f)))
+    if view_files:
+        names: List[str] = []
+        for f in view_files:
+            names.extend(read_view_names_txt(os.path.join(folder, f)))
+        results.append(compare_names("views", view_files, tuple(dict.fromkeys(names)), exported.views))
+    if os.path.isfile(os.path.join(folder, ACTIONS_TXT_FILE)):
+        names = read_user_action_names_txt(os.path.join(folder, ACTIONS_TXT_FILE))
+        results.append(compare_names("actions", (ACTIONS_TXT_FILE,), names, exported.actions))
+    return results
+
+
+def format_txt_pairing(result: TxtPairingResult, allow_mismatch: bool = False, examples: int = 5) -> List[str]:
+    files = " and ".join(result.files)
+    n = len(result.names)
+    if result.verdict == VERDICT_MATCH:
+        noun = "view name(s)" if result.kind == "views" else "user-created action name(s)"
+        return [f"Pairing check: all {n} {noun} in {files} appear in the export."]
+    if result.verdict == VERDICT_UNDECIDABLE:
+        return [f"WARNING: pairing check could not decide for {files}: {result.reason}. Continuing."]
+    sample = list(result.unmatched[:examples])
+    more = f" and {len(result.unmatched) - len(sample)} more" if len(result.unmatched) > len(sample) else ""
+    head = (
+        f"{len(result.unmatched)} of {n} {result.kind} name(s) in {files} are not in the export "
+        f"(for example {sample}{more})"
+    )
+    if result.verdict == VERDICT_PARTIAL:
+        return [f"WARNING: pairing check: {head}. Continuing."]
+    head += (
+        f" -- fewer than {TXT_STOP_FRACTION:.0%} match, so {files} almost certainly come"
+        f"{'s' if len(result.files) == 1 else ''} from a different app than the export."
+    )
+    if allow_mismatch:
+        return [f"WARNING: pairing check: {head} Continuing because {OVERRIDE_OPTION} was given."]
+    return [
+        f"STOPPED: pairing check: {head}",
+        f"Put the matching files together in one folder. If you are certain they belong together, "
+        f"run again with {OVERRIDE_OPTION}.",
+    ]
 
 
 def format_pairing(result: PairingResult, allow_mismatch: bool = False) -> List[str]:
