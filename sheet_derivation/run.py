@@ -228,7 +228,9 @@ def main(argv=None) -> int:
                 print(f"  {path}")
 
         elif stage == 4:
-            result = run_stage4(formulas_path, values_path, args.declarations)
+            result = run_stage4(
+                formulas_path, values_path, args.declarations, app_export_html_path=app_export_html
+            )
             paths = write_stage4_artifacts(result, args.output_dir)
             print("stage 4: wrote")
             for path in paths.values():

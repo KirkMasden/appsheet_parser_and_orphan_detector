@@ -3,7 +3,9 @@ reasoning as test_cross_process_determinism.py for Stage 0 and its Stage
 1/2/3 siblings -- see that first module's docstring for why an in-process
 check cannot catch a PYTHONHASHSEED-only defect. This module runs the
 real check against the real capture only (skipping cleanly if it is not
-present).
+present). When SHEET_DERIVATION_APP_EXPORT_HTML names the app's export
+(opt-in, as for stage 5), the check also covers header rows decided from
+the app's column names.
 """
 
 import os
@@ -27,16 +29,19 @@ class TestStage4RealCaptureCrossProcessDeterminism(CrossProcessDeterminismTestCa
                 "so the public test suite still runs without private data"
             )
 
+        export_html = os.environ.get("SHEET_DERIVATION_APP_EXPORT_HTML")
+        extra = [export_html] if export_html and os.path.isfile(export_html) else []
+
         with tempfile.TemporaryDirectory() as tmp:
             out0 = os.path.join(tmp, "stage4_seed0.json")
             out1 = os.path.join(tmp, "stage4_seed1.json")
 
             result0 = run_with_hash_seed(
-                "sheet_derivation.serialize_stage4", [capture_dir, out0], seed="0"
+                "sheet_derivation.serialize_stage4", [capture_dir, out0] + extra, seed="0"
             )
             self.assertEqual(result0.returncode, 0, msg=f"seed=0 subprocess failed: {result0.stderr}")
             result1 = run_with_hash_seed(
-                "sheet_derivation.serialize_stage4", [capture_dir, out1], seed="1"
+                "sheet_derivation.serialize_stage4", [capture_dir, out1] + extra, seed="1"
             )
             self.assertEqual(result1.returncode, 0, msg=f"seed=1 subprocess failed: {result1.stderr}")
 

@@ -50,6 +50,24 @@ def _header_detection_out(hd) -> Dict[str, Any]:
             "totalColumnCount": hd.evidence.total_column_count,
             "note": hd.evidence.note,
         },
+        "appColumnNames": _app_names_out(hd.app_names),
+    }
+
+
+def _app_names_out(an) -> Any:
+    if an is None:
+        return None
+    return {
+        "status": an.status,
+        "table": an.table,
+        "bestRow1": an.best_row1,
+        "namesTotal": an.names_total,
+        "exactMatches": an.exact_matches,
+        "nearMisses": an.near_misses,
+        "ruleVerdict": an.rule_verdict,
+        "ruleHeaderRow1": an.rule_header_row1,
+        "disagreesWithRule": an.disagrees_with_rule,
+        "note": an.note,
     }
 
 
@@ -131,6 +149,14 @@ def _sheet_summary_rows(schema: SchemaArtifact) -> Iterable[Dict[str, Any]]:
             "dataValidationCount": len(s.data_validations),
             "conditionalFormatRuleCount": len(s.conditional_format_rules),
             "protectedRangeCount": len(s.protected_ranges),
+            "appNamesStatus": hd.app_names.status if hd.app_names is not None else "",
+            "appNamesTable": (hd.app_names.table or "") if hd.app_names is not None else "",
+            "appNamesMatched": hd.app_names.matched if hd.app_names is not None and hd.app_names.names_total else "",
+            "appNamesTotal": hd.app_names.names_total if hd.app_names is not None and hd.app_names.names_total else "",
+            "appNamesDisagreesWithRule": (
+                ("Yes" if hd.app_names.disagrees_with_rule else "No")
+                if hd.app_names is not None and hd.app_names.status == "decided" else ""
+            ),
         }
 
 
@@ -139,6 +165,7 @@ _SHEET_SUMMARY_FIELDS: Tuple[str, ...] = (
     "highestRowWithValue", "highestColumnWithValue", "frozenRows", "frozenColumns", "headerSource",
     "headerVerdict", "headerRow1", "headerConfidence", "duplicateLabelCount", "namedRangeCount",
     "dataValidationCount", "conditionalFormatRuleCount", "protectedRangeCount",
+    "appNamesStatus", "appNamesTable", "appNamesMatched", "appNamesTotal", "appNamesDisagreesWithRule",
 )
 
 

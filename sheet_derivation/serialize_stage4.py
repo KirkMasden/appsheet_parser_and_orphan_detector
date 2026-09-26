@@ -37,6 +37,24 @@ def _header_detection_out(hd) -> Dict[str, Any]:
             "totalColumnCount": hd.evidence.total_column_count,
             "note": hd.evidence.note,
         },
+        "appColumnNames": _app_names_out(hd.app_names),
+    }
+
+
+def _app_names_out(an) -> Any:
+    if an is None:
+        return None
+    return {
+        "status": an.status,
+        "table": an.table,
+        "bestRow1": an.best_row1,
+        "namesTotal": an.names_total,
+        "exactMatches": an.exact_matches,
+        "nearMisses": an.near_misses,
+        "ruleVerdict": an.rule_verdict,
+        "ruleHeaderRow1": an.rule_header_row1,
+        "disagreesWithRule": an.disagrees_with_rule,
+        "note": an.note,
     }
 
 
@@ -101,16 +119,18 @@ def build_canonical_structure(result: Stage4Result) -> Dict[str, Any]:
 
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    if len(argv) != 2:
+    if len(argv) not in (2, 3):
         print(
-            "usage: python -m sheet_derivation.serialize_stage4 <capture_directory> <output_path>",
+            "usage: python -m sheet_derivation.serialize_stage4 <capture_directory> <output_path> "
+            "[app_export_html]",
             file=sys.stderr,
         )
         return 2
 
-    capture_dir, output_path = argv
+    capture_dir, output_path = argv[0], argv[1]
+    app_export_html = argv[2] if len(argv) == 3 else None
     formulas_path, values_path = discover_capture_files(capture_dir)
-    result = run_stage4(formulas_path, values_path)
+    result = run_stage4(formulas_path, values_path, app_export_html_path=app_export_html)
     structure = build_canonical_structure(result)
     write_canonical_json(output_path, structure)
     return 0

@@ -10,13 +10,19 @@ calling the canonical prior-stage function and reading its result is not
 "recomputing what it already states", it is how a fresh, independent
 pass stays exactly as trustworthy as the stage before it.
 
-NOTHING ON THE SHEET SIDE IS EVER DERIVED FROM THE APP SIDE (design
+NOTHING ON THE SHEET SIDE IS DERIVED FROM THE APP SIDE HERE (design
 section 4.4's own rejected-proposal note, 2026-09-09). This module never
 writes back into a `stage4.Stage4Result` or a `stage3.Stage3Result`, never
 calls `stage4.run_stage4` with different arguments than a plain caller
 would, and the one place it reads sheet-side text the schema itself
 withholds (the "undetermined diagnostic" below) is walled off from the
 join's own accounting on purpose -- see that section's own docstring.
+One exception now sits upstream, in stage 4 (2026-09-26): given the
+app's export, stage 4 decides the header row of a tab that is a Google
+table's worksheet from that table's column names. Such a tab carries
+header source `app-column-names` on its table line here, and the join's
+agreement on it is partly by construction; this module passes the export
+to stage 4 exactly as run.py does, and changes nothing else about it.
 
 TABLES ARE PAIRED WITH TABS BY THE WORKSHEET THE EXPORT NAMES (2026-09-26).
 Each table's "Worksheet Name/Qualifier" is read from the app's HTML export
@@ -553,7 +559,9 @@ def run_stage5(
         return Stage5Result(capture=None, stage4=None, join=join, column_state_counts={}, label_state_counts={})
 
     capture = load_capture(formulas_path, values_path)
-    stage4_result = run_stage4(formulas_path, values_path, declarations_path)
+    stage4_result = run_stage4(
+        formulas_path, values_path, declarations_path, app_export_html_path=app_export_html_path
+    )
     sheets_by_name = {s.sheet: s for s in stage4_result.schema.sheets}
 
     table_sources = extract_table_sources(app_export_html_path)
@@ -753,7 +761,11 @@ def run_stage5(
         "identify, report agreement or disagreement as a measurement, and never change the "
         "COLUMN_STATE_HEADER_NOT_IDENTIFIED state those same columns carry in the join proper -- "
         "nothing on the sheet side is derived from the app side anywhere in this artifact, per "
-        "design section 4.4's own 2026-09-09 rejection of that proposal. Table-to-tab pairing "
+        "design section 4.4's own 2026-09-09 rejection of that proposal -- with one stated exception: a "
+        "tab whose header stage 4 decided from the app's column names (header source "
+        "'app-column-names', carried on each table line) had its header ROW chosen because it holds most "
+        "of those names, so the join's agreement on that tab is largely by construction; its per-column "
+        "results still say which names match and which do not. Table-to-tab pairing "
         f"for this run: {tab_pairing} -- {tab_pairing_note}. " + _STALENESS_NOTE
     )
 

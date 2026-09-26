@@ -24,7 +24,7 @@ import html
 import os
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, Optional, Tuple
 
@@ -182,6 +182,7 @@ _TABLE_NAME_ROW_RE = _dataset_row_re("Name")
 _SOURCE_PATH_ROW_RE = _dataset_row_re("SourcePath")
 _SOURCE_QUALIFIER_ROW_RE = _dataset_row_re("SourceQualifier")
 _DATA_SOURCE_ROW_RE = _dataset_row_re("DataSourceName")
+_SCHEMA_NAME_ROW_RE = _dataset_row_re("SchemaName")
 _SOURCE_QUALIFIER_LABEL_RE = re.compile(r'for="SourceQualifier"', re.IGNORECASE)
 
 
@@ -191,6 +192,17 @@ class TableSource:
     source_path: Optional[str]
     worksheet: Optional[str]  # None when the block has no qualifier row, or an empty one
     data_source: Optional[str]
+    schema_name: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ExportColumn:
+    """One column as the export's schema section defines it. `is_virtual`
+    and `is_system` are None when the export has no such row for it."""
+
+    name: str
+    is_virtual: Optional[bool]
+    is_system: Optional[bool]
 
 
 @dataclass(frozen=True)
@@ -202,9 +214,25 @@ class ExportTableSources:
     # table reads. A caller must then fall back, and say so, rather than
     # read every table's `worksheet` of None as "native, no worksheet".
     qualifier_field_present: bool
+    # Schema name -> that schema's columns, in export order. Empty when the
+    # export has no schema section this module recognizes.
+    columns_by_schema: Dict[str, Tuple[ExportColumn, ...]] = field(default_factory=dict)
 
     def by_table(self) -> Dict[str, TableSource]:
         return {t.table: t for t in self.tables}
+
+    def sheet_column_names(self, table: TableSource) -> Optional[Tuple[str, ...]]:
+        """The names of `table`'s columns that are stored in its worksheet:
+        every column the export marks neither virtual nor system-defined
+        (a system column such as `_RowNumber` is AppSheet's own, never a
+        sheet header). None when the table's schema is not found, or any of
+        its columns lacks either flag -- a caller must then not guess."""
+        if table.schema_name is None or table.schema_name not in self.columns_by_schema:
+            return None
+        columns = self.columns_by_schema[table.schema_name]
+        if any(c.is_virtual is None or c.is_system is None for c in columns):
+            return None
+        return tuple(c.name for c in columns if not c.is_virtual and not c.is_system)
 
     def google_worksheets(self) -> Tuple[str, ...]:
         """Distinct worksheet names of the tables whose data source is
@@ -222,6 +250,56 @@ def _row(regex: "re.Pattern", block: str) -> Optional[str]:
         return None
     value = html.unescape(match.group(1)).strip()
     return value or None
+
+
+_SCHEMA_BLOCK_START_RE = re.compile(r'<table[^>]*data-type="DataSchemas"[^>]*>', re.IGNORECASE)
+_SCHEMA_FIELD_BLOCK_RE = re.compile(
+    r'<table[^>]*data-type="SchemaField"[^>]*>(.*?)</table>', re.IGNORECASE | re.DOTALL
+)
+_COLUMN_NAME_ROW_RE = _dataset_row_re("Name")
+_IS_VIRTUAL_ROW_RE = _dataset_row_re("IsVirtual")
+_IS_SYSTEM_ROW_RE = _dataset_row_re("IsSys")
+
+
+def _yes_no(value: Optional[str]) -> Optional[bool]:
+    if value is None:
+        return None
+    lowered = value.strip().lower()
+    if lowered == "yes":
+        return True
+    if lowered == "no":
+        return False
+    return None
+
+
+def _extract_columns_by_schema(content: str) -> Dict[str, Tuple[ExportColumn, ...]]:
+    """Each `DataSchemas` block names a schema; the `SchemaField` blocks
+    after it, up to the next `DataSchemas` block, are that schema's
+    columns -- the same fixed export template the table blocks use."""
+    starts = [m for m in _SCHEMA_BLOCK_START_RE.finditer(content)]
+    result: Dict[str, Tuple[ExportColumn, ...]] = {}
+    for i, start in enumerate(starts):
+        end = starts[i + 1].start() if i + 1 < len(starts) else len(content)
+        segment = content[start.start():end]
+        header_end = segment.find("</table>")
+        schema_name = _row(_COLUMN_NAME_ROW_RE, segment[:header_end] if header_end >= 0 else segment)
+        if schema_name is None:
+            continue
+        columns = []
+        for field_match in _SCHEMA_FIELD_BLOCK_RE.finditer(segment):
+            block = field_match.group(1)
+            name = _row(_COLUMN_NAME_ROW_RE, block)
+            if name is None:
+                continue
+            columns.append(
+                ExportColumn(
+                    name=name,
+                    is_virtual=_yes_no(_row(_IS_VIRTUAL_ROW_RE, block)),
+                    is_system=_yes_no(_row(_IS_SYSTEM_ROW_RE, block)),
+                )
+            )
+        result[schema_name] = tuple(columns)
+    return result
 
 
 def extract_table_sources(html_path: Optional[str]) -> Optional[ExportTableSources]:
@@ -247,10 +325,12 @@ def extract_table_sources(html_path: Optional[str]) -> Optional[ExportTableSourc
                 source_path=_row(_SOURCE_PATH_ROW_RE, block),
                 worksheet=_row(_SOURCE_QUALIFIER_ROW_RE, block),
                 data_source=_row(_DATA_SOURCE_ROW_RE, block),
+                schema_name=_row(_SCHEMA_NAME_ROW_RE, block),
             )
         )
     return ExportTableSources(
-        html_path=html_path, tables=tuple(tables), qualifier_field_present=qualifier_field_present
+        html_path=html_path, tables=tuple(tables), qualifier_field_present=qualifier_field_present,
+        columns_by_schema=_extract_columns_by_schema(content),
     )
 
 

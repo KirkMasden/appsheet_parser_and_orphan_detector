@@ -107,6 +107,16 @@ GATE_DIAGNOSTIC = {
     "Archive": {"row1_nonempty": 32, "row1_exact": 31, "row1_near": 1},
 }
 GATE_ARCHIVE_NEAR_MISS_CELL = ("Archive", "V1", "DW last view Change Time ")  # column 22 = V
+#
+# CHANGED 2026-09-26 (header rows from app column names): stage 4 now
+# decides the header of every tab the export names as a table's worksheet
+# from that table's column names, so Settings, Options and Archive are no
+# longer header-undetermined and produce no undetermined diagnostic. The
+# SAME three expectations above are now checked against the join proper
+# (each table's header-label states), where the same row-1 agreement is
+# reported: labels = row1_nonempty, exact-match labels = row1_exact,
+# whitespace-near-miss labels = row1_near. No figure was changed. Tables
+# still header-undetermined, if any, keep the diagnostic path below.
 
 out = []
 
@@ -208,26 +218,53 @@ w()
 # ---------------------------------------------------------------------------
 # The undetermined diagnostic, against the gate.
 # ---------------------------------------------------------------------------
-w("## The undetermined diagnostic, against the gate")
+w("## Row-1 agreement, against the gate (join labels, or the undetermined diagnostic)")
 w()
 diag_by_table = {d.table: d for d in join.diagnostics}
-for table, expected in GATE_DIAGNOSTIC.items():
+table_by_name = {t.table: t for t in join.tables}
+
+
+def measured_row1_agreement(table):
+    """The gate's three figures for `table`: from its header-label results
+    when stage 4 identified the tab's header (now the usual case), else
+    from the undetermined diagnostic, as before 2026-09-26."""
+    t = table_by_name.get(table)
+    if t is not None and t.label_results:
+        states = Counter(l.state for l in t.label_results)
+        return {
+            "row1_nonempty": len(t.label_results),
+            "row1_exact": states.get(stage5.LABEL_STATE_EXACT_MATCH, 0),
+            "row1_near": states.get(stage5.LABEL_STATE_WHITESPACE_NEAR_MISS, 0),
+        }, f"join labels (header source {t.header_source})"
     d = diag_by_table.get(table)
-    if d is None:
-        w(f"- **{table}**: NO DIAGNOSTIC PRODUCED (expected one) -- MISMATCH")
+    if d is not None:
+        return {
+            "row1_nonempty": d.row1_nonempty_count,
+            "row1_exact": len(d.row1_exact_matches),
+            "row1_near": len(d.row1_near_misses),
+        }, "undetermined diagnostic"
+    return None, "neither"
+
+
+for table, expected in GATE_DIAGNOSTIC.items():
+    measured, via = measured_row1_agreement(table)
+    if measured is None:
+        w(f"- **{table}**: NO LABELS AND NO DIAGNOSTIC (expected one) -- MISMATCH")
         continue
-    measured = {
-        "row1_nonempty": d.row1_nonempty_count,
-        "row1_exact": len(d.row1_exact_matches),
-        "row1_near": len(d.row1_near_misses),
-    }
     match = measured == expected
-    w(f"- **{table}**: measured {measured}, expected {expected} (match: {match})")
+    w(f"- **{table}** ({via}): measured {measured}, expected {expected} (match: {match})")
 w()
 
-archive_diag = diag_by_table.get("Archive")
 archive_table_name, archive_cell, archive_expected_text = GATE_ARCHIVE_NEAR_MISS_CELL
-near = archive_diag.row1_near_misses if archive_diag else ()
+archive_diag = diag_by_table.get(archive_table_name)
+near = list(archive_diag.row1_near_misses) if archive_diag else []
+archive_join = table_by_name.get(archive_table_name)
+if archive_join is not None:
+    near += [
+        (l.label_text, l.near_miss_candidates[0] if l.near_miss_candidates else None)
+        for l in archive_join.label_results
+        if l.state == stage5.LABEL_STATE_WHITESPACE_NEAR_MISS and f"{l.sheet_column}1" == archive_cell
+    ]
 archive_confirmed = any(row1_text == archive_expected_text for row1_text, _app_col in near)
 w(f"**The Archive near-miss, confirmed against the capture and the app-side parse:**")
 if archive_confirmed:
@@ -313,9 +350,8 @@ print(f"Stage 4 outputs untouched: {stage4_untouched}")
 print(f"Tables: {len(join.tables)} (expect {GATE_TABLE_COUNT}); matched: {len(matched)} (expect {GATE_MATCHED_TABLE_COUNT})")
 print(f"Unmatched tables: {sorted(measured_unmatched)} (expect {sorted(GATE_UNMATCHED_TABLES)})")
 for table, expected in GATE_DIAGNOSTIC.items():
-    d = diag_by_table.get(table)
-    measured = {"row1_nonempty": d.row1_nonempty_count, "row1_exact": len(d.row1_exact_matches), "row1_near": len(d.row1_near_misses)} if d else None
-    print(f"{table}: measured {measured} expected {expected}")
+    measured, via = measured_row1_agreement(table)
+    print(f"{table}: measured {measured} expected {expected} (via {via})")
 print(f"Archive near-miss confirmed: {archive_confirmed}")
 print(f"Column state counts: {result.column_state_counts}")
 print(f"Label state counts: {result.label_state_counts}")
