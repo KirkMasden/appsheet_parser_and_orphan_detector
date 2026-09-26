@@ -20,6 +20,7 @@ array a capture contains.
 
 import csv
 import hashlib
+import html
 import os
 import re
 import sys
@@ -152,6 +153,104 @@ def extract_app_identity(html_path: Optional[str]) -> AppIdentity:
         version=version_match.group(1) if version_match else None,
         default_app_folder=folder_match.group(1) if folder_match else None,
         html_mtime_iso=mtime_iso,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Table sources. The export gives every table its own block
+# (`data-type="DataSets"`) holding, among other rows, the table's name, its
+# "Source Path" (`SourcePath`), its "Worksheet Name/Qualifier"
+# (`SourceQualifier`) and its "Data Source" (`DataSourceName`, e.g. `google`
+# or `native`). Same fixed template as the identity rows above -- a fact
+# about AppSheet's export generator, not about any one app. A native
+# AppSheet table (a user-settings table, a bot's state table) has no
+# qualifier row at all; its `worksheet` is reported None, not guessed.
+# ---------------------------------------------------------------------------
+
+_DATASET_BLOCK_RE = re.compile(
+    r'<table[^>]*data-type="DataSets"[^>]*>(.*?)</table>', re.IGNORECASE | re.DOTALL
+)
+
+
+def _dataset_row_re(field: str) -> "re.Pattern":
+    return re.compile(
+        r'for="' + field + r'"[^>]*>[^<]*</label></td><td>([^<]*)</td>', re.IGNORECASE
+    )
+
+
+_TABLE_NAME_ROW_RE = _dataset_row_re("Name")
+_SOURCE_PATH_ROW_RE = _dataset_row_re("SourcePath")
+_SOURCE_QUALIFIER_ROW_RE = _dataset_row_re("SourceQualifier")
+_DATA_SOURCE_ROW_RE = _dataset_row_re("DataSourceName")
+_SOURCE_QUALIFIER_LABEL_RE = re.compile(r'for="SourceQualifier"', re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class TableSource:
+    table: str
+    source_path: Optional[str]
+    worksheet: Optional[str]  # None when the block has no qualifier row, or an empty one
+    data_source: Optional[str]
+
+
+@dataclass(frozen=True)
+class ExportTableSources:
+    html_path: str
+    tables: Tuple[TableSource, ...]  # in export order
+    # False when no table block carries a "Worksheet Name/Qualifier" row at
+    # all -- an export too old or too different to say which worksheet any
+    # table reads. A caller must then fall back, and say so, rather than
+    # read every table's `worksheet` of None as "native, no worksheet".
+    qualifier_field_present: bool
+
+    def by_table(self) -> Dict[str, TableSource]:
+        return {t.table: t for t in self.tables}
+
+    def google_worksheets(self) -> Tuple[str, ...]:
+        """Distinct worksheet names of the tables whose data source is
+        `google`, in export order."""
+        seen: Dict[str, None] = {}
+        for t in self.tables:
+            if t.worksheet and (t.data_source or "").strip().lower() == "google":
+                seen.setdefault(t.worksheet, None)
+        return tuple(seen)
+
+
+def _row(regex: "re.Pattern", block: str) -> Optional[str]:
+    match = regex.search(block)
+    if not match:
+        return None
+    value = html.unescape(match.group(1)).strip()
+    return value or None
+
+
+def extract_table_sources(html_path: Optional[str]) -> Optional[ExportTableSources]:
+    """Every table's name and source rows, read from the export's own
+    table blocks. Returns None if `html_path` is None; this module never
+    searches for the file itself. A block with no table name is skipped."""
+    if html_path is None:
+        return None
+    with open(html_path, "r", encoding="utf-8", errors="replace") as fh:
+        content = fh.read()
+    tables = []
+    qualifier_field_present = False
+    for block_match in _DATASET_BLOCK_RE.finditer(content):
+        block = block_match.group(1)
+        name = _row(_TABLE_NAME_ROW_RE, block)
+        if name is None:
+            continue
+        if _SOURCE_QUALIFIER_LABEL_RE.search(block):
+            qualifier_field_present = True
+        tables.append(
+            TableSource(
+                table=name,
+                source_path=_row(_SOURCE_PATH_ROW_RE, block),
+                worksheet=_row(_SOURCE_QUALIFIER_ROW_RE, block),
+                data_source=_row(_DATA_SOURCE_ROW_RE, block),
+            )
+        )
+    return ExportTableSources(
+        html_path=html_path, tables=tuple(tables), qualifier_field_present=qualifier_field_present
     )
 
 

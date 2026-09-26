@@ -34,6 +34,15 @@ def _find_real_appside_parse_dir():
     return None
 
 
+def _find_real_app_export_html():
+    """Opt-in only, via SHEET_DERIVATION_APP_EXPORT_HTML, for the same
+    reason as the app-side parse directory above. When set, the real-join
+    check also exercises pairing tables with tabs by the export's
+    worksheet names; when not, it runs the table-name fallback."""
+    path = os.environ.get("SHEET_DERIVATION_APP_EXPORT_HTML")
+    return path if path and os.path.isfile(path) else None
+
+
 class TestStage5AbsentModeCrossProcessDeterminism(CrossProcessDeterminismTestCase):
     def test_absent_mode_is_byte_identical_across_process_and_hash_seed(self):
         capture_dir = find_real_capture_dir()
@@ -67,16 +76,19 @@ class TestStage5RealJoinCrossProcessDeterminism(CrossProcessDeterminismTestCase)
                 "this check; skipping so the public test suite still runs without private data"
             )
 
+        export_html = _find_real_app_export_html()
+        extra = [export_html] if export_html else []
+
         with tempfile.TemporaryDirectory() as tmp:
             out0 = os.path.join(tmp, "stage5_join_seed0.json")
             out1 = os.path.join(tmp, "stage5_join_seed1.json")
 
             result0 = run_with_hash_seed(
-                "sheet_derivation.serialize_stage5", [capture_dir, out0, appside_dir], seed="0"
+                "sheet_derivation.serialize_stage5", [capture_dir, out0, appside_dir] + extra, seed="0"
             )
             self.assertEqual(result0.returncode, 0, msg=f"seed=0 subprocess failed: {result0.stderr}")
             result1 = run_with_hash_seed(
-                "sheet_derivation.serialize_stage5", [capture_dir, out1, appside_dir], seed="1"
+                "sheet_derivation.serialize_stage5", [capture_dir, out1, appside_dir] + extra, seed="1"
             )
             self.assertEqual(result1.returncode, 0, msg=f"seed=1 subprocess failed: {result1.stderr}")
 

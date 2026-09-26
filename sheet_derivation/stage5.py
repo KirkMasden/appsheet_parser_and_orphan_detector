@@ -18,6 +18,17 @@ would, and the one place it reads sheet-side text the schema itself
 withholds (the "undetermined diagnostic" below) is walled off from the
 join's own accounting on purpose -- see that section's own docstring.
 
+TABLES ARE PAIRED WITH TABS BY THE WORKSHEET THE EXPORT NAMES (2026-09-26).
+Each table's "Worksheet Name/Qualifier" is read from the app's HTML export
+(`appside_parse.extract_table_sources`), and the table is joined to the tab
+of that name. A table the export gives no worksheet (a native AppSheet
+table) has no tab. Pairing by the table's own name -- this module's
+original behaviour -- survives only as a fallback when no export is given
+or the export lacks the field, and the artifact states which pairing ran
+(`tab_pairing` on the meta line, `tab_source` per table, and a residue
+entry on fallback). The export is app-side input, but it names which tab
+to compare against; nothing read from any tab is changed by it.
+
 NEVER READS `appsheet_views.csv`. Six of its fields (`data_source`,
 `source_table`, `category`, `position`, `view_type`, `ref_parent`)
 originate in `views1.txt`/`views2.txt`, browser paste captures subject to
@@ -59,6 +70,7 @@ independently, happen to name something also present here", which is why
 both are reported and neither is collapsed into the other.
 """
 
+import dataclasses
 import os
 import re
 import sys
@@ -72,8 +84,10 @@ from .appside_parse import (
     AppIdentity,
     AppSideColumns,
     AppSideParseError,
+    ExportTableSources,
     discover_appside_columns_csv,
     extract_app_identity,
+    extract_table_sources,
     hash_file,
     load_appside_columns,
 )
@@ -96,6 +110,17 @@ from .stage4 import (
 
 TABLE_STATE_MATCHED = "matched"
 TABLE_STATE_NO_TAB = "table-matching-no-tab"
+
+# How a table was paired with a tab. The export names the worksheet each
+# table reads ("Worksheet Name/Qualifier"); that is the pairing whenever
+# the export is available and carries the field. Pairing by the table's
+# own name is the fallback, used only when it is not, and always stated.
+TAB_SOURCE_WORKSHEET = "export-worksheet-name"
+TAB_SOURCE_NO_WORKSHEET = "export-names-no-worksheet"  # e.g. a native AppSheet table
+TAB_SOURCE_TABLE_NAME = "table-name-fallback"
+
+TAB_PAIRING_WORKSHEET = "by-export-worksheet-name"
+TAB_PAIRING_TABLE_NAME = "by-table-name-fallback"
 
 COLUMN_STATE_NO_SHEET_COLUMN_EXPECTED = "no-sheet-column-expected"  # virtual
 COLUMN_STATE_HEADER_NOT_IDENTIFIED = "tab-header-not-identified"
@@ -155,6 +180,8 @@ class TableJoinEntry:
     header_source: Optional[str]
     column_results: Tuple[ColumnMatchResult, ...]
     label_results: Tuple[LabelMatchResult, ...]
+    tab_source: str = TAB_SOURCE_TABLE_NAME
+    source_worksheet: Optional[str] = None  # the worksheet the export names, when it names one
 
 
 @dataclass(frozen=True)
@@ -208,6 +235,8 @@ class JoinArtifact(ArtifactBase):
     virtual_field_present: Optional[bool]
     tables: Tuple[TableJoinEntry, ...]
     diagnostics: Tuple[UndeterminedDiagnosticEntry, ...]
+    tab_pairing: Optional[str] = None  # TAB_PAIRING_*; None while the artifact is absent
+    tab_pairing_note: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -483,6 +512,28 @@ def _absent_join(reason: str) -> JoinArtifact:
     )
 
 
+def _tab_pairing_mode(table_sources: Optional[ExportTableSources]) -> Tuple[str, str]:
+    """Which pairing this run can use, and a one-sentence reason stated in
+    the artifact either way."""
+    if table_sources is None:
+        return TAB_PAIRING_TABLE_NAME, (
+            "no HTML export was given, so the worksheet each table reads is unknown"
+        )
+    if not table_sources.tables:
+        return TAB_PAIRING_TABLE_NAME, (
+            "the HTML export given contains no recognizable table blocks"
+        )
+    if not table_sources.qualifier_field_present:
+        return TAB_PAIRING_TABLE_NAME, (
+            "the HTML export given carries no 'Worksheet Name/Qualifier' row for any table "
+            "(an older or different export format)"
+        )
+    return TAB_PAIRING_WORKSHEET, (
+        "each table was paired with the tab its 'Worksheet Name/Qualifier' names in the HTML "
+        "export; a table the export gives no worksheet (a native AppSheet table) has no tab"
+    )
+
+
 def run_stage5(
     formulas_path: str,
     values_path: str,
@@ -505,12 +556,30 @@ def run_stage5(
     stage4_result = run_stage4(formulas_path, values_path, declarations_path)
     sheets_by_name = {s.sheet: s for s in stage4_result.schema.sheets}
 
+    table_sources = extract_table_sources(app_export_html_path)
+    tab_pairing, tab_pairing_note = _tab_pairing_mode(table_sources)
+    sources_by_table = table_sources.by_table() if tab_pairing == TAB_PAIRING_WORKSHEET else {}
+
     tables: List[TableJoinEntry] = []
     diagnostics: List[UndeterminedDiagnosticEntry] = []
+    tables_not_in_export: List[str] = []
     for table in appside.table_names:
         app_columns = appside.columns_for_table(table)
-        schema_sheet = sheets_by_name.get(table)
+        source = sources_by_table.get(table)
+        if tab_pairing == TAB_PAIRING_WORKSHEET and source is not None:
+            if source.worksheet:
+                tab_source, source_worksheet = TAB_SOURCE_WORKSHEET, source.worksheet
+                schema_sheet = sheets_by_name.get(source.worksheet)
+            else:
+                tab_source, source_worksheet = TAB_SOURCE_NO_WORKSHEET, None
+                schema_sheet = None
+        else:
+            if tab_pairing == TAB_PAIRING_WORKSHEET:
+                tables_not_in_export.append(table)
+            tab_source, source_worksheet = TAB_SOURCE_TABLE_NAME, None
+            schema_sheet = sheets_by_name.get(table)
         entry = _join_one_table(table, app_columns, schema_sheet, appside.virtual_field_present)
+        entry = dataclasses.replace(entry, tab_source=tab_source, source_worksheet=source_worksheet)
         tables.append(entry)
         if schema_sheet is not None:
             header = schema_sheet.header_detection
@@ -521,6 +590,35 @@ def run_stage5(
                 )
 
     residue: List[ResidueEntry] = []
+    if tab_pairing == TAB_PAIRING_TABLE_NAME:
+        residue.append(
+            ResidueEntry(
+                what=f"tables were paired with tabs by the table's own name: {tab_pairing_note}",
+                locations=(app_export_html_path or "(no export given)",),
+                defeating_construct="export worksheet names unavailable",
+                consequence=(
+                    "a table whose name differs from the tab it reads is reported "
+                    f"'{TABLE_STATE_NO_TAB}' even though its tab may be in the capture; supply the "
+                    "app's HTML export (one that carries 'Worksheet Name/Qualifier') to pair by "
+                    "the worksheet each table actually reads"
+                ),
+            )
+        )
+    for table in tables_not_in_export:
+        residue.append(
+            ResidueEntry(
+                what=(
+                    f"table {table!r} is in the app-side columns file but has no table block in the "
+                    f"export, so it was paired with a tab by its own name"
+                ),
+                locations=(table,),
+                defeating_construct="table missing from export",
+                consequence=(
+                    "the export and the app-side parse may come from different versions of the app; "
+                    "this table's pairing does not rest on the worksheet the app reads"
+                ),
+            )
+        )
     if not appside.virtual_field_present:
         residue.append(
             ResidueEntry(
@@ -655,7 +753,8 @@ def run_stage5(
         "identify, report agreement or disagreement as a measurement, and never change the "
         "COLUMN_STATE_HEADER_NOT_IDENTIFIED state those same columns carry in the join proper -- "
         "nothing on the sheet side is derived from the app side anywhere in this artifact, per "
-        "design section 4.4's own 2026-09-09 rejection of that proposal. " + _STALENESS_NOTE
+        "design section 4.4's own 2026-09-09 rejection of that proposal. Table-to-tab pairing "
+        f"for this run: {tab_pairing} -- {tab_pairing_note}. " + _STALENESS_NOTE
     )
 
     join = JoinArtifact(
@@ -667,6 +766,8 @@ def run_stage5(
         virtual_field_present=appside.virtual_field_present,
         tables=tuple(sorted(tables, key=lambda t: t.table)),
         diagnostics=tuple(sorted(diagnostics, key=lambda d: d.table)),
+        tab_pairing=tab_pairing,
+        tab_pairing_note=tab_pairing_note,
     )
 
     return Stage5Result(
@@ -695,6 +796,7 @@ def main(argv=None) -> int:
     print(f"present: {result.join.present}")
     if result.join.present:
         print(f"tables: {len(result.join.tables)}")
+        print(f"table-to-tab pairing: {result.join.tab_pairing} -- {result.join.tab_pairing_note}")
         print(f"column state counts: {result.column_state_counts}")
         print(f"label state counts: {result.label_state_counts}")
         print(f"diagnostics: {len(result.join.diagnostics)}")

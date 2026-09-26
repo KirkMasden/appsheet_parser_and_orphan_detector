@@ -32,6 +32,15 @@ class TestStage5ArtifactFiles(unittest.TestCase):
         self.assertEqual(len(residue_lines), len(result.join.residue))
         self.assertEqual(len(lines), 1 + len(table_lines) + len(diag_lines) + len(residue_lines))
 
+    def test_meta_and_table_lines_state_the_tab_pairing(self):
+        _, paths = self._write()
+        lines = list(read_jsonl(paths["join"]))
+        self.assertEqual(lines[0]["tabPairing"], stage5.TAB_PAIRING_TABLE_NAME)
+        self.assertTrue(lines[0]["tabPairingNote"])
+        ledger = next(l for l in lines if l["kind"] == "table" and l["table"] == "Ledger")
+        self.assertEqual(ledger["tabSource"], stage5.TAB_SOURCE_TABLE_NAME)
+        self.assertIn("sourceWorksheet", ledger)
+
     def test_table_line_is_self_contained(self):
         _, paths = self._write()
         lines = list(read_jsonl(paths["join"]))

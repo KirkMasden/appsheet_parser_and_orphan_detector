@@ -6,19 +6,31 @@ from .fixtures import (
     build_stage5_appside_rows,
     build_stage5_pair,
     write_appside_columns_csv,
+    write_export_html,
     write_pair,
 )
 from .. import stage5
 
 
-def _run(include_is_virtual=True, appside_dir=None):
+def _run(include_is_virtual=True, appside_dir=None, export_tables=None, include_qualifier=True):
+    """`export_tables`, when given, is written as an HTML export (see
+    fixtures.write_export_html) and passed to stage 5."""
     formulas_doc, values_doc = build_stage5_pair()
     with tempfile.TemporaryDirectory() as tmp:
         fpath, vpath = write_pair(tmp, formulas_doc, values_doc)
         if appside_dir is None:
             appside_dir = tempfile.mkdtemp()
             write_appside_columns_csv(appside_dir, build_stage5_appside_rows(), include_is_virtual)
-        return stage5.run_stage5(fpath, vpath, appside_dir)
+        html_path = None
+        if export_tables is not None:
+            html_path = write_export_html(tmp, export_tables, include_qualifier=include_qualifier)
+        return stage5.run_stage5(fpath, vpath, appside_dir, app_export_html_path=html_path)
+
+
+# The fixture's own tables, each reading the tab of the same name, plus
+# "Ghost" as a native table -- the export shape of the app the fixture
+# describes.
+_EXPORT_SAME_NAMES = [("Ledger", "Ledger", "google"), ("Murky", "Murky", "google"), ("Ghost", None, "native")]
 
 
 def _table(result, name):
@@ -67,6 +79,82 @@ class TestTableMatching(unittest.TestCase):
         self.assertEqual(ledger.table_state, stage5.TABLE_STATE_MATCHED)
         self.assertEqual(ledger.matched_tab, "Ledger")
         self.assertEqual(ledger.header_verdict, "identified")
+
+
+class TestPairingByExportWorksheetName(unittest.TestCase):
+    def test_table_joins_the_tab_its_worksheet_name_names(self):
+        # "Ghost" matches no tab by its own name, but the export says it
+        # reads worksheet "Ledger" -- so it is joined to Ledger.
+        result = _run(export_tables=[("Ledger", "Ledger", "google"), ("Murky", "Murky", "google"),
+                                     ("Ghost", "Ledger", "google")])
+        ghost = _table(result, "Ghost")
+        self.assertEqual(ghost.table_state, stage5.TABLE_STATE_MATCHED)
+        self.assertEqual(ghost.matched_tab, "Ledger")
+        self.assertEqual(ghost.tab_source, stage5.TAB_SOURCE_WORKSHEET)
+        self.assertEqual(ghost.source_worksheet, "Ledger")
+        self.assertEqual(result.join.tab_pairing, stage5.TAB_PAIRING_WORKSHEET)
+
+    def test_worksheet_name_wins_over_a_same_named_tab(self):
+        # "Ledger" is told to read "Murky": the tab named Ledger is not used.
+        result = _run(export_tables=[("Ledger", "Murky", "google"), ("Murky", "Murky", "google"),
+                                     ("Ghost", None, "native")])
+        self.assertEqual(_table(result, "Ledger").matched_tab, "Murky")
+
+    def test_native_table_has_no_tab_even_when_a_same_named_tab_exists(self):
+        result = _run(export_tables=[("Ledger", None, "native"), ("Murky", "Murky", "google"),
+                                     ("Ghost", None, "native")])
+        ledger = _table(result, "Ledger")
+        self.assertEqual(ledger.table_state, stage5.TABLE_STATE_NO_TAB)
+        self.assertEqual(ledger.tab_source, stage5.TAB_SOURCE_NO_WORKSHEET)
+        for c in ledger.column_results:
+            self.assertEqual(c.state, stage5.COLUMN_STATE_TABLE_NO_TAB)
+
+    def test_same_names_give_the_same_join_as_the_fallback(self):
+        by_export = _run(export_tables=_EXPORT_SAME_NAMES)
+        by_name = _run()
+        self.assertEqual(by_export.column_state_counts, by_name.column_state_counts)
+        self.assertEqual(by_export.label_state_counts, by_name.label_state_counts)
+        self.assertNotIn(
+            "export worksheet names unavailable", [r.defeating_construct for r in by_export.join.residue]
+        )
+
+    def test_worksheet_missing_from_capture_is_no_tab(self):
+        result = _run(export_tables=[("Ledger", "Not In Capture", "google"), ("Murky", "Murky", "google"),
+                                     ("Ghost", None, "native")])
+        ledger = _table(result, "Ledger")
+        self.assertEqual(ledger.table_state, stage5.TABLE_STATE_NO_TAB)
+        self.assertEqual(ledger.source_worksheet, "Not In Capture")
+
+    def test_reliability_condition_states_the_pairing(self):
+        result = _run(export_tables=_EXPORT_SAME_NAMES)
+        self.assertIn(stage5.TAB_PAIRING_WORKSHEET, result.join.reliability_condition)
+
+
+class TestPairingFallback(unittest.TestCase):
+    def _assert_fallback(self, result, note_fragment):
+        self.assertEqual(result.join.tab_pairing, stage5.TAB_PAIRING_TABLE_NAME)
+        self.assertIn(note_fragment, result.join.tab_pairing_note)
+        self.assertIn(stage5.TAB_PAIRING_TABLE_NAME, result.join.reliability_condition)
+        self.assertIn(
+            "export worksheet names unavailable", [r.defeating_construct for r in result.join.residue]
+        )
+        for t in result.join.tables:
+            self.assertEqual(t.tab_source, stage5.TAB_SOURCE_TABLE_NAME)
+        self.assertEqual(_table(result, "Ledger").matched_tab, "Ledger")  # current behaviour kept
+
+    def test_no_export_falls_back_and_says_so(self):
+        self._assert_fallback(_run(), "no HTML export")
+
+    def test_export_lacking_the_field_falls_back_and_says_so(self):
+        result = _run(export_tables=_EXPORT_SAME_NAMES, include_qualifier=False)
+        self._assert_fallback(result, "Worksheet Name/Qualifier")
+
+    def test_table_absent_from_export_falls_back_for_that_table_only(self):
+        result = _run(export_tables=[("Ledger", "Ledger", "google"), ("Murky", "Murky", "google")])
+        self.assertEqual(result.join.tab_pairing, stage5.TAB_PAIRING_WORKSHEET)
+        self.assertEqual(_table(result, "Ghost").tab_source, stage5.TAB_SOURCE_TABLE_NAME)
+        self.assertEqual(_table(result, "Ledger").tab_source, stage5.TAB_SOURCE_WORKSHEET)
+        self.assertIn("table missing from export", [r.defeating_construct for r in result.join.residue])
 
 
 class TestColumnDirection(unittest.TestCase):

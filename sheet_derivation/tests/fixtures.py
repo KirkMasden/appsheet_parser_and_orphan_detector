@@ -549,3 +549,31 @@ def write_appside_columns_csv(tmpdir: str, rows: List[dict], include_is_virtual:
         for r in rows:
             writer.writerow({k: r.get(k, "") for k in fieldnames})
     return path
+
+
+def write_export_html(tmpdir: str, tables: List[Tuple[str, str, str]], include_qualifier: bool = True,
+                      filename: str = "Application Documentation.html") -> str:
+    """Writes a minimal HTML export holding one table block per
+    `(table, worksheet, data_source)` entry, in the row format AppSheet's
+    own export uses. A worksheet of None writes no "Worksheet
+    Name/Qualifier" row for that table, as the export does for a native
+    table; `include_qualifier=False` writes none for any table, as an
+    export lacking the field would."""
+    def row(field, label, value):
+        return (f'<tr><td><label class="" for="{field}" data-toggle="tooltip" title="x">{label}'
+                f'</label></td><td>{value}</td></tr>\n')
+
+    parts = ["<html><body>\n"]
+    for i, (table, worksheet, data_source) in enumerate(tables):
+        parts.append(f'<table class="react-bridge-group" data-type="DataSets" data-index="{i}">\n<tbody>\n')
+        parts.append(row("Name", "Table name", table))
+        parts.append(row("SourcePath", "Source Path", f"/appsheet/data/TestApp-1/{table}.gsheet"))
+        if include_qualifier and worksheet is not None:
+            parts.append(row("SourceQualifier", "Worksheet Name/Qualifier", worksheet))
+        parts.append(row("DataSourceName", "Data Source", data_source))
+        parts.append("</tbody>\n</table>\n")
+    parts.append("</body></html>\n")
+    path = os.path.join(tmpdir, filename)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("".join(parts))
+    return path

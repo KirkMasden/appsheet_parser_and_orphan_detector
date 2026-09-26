@@ -24,6 +24,8 @@ def build_canonical_structure(result: Stage5Result) -> Dict[str, Any]:
                 "table": t.table,
                 "tableState": t.table_state,
                 "matchedTab": t.matched_tab,
+                "tabSource": t.tab_source,
+                "sourceWorksheet": t.source_worksheet,
                 "headerVerdict": t.header_verdict,
                 "headerSource": t.header_source,
                 "columns": [
@@ -46,6 +48,7 @@ def build_canonical_structure(result: Stage5Result) -> Dict[str, Any]:
         )
     return {
         "present": join.present,
+        "tabPairing": join.tab_pairing,
         "tables": tables_out,
         "diagnosticCount": len(join.diagnostics),
         "residue": [
@@ -58,18 +61,21 @@ def build_canonical_structure(result: Stage5Result) -> Dict[str, Any]:
 
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    if len(argv) not in (2, 3):
+    if len(argv) not in (2, 3, 4):
         print(
             "usage: python -m sheet_derivation.serialize_stage5 <capture_directory> <output_path> "
-            "[appside_parse_dir]",
+            "[appside_parse_dir] [app_export_html]",
             file=sys.stderr,
         )
         return 2
 
     capture_dir, output_path = argv[0], argv[1]
-    appside_parse_dir = argv[2] if len(argv) == 3 else None
+    appside_parse_dir = argv[2] if len(argv) >= 3 else None
+    app_export_html = argv[3] if len(argv) == 4 else None
     formulas_path, values_path = discover_capture_files(capture_dir)
-    result = run_stage5(formulas_path, values_path, appside_parse_dir=appside_parse_dir)
+    result = run_stage5(
+        formulas_path, values_path, appside_parse_dir=appside_parse_dir, app_export_html_path=app_export_html
+    )
     structure = build_canonical_structure(result)
     write_canonical_json(output_path, structure)
     return 0

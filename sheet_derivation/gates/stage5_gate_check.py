@@ -71,7 +71,7 @@ parser.add_argument(
 parser.add_argument(
     "--app-export-html",
     required=True,
-    help="Path to the app's HTML documentation export, for provenance (og:title, version, export mtime). Required -- no workbook-agnostic default exists.",
+    help="Path to the app's HTML documentation export, for table-to-tab pairing (each table's worksheet name) and provenance (og:title, version, export mtime). Required -- no workbook-agnostic default exists.",
 )
 args = parser.parse_args()
 
@@ -90,9 +90,17 @@ APP_EXPORT_HTML = args.app_export_html
 # GATE, transcribed from the prompt this stage was built from -- not
 # tuned to match, and reported as a mismatch (named by cell) if it
 # disagrees, per this project's own standing rule.
+#
+# CHANGED 2026-09-26, deliberately, not tuned: stage 5 now pairs each table
+# with the tab its export "Worksheet Name/Qualifier" names, instead of the
+# tab sharing the table's own name. The table "Kankaku" reads worksheet
+# "Main data", so it now matches (was: no tab), taking the matched count
+# from 8 to 9 and leaving only "_Per User Settings" -- a native AppSheet
+# table with no worksheet -- unmatched. Every other expectation below is
+# unchanged. See STATUS.md, "Recently fixed".
 GATE_TABLE_COUNT = 10
-GATE_MATCHED_TABLE_COUNT = 8
-GATE_UNMATCHED_TABLES = {"Kankaku", "_Per User Settings"}
+GATE_MATCHED_TABLE_COUNT = 9
+GATE_UNMATCHED_TABLES = {"_Per User Settings"}
 GATE_DIAGNOSTIC = {
     "Settings": {"row1_nonempty": 35, "row1_exact": 35, "row1_near": 0},
     "Options": {"row1_nonempty": 23, "row1_exact": 23, "row1_near": 0},
@@ -185,7 +193,7 @@ w()
 matched = [t for t in join.tables if t.table_state == stage5.TABLE_STATE_MATCHED]
 unmatched = [t for t in join.tables if t.table_state == stage5.TABLE_STATE_NO_TAB]
 w(f"Tables: measured {len(join.tables)}, expected {GATE_TABLE_COUNT} (match: {len(join.tables) == GATE_TABLE_COUNT})")
-w(f"Matched a tab by exact name: measured {len(matched)}, expected {GATE_MATCHED_TABLE_COUNT} "
+w(f"Matched a tab: measured {len(matched)}, expected {GATE_MATCHED_TABLE_COUNT} "
   f"(match: {len(matched) == GATE_MATCHED_TABLE_COUNT})")
 measured_unmatched = {t.table for t in unmatched}
 w(f"Matched no tab: measured {sorted(measured_unmatched)}, expected {sorted(GATE_UNMATCHED_TABLES)} "

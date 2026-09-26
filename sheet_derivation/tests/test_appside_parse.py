@@ -5,10 +5,11 @@ from ..appside_parse import (
     AppSideParseError,
     discover_appside_columns_csv,
     extract_app_identity,
+    extract_table_sources,
     hash_file,
     load_appside_columns,
 )
-from .fixtures import build_stage5_appside_rows, write_appside_columns_csv
+from .fixtures import build_stage5_appside_rows, write_appside_columns_csv, write_export_html
 
 
 class TestLoadAppsideColumns(unittest.TestCase):
@@ -73,6 +74,45 @@ class TestAppIdentity(unittest.TestCase):
         self.assertEqual(identity.version, "2.000005")
         self.assertEqual(identity.default_app_folder, "/appsheet/data/TestApp-123")
         self.assertIsNotNone(identity.html_mtime_iso)
+
+
+class TestTableSources(unittest.TestCase):
+    def test_none_path_yields_none(self):
+        self.assertIsNone(extract_table_sources(None))
+
+    def test_reads_each_table_block(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_export_html(tmp, [
+                ("Orders", "Order sheet", "google"),
+                ("Prefs", None, "native"),
+                ("Things &amp; stuff", "Things", "google"),
+            ])
+            sources = extract_table_sources(path)
+        self.assertTrue(sources.qualifier_field_present)
+        by_table = sources.by_table()
+        self.assertEqual(by_table["Orders"].worksheet, "Order sheet")
+        self.assertEqual(by_table["Orders"].data_source, "google")
+        self.assertEqual(by_table["Orders"].source_path, "/appsheet/data/TestApp-1/Orders.gsheet")
+        self.assertIsNone(by_table["Prefs"].worksheet)  # native: no qualifier row
+        self.assertIn("Things & stuff", by_table)  # entities unescaped
+
+    def test_google_worksheets_are_distinct_and_google_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_export_html(tmp, [
+                ("A", "Shared", "google"),
+                ("B", "Shared", "google"),
+                ("C", "Elsewhere", "native"),
+                ("D", "Own", "google"),
+            ])
+            sources = extract_table_sources(path)
+        self.assertEqual(sources.google_worksheets(), ("Shared", "Own"))
+
+    def test_export_without_the_field_is_flagged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_export_html(tmp, [("Orders", "Order sheet", "google")], include_qualifier=False)
+            sources = extract_table_sources(path)
+        self.assertFalse(sources.qualifier_field_present)
+        self.assertEqual(len(sources.tables), 1)
 
 
 class TestHashFile(unittest.TestCase):

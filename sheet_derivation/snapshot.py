@@ -1,9 +1,11 @@
-"""Reports what a workspace apps/<snapshot>/ directory actually holds.
+"""Reports what a workspace input folder (apps/<name>/) actually holds,
+and whether its app export and its capture belong together.
 
 The workspace's input layout (see README.md) is deliberately FLAT: one
-directory per snapshot, holding all six prepared files undifferentiated --
+folder per set of files to be parsed, holding all six prepared files
+undifferentiated --
 
-    apps/<snapshot>/
+    apps/<name>/
         Application Documentation.html
         actions.txt
         views1.txt
@@ -19,17 +21,21 @@ still matches too, so neither this module nor a user has to rename
 anything the capture script actually wrote.
 
 Flat is the right shape for the step a human does by hand (gathering the
-files), but it has one real cost: a directory holding four files looks,
-at a glance, exactly like a directory holding all six -- a missing half
-is otherwise invisible. This module's only job is to say plainly what it
-found and what it did not, so that gap surfaces immediately rather than
-downstream as a confusing failure (or, worse, no failure at all: nothing
-else in this project's own tooling reads all six files together, so a
-half-empty snapshot can otherwise go unnoticed indefinitely).
+files), but it has one real cost: a folder holding four files looks, at a
+glance, exactly like a folder holding all six -- a missing half is
+otherwise invisible. This module says plainly what it found and what it
+did not, so that gap surfaces immediately rather than downstream as a
+confusing failure (or, worse, no failure at all).
 
-Nothing here reads file CONTENT and nothing here writes anything --
-existence and filename recognition only. Computing anything about what a
-file contains is a job for the parsers/stages that actually read it.
+A folder can also hold all six files and still be wrong: an export from
+one app beside a capture of an unrelated workbook. When both the export
+and a capture file are present, this module runs the same pairing check
+run.py runs (pairing.py): it compares the worksheet names the export
+gives for its Google tables with the capture's sheet names, warns when
+some are missing, and exits with status 3 when none are present, unless
+--allow-mismatch is given. That check reads the export and one capture
+file; everything else here is the directory listing only. Nothing here
+writes anything.
 """
 
 import argparse
@@ -37,9 +43,16 @@ import fnmatch
 import os
 import sys
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Optional, Tuple
 
 from .loader import FORMULAS_GLOB_PATTERN, VALUES_GLOB_PATTERN
+from .pairing import (
+    OVERRIDE_OPTION,
+    PairingResult,
+    check_pairing,
+    find_capture_file_for_sheet_names,
+    format_pairing,
+)
 
 APP_SIDE_FILES: Tuple[str, ...] = (
     "Application Documentation.html",
@@ -61,7 +74,7 @@ CAPTURE_SLOT_PATTERNS: Tuple[Tuple[str, str], ...] = (
 @dataclass(frozen=True)
 class CaptureSlotResult:
     """One capture slot ('formulas' or 'values'), matched by glob pattern
-    against the snapshot directory's own entries -- never against the
+    against the input folder's own entries -- never against the
     filesystem directly (unlike discover_capture_files()), since this
     module already has the one `os.listdir()` it needs and matching
     in-memory keeps this a pure function of that one listing."""
@@ -139,7 +152,7 @@ def inspect_snapshot(snapshot_dir: str) -> SnapshotContents:
 
 
 def format_report(contents: SnapshotContents) -> str:
-    lines = [f"snapshot directory: {contents.snapshot_dir}", ""]
+    lines = [f"input folder: {contents.snapshot_dir}", ""]
 
     lines.append(f"app-side files: {len(contents.app_side_found)}/{len(APP_SIDE_FILES)} found")
     for f in APP_SIDE_FILES:
@@ -180,7 +193,7 @@ def format_report(contents: SnapshotContents) -> str:
     elif contents.capture_complete and not contents.app_side_complete:
         lines.append(
             "Sheet capture only: the app-side export is incomplete or absent -- "
-            "sheet_derivation's own stages can still run against this snapshot, "
+            "sheet_derivation's own stages can still run against this folder, "
             "but there is no app-side data to join against (stage 5) or parse "
             "with master_parser_and_orphan_detector.py."
         )
@@ -188,12 +201,27 @@ def format_report(contents: SnapshotContents) -> str:
         lines.append(
             "App-side export only: the sheet capture is incomplete or absent -- "
             "master_parser_and_orphan_detector.py can still run against this "
-            "snapshot, but sheet_derivation's stages have no capture to read."
+            "folder, but sheet_derivation's stages have no capture to read."
         )
     else:
         lines.append("Neither half is complete.")
 
     return "\n".join(lines)
+
+
+EXIT_PAIRING_STOPPED = 3
+
+
+def pairing_for(contents: SnapshotContents) -> Optional[PairingResult]:
+    """The pairing check for this folder, or None when there is nothing to
+    pair: no export, or no single capture file to read sheet names from
+    (both already reported by format_report)."""
+    if "Application Documentation.html" not in contents.app_side_found:
+        return None
+    capture_path = find_capture_file_for_sheet_names(contents.snapshot_dir)
+    if capture_path is None:
+        return None
+    return check_pairing(contents.snapshot_dir, capture_path=capture_path)
 
 
 def main(argv=None) -> int:
@@ -204,7 +232,16 @@ def main(argv=None) -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("snapshot_dir", help="An apps/<snapshot>/ directory to inspect.")
+    parser.add_argument("snapshot_dir", metavar="input_folder", help="An apps/<name>/ folder to inspect.")
+    parser.add_argument(
+        OVERRIDE_OPTION,
+        action="store_true",
+        help=(
+            "Report a complete mismatch between the export's worksheet names and the capture's "
+            "sheet names as a warning instead of stopping. Use only when you are certain the "
+            "export and the capture belong together."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if not os.path.isdir(args.snapshot_dir):
@@ -213,6 +250,15 @@ def main(argv=None) -> int:
 
     contents = inspect_snapshot(args.snapshot_dir)
     print(format_report(contents))
+
+    pairing = pairing_for(contents)
+    if pairing is None:
+        return 0
+    print("")
+    for line in format_pairing(pairing, allow_mismatch=args.allow_mismatch):
+        print(line)
+    if pairing.stops and not args.allow_mismatch:
+        return EXIT_PAIRING_STOPPED
     return 0
 
 
