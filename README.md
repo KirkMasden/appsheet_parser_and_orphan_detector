@@ -88,7 +88,7 @@ source venv/bin/activate      # On Windows: venv\Scripts\activate
 pip install beautifulsoup4
 ```
 
-Both commands below are run from inside the extracted suite's own folder, so `apps/` and `output/` — one level up — are reached with `../`. The two are always separate commands: nothing here runs both together, and there is no required order between them.
+Both commands below are run from inside the extracted suite's own folder, so `apps/` and `output/` — one level up — are reached with `../`. The two are always separate commands: nothing here runs both together. Run the app side first if you want the sheet side's last step, the join between the app's columns and the sheet's headers, to have something to join against.
 
 The app side:
 
@@ -103,6 +103,10 @@ python -m sheet_derivation.run "../apps/MyApp_20260914_101500" "../output/MyApp_
 ```
 
 `--output-as-is` is what makes the first command write straight into the directory given by `-o`. Without it, the command creates its own timestamped subfolder underneath instead.
+
+The sheet-side command finds what it needs by itself when the folders are laid out as above. It reads `Application Documentation.html` from the input folder, and takes the app-side results from `output/MyApp_20260914_101500/app`, beside its own `sheet` folder, printing a line saying which it used. If there are no app-side results there, it warns that the join will be ABSENT and says how to fix it. To use app-side results kept somewhere else, add `--appside-parse-dir` followed by that folder; it is optional, and when given it wins.
+
+Before any stage runs, the sheet-side command checks that the app's export and the capture belong to the same workbook: every worksheet the export names for its Google Sheets tables should appear among the capture's sheets. If they all do, it says so in one line. If some are missing, it names them and carries on. If none are, it stops, because a mismatched pair still produces reports that look valid. If you are certain the two belong together, add `--allow-mismatch` to continue with a warning. The check cannot tell two versions of the same app apart, since their workbooks have the same sheet names. `python -m sheet_derivation.snapshot "../apps/MyApp_20260914_101500"` runs the same check, along with a list of which input files are present, so you can find a mismatch before parsing.
 
 The app-side command ends by offering to launch the interactive dependency analyzer. Answer `y` to explore dependencies now, or `n` if you only want the CSVs — they are already complete by the time the offer appears. Run from a script with no terminal attached, that same prompt raises `EOFError`; all output has been written by then, so this is a known cosmetic limitation rather than a failed parse.
 

@@ -40,7 +40,11 @@ Check for both before running anything, and install whatever is missing — aski
 
 If the user has already created a virtual environment (README.md describes one, for running the scripts by hand from a terminal), use it rather than installing alongside it.
 
-Before parsing, run `python -m sheet_derivation.snapshot <folder>` on the user's input folder. It reports which of the expected input files are present and which are missing, and warns if two files look like the same capture. It only reads the directory listing, changes nothing, and tells the user what is missing before a parse fails on it.
+Before parsing, run `python -m sheet_derivation.snapshot <folder>` on the user's input folder. It reports which of the expected input files are present and which are missing, and warns if two files look like the same capture. When the export and a capture are both there, it also runs the pairing check described below. It changes nothing, and tells the user what is missing or mismatched before a parse fails on it.
+
+**The pairing check.** An export from one app can end up beside a capture of an unrelated workbook, and the file names will not show it; on 2026-09-25 exactly that nearly happened. Both the input-folder check and `python -m sheet_derivation.run` therefore compare the worksheet names the export gives for its Google Sheets tables ("Worksheet Name/Qualifier") with the capture's sheet names, before anything else runs. If all are present, they say so in one line. If some are missing, they warn, name them, and continue. If none are present, both stop with exit status 3 and write nothing. The check cannot tell two versions of the same app apart, because their workbooks share sheet names, so a pass does not prove the pair is right; it only rules out an unrelated workbook.
+
+`--allow-mismatch` turns that stop into a warning. **Do not add it on your own initiative.** When the check stops, tell the user which export and which capture are in the folder and what the check found, and ask whether they belong together. Add `--allow-mismatch` only if the user confirms they do, for example because the workbook's sheets were renamed after the export was made. Never add it just to get a run to complete: a mismatched pair produces reports that look valid, and neither you nor the user can tell from the output that they are wrong.
 
 `bot_actions.txt` is optional and written by hand: one action name per line, listing the actions the user's bots call. The suite has no other way to know an action is called by a bot, so without this file those actions are reported as orphan candidates. If the user's app uses bots and the file is absent, say so rather than treating the orphan list as complete.
 
@@ -585,11 +589,13 @@ Do not summarize an artifact's findings without reading its condition first.
 
 A user's only manual step is the capture. They paste the Apps Script into their workbook, authorize it, and run it; the dump it writes is their data and stays outside this repository. Everything after that is yours to run.
 
+Run the app side first. With the documented layout, `python -m sheet_derivation.run <input folder> output/<name>/sheet` then finds the app-side results in `output/<name>/app` and the export in the input folder by itself, and prints a line for each. If it finds no app-side results, it warns that the join will be ABSENT; do not pass that over, because an ABSENT join writes CSVs holding headers only. Either parse the app first or pass `--appside-parse-dir`.
+
 The stages run in order and each reads what the one before it produced. Never recompute something an earlier stage already states — stage 4 reads stage 3's column profiles rather than measuring them again, and a stage that recomputes an upstream fact can disagree with it, which is the failure the ordering exists to prevent.
 
 Each stage has a gate: a set of measured numbers it must reproduce. A gate that fails is a finding to report, not a number to adjust. If you find yourself changing an expected value so a gate will pass, stop and report instead.
 
-The gate-check scripts under sheet_derivation/gates/ only write reports. A failing comparison does not stop anything and nothing downstream reads their exit codes; the report is for you to read and investigate. This is separate from the three refusal gates in loader.py, which do halt a run by raising CaptureIntegrityError when the two capture files disagree.
+The gate-check scripts under sheet_derivation/gates/ only write reports. A failing comparison does not stop anything and nothing downstream reads their exit codes; the report is for you to read and investigate. This is separate from the three refusal gates in loader.py, which do halt a run by raising CaptureIntegrityError when the two capture files disagree, and from the pairing check above, which halts a run when the export and the capture share no worksheet name.
 
 Their --output-dir default is <workspace>/output/gates — not any input folder's own output/<name>/gates/. It exists so an ad hoc gate-check run has somewhere sensible to land without an argument, but it is one shared location: a later run there overwrites an earlier one's reports. For a run whose reports are meant to be kept as part of a specific folder's record, pass --output-dir explicitly, pointed at that folder's own output/<name>/gates/.
 
@@ -613,9 +619,9 @@ It resolves addresses only. It does not evaluate formulas, follow chains, or int
 
 Five artifacts are built: the formula inventory, the schema file, the column dependency graph, the dangling sheet-name list, and the AppSheet join. The graph and the dangling list come from a single resolution pass, because a dangling name is one species of unresolved reference and two code paths reaching that judgment separately can disagree.
 
-The join reports agreement between the app's column names and the sheet's header labels, in both directions, and resolves nothing. It never writes back into the schema: nothing on the sheet side is derived from the app side, because a sheet side derived from the app side would agree by construction and the join would measure nothing.
+The join pairs each table with the tab its export "Worksheet Name/Qualifier" names, not the tab that shares the table's name; a native AppSheet table with no worksheet has no tab. Without an export carrying that field, it falls back to pairing by table name and says so in the artifact (`tabPairing` on the meta line, `tabSource` on each table line). It then reports agreement between the app's column names and the sheet's header labels, in both directions, and resolves nothing. It never writes back into the schema: nothing on the sheet side is derived from the app side, because a sheet side derived from the app side would agree by construction and the join would measure nothing.
 
-Where a sheet's header row could not be identified, the join reports a marked diagnostic showing how many app column names appear verbatim in the candidate row. It is a diagnostic and not a verdict. On the one workbook this has been run against, six of the eight matched tables sat on tabs whose header row was undetermined, and the labels on those tabs nevertheless matched almost perfectly — so treat an undetermined verdict as uncertainty in the heuristic, not as evidence that a sheet has no headers.
+Where a sheet's header row could not be identified, the join reports a marked diagnostic showing how many app column names appear verbatim in the candidate row. It is a diagnostic and not a verdict. On the one workbook this has been run against, seven of the nine matched tables sat on tabs whose header row was undetermined, and the labels on those tabs nevertheless matched almost perfectly — so treat an undetermined verdict as uncertainty in the heuristic, not as evidence that a sheet has no headers.
 
 ### The fixture record
 
