@@ -719,7 +719,7 @@ Entries from `48eead1` onward carry full verification detail — row counts, byt
   - All match: one line each. Some unmatched: a WARNING with examples. **Fewer than 20% matched: STOP** (exit status 3) unless `--allow-mismatch`. A correctly paired paste matches all or nearly all its names, while an unrelated app's matches only by coincidence; one in five leaves a wide margin on both sides.
   - `run.py` does not run this part, because the sheet side reads none of these files.
 - **Verified.** Both V19 folders: all 197 view names and all 465 user-created action names found. The 2026-09-26 set with V18's three .txt files also passes completely: V18's pastes name exactly the same views and actions, and differ from V19's only in page chrome (app name, a menu entry, the footer email). Sibling copies passing is accepted; the check rules out an unrelated app, not a sibling.
-- **Still to do:** the published documentation page on the server still needs updating, for `4346765` (automatic app-side lookup, pairing check) and for `cdb5b6e`'s .txt comparison and README's new note on keeping each set of files together.
+- **Documentation page updated 2026-09-26.** The paragraph at the end of setup step 5 of the published documentation page now describes the pairing check, the stop when few or none of the names match, and the note on keeping each set of files together. The automatic app-side lookup and `--allow-mismatch` were deliberately left to README, since they concern only people running the commands themselves. The page is not in git; its backup on the server is `/root/appsheet-parser-docs-complete.html.bak-20260926-071232`.
 
 ### The sheet join paired each table with a tab by the table's own name, ignoring the worksheet the export names — FIXED
 
@@ -731,7 +731,7 @@ Entries from `48eead1` onward carry full verification detail — row counts, byt
 ### The documented sheet-side command produced no join, and nothing told the user — FIXED
 
 - **Fixed 2026-09-26, `4346765`.** When `--appside-parse-dir` is not given and the output folder is `output/<name>/sheet`, `sheet_derivation/run.py` uses `output/<name>/app` if it holds `appsheet_columns.csv`, and prints one line saying so. When it finds none, it prints a WARNING that the join will be ABSENT and how to fix it. Whatever the cause, an ABSENT join is now followed by a WARNING carrying the reason, so a silent ABSENT is no longer possible. An explicit `--appside-parse-dir` still wins. `run.py` likewise takes the export from the input folder when `--app-export-html` is not given. README's command is unchanged and now produces a join; README describes the new behaviour.
-- **Still to do:** the published documentation page on the server still shows the old behaviour and needs updating separately.
+- **Documentation page reviewed 2026-09-26.** The automatic app-side lookup was deliberately left out of the published documentation page and is described in README only, since it concerns only people running the commands themselves. See the entry "The pairing check covers the three .txt files" above for what the page now says.
 - Original entry, for the record: README's command passed no `--appside-parse-dir`, so stage 5 wrote an ABSENT placeholder, its two CSVs held headers only, and the console printed only "stage 5: wrote".
 
 ### A check that an export and a capture belong to the same app — DONE
