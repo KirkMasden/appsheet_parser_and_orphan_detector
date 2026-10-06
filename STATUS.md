@@ -685,6 +685,11 @@ first time it has been saved as a regression baseline alongside Farmy's.
 - **Consequence.** The parsed CSV's action type cannot be trusted for any add-row action in any app. Reasoning from the CSV alone concludes such an action edits existing rows when it creates new ones — a material difference when asking what an action does to a table. Until fixed, confirm action type from the raw HTML for any action with a `ReferencedTable` and an `Assignments` list.
 - Found 2026-09-21, during a Kankaku investigation. Not fixed.
 
+### `stage5_join.jsonl`'s `columns[].matchedSheetColumn` is null for every exact match
+
+- In the Kankaku V19 run of 2026-09-26, the field is null on all 239 rows whose match state is exact-match, so it never says which sheet column an app column matched. The pairing is available elsewhere in the same file: each table's `labels` list gives `sheetColumn` with its `matchedAppColumn`. Anyone reading `matchedSheetColumn` alone would wrongly conclude that no column matched.
+- Found 2026-10-04 by Claude Code during the formula-checkup feasibility assessment. Not investigated or fixed.
+
 ### Kankaku V19 real-use run, 2026-09-25 — remaining note
 
 - **Two columns skipped for malformed type settings.** These are `Settings[Update success]` and `Settings[Update success J]`, the same two already recorded above under "Malformed `type_qualifier` JSON silently drops two Kankaku columns" — a recurrence in V19, not a new finding. A second, clean copy of Kankaku V19 parsed 2026-09-26 skips the same two: the fault is in the app definition as exported, handled by the parser's skip, not in either copy's data.
@@ -1021,6 +1026,27 @@ build follows.
 ### Idea: flag blank cells in sheet columns the app always fills with an initial value
 
 - On Kankaku V19, cards entered by hand directly into the sheet had blank `Cram only`, `Early bird` and `Early date` cells where the app would have written values, and that broke the session-increment step ("Update session start number with session increment" selected no card; see `APPSHEET_BEHAVIOR.md`, "Blank operands in `=` and `<>`"). A flag for blank cells in columns that carry an app-side initial value would have pointed straight at them. Idea only, not planned.
+
+### Finding: AppSheet's stored formulas on Kankaku's Overall table differ from the sheet
+
+- In the Kankaku V19 export of 2026-09-26, the stored spreadsheet formula (`spreadsheet_formula`) of three Overall columns differs from what the sheet holds. Daily record stores an INDIRECT formula over Collate column AP, while Overall!J2 and J3 read Collate columns I and AU through INDEX. DW 5min ratio stores the constant 0.23, while T2 and T3 hold formulas. Latest update stores now(), while AA2 is =Collate!$AH$31 and AA3 is =AA2.
+- Likely explanation: the Overall table has not been regenerated since those formulas changed (see APPSHEET_BEHAVIOR.md, "Spreadsheet formulas behind app columns"). This is now thought more likely than the explanation first given in output/KankakuV19_20260926_120403/investigations/260927_min-column-purpose.md, that the export and capture came from different moments. The capture (12:04 JST) and the export (12:09 JST) were made five minutes apart.
+- Whether it matters depends on whether the app ever adds or edits Overall rows, which is not settled. Overall is a two-row table (Short and Long) whose rows hold different formulas by design.
+- The suite does not yet compare stored and sheet formulas; see the planned formula checkup below.
+
+### Planned: a formula checkup for app-table columns (publicly committed 2026-09-27)
+
+- Kirk posted in his AppSheet community thread on 2026-09-27 that this check would be added "in the near future". It detects discrepancies that arise when a spreadsheet formula behind an app column is added, removed or modified midstream, whether in the sheet (the change not applied to every keyed row, or the table not regenerated afterwards) or in the AppSheet editor (the stored formula accepts hand edits without error, confirmed 2026-10-04).
+- Five checks: (1) the stored formula differs from the sheet's formula; (2) keyed rows with no formula; (3) formulas within a column that differ from one another; (4) formulas in the sheet but no stored formula; (5) a stored formula but none in the sheet. AppSheet stores formulas in R1C1 notation; the plan is to convert the sheet's A1 formulas to R1C1 in Python, so existing captures work unchanged.
+- Feasibility assessed 2026-10-04 (Claude Code, read-only). Checks 2, 4 and 5 are small. Check 3 is largely covered already by stage 3's multi-pattern classification. Check 1 is medium. A throwaway converter reproduced the stored text exactly in all 7 cells where the sheet and the stored formula really agree. Open points: rules for the COMPUTED_VALUE placeholder and for stored constants, how whole-column and whole-row ranges convert, and tables whose rows differ by design (Overall).
+- First real finding, before anything is built: in Kankaku V19, 'Main data' row 23 holds a different formula in AL, AM and AN (the usual formula wrapped in if(A23="","",…)). Kirk's master copy (260411 Kankaku V18) does not, as its capture of 2026-10-04 22:09 JST shows.
+- Agreed design outline (2026-10-06). The checks run automatically in Python as part of the normal run and only read files. The AI opens a session with a short summary that leads with what could affect results, then the rest by size; it gives exact counts, with names when there are a few items and a pattern when there are many, and only a sentence or two when more than three categories have findings. It ends: "Would you like to look at any of them in more detail, or go on to some other matter?" Items Kirk declares intended drop out of later summaries. Flags are mild heads-ups, never errors. The same opening summary also covers the existing orphan outputs. Guiding principle: show little at first, and let the user ask for more.
+- A data checkup (blanks in Required, Yes/No and initial-value columns, and values of the wrong kind) will follow the same pattern later; on hold. It supersedes the initial-value idea above. Kirk confirmed on 2026-10-04 that an Enum can be left blank only when Required is off. First question for it: does the suite parse the plain Required setting?
+- Next step: a short written plan for Kirk's review before anything is built.
+
+### Idea: a "where used" module
+
+- It would take a column, action, view or slice and report every reference on the app side and the sheet side, classified, with the coverage statement described in CLAUDE.md ("Answering "where is this used?"") built in. First step: check how much `column_dependency_analyzer.py` already covers. Idea only, not decided.
 
 ## Private working notes
 
