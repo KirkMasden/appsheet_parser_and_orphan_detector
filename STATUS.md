@@ -1043,6 +1043,7 @@ build follows.
 - Agreed design outline (2026-10-06). The checks run automatically in Python as part of the normal run and only read files. The AI opens a session with a short summary that leads with what could affect results, then the rest by size; it gives exact counts, with names when there are a few items and a pattern when there are many, and only a sentence or two when more than three categories have findings. It ends: "Would you like to look at any of them in more detail, or go on to some other matter?" Items Kirk declares intended drop out of later summaries. Flags are mild heads-ups, never errors. The same opening summary also covers the existing orphan outputs. Guiding principle: show little at first, and let the user ask for more.
 - A data checkup (blanks in Required, Yes/No and initial-value columns, and values of the wrong kind) will follow the same pattern later; on hold. It supersedes the initial-value idea above. Kirk confirmed on 2026-10-04 that an Enum can be left blank only when Required is off. First question for it: does the suite parse the plain Required setting?
 - Next step: a short written plan for Kirk's review before anything is built.
+- Final step, once the checkup report exists: add an instruction to CLAUDE.md and AGENTS.md telling the AI to read the report at the start of a session and open with the summary as designed above. Not before, or the AI would be told to summarise a report that does not exist.
 
 ### Idea: a "where used" module
 
