@@ -550,6 +550,29 @@ and no visible symptom:
   action, not within one expression — a checker scanning expressions individually
   would not find it.
 
+## Spreadsheet formulas behind app columns
+
+ESTABLISHED IN PART. For each column filled by a spreadsheet formula, AppSheet keeps its own copy of that formula and writes the copy into every new row the app adds. The copy is refreshed from the sheet when the table's structure is regenerated in the editor. It can also be edited by hand in the editor.
+
+What is stored. The export's `spreadsheet_formula` field holds the copy, in R1C1 notation (references written relative to the cell, for example `counta(R2C[-30]:RC[-30])`), without the leading `=`. The editor shows it under Auto Compute as "Spreadsheet formula", with the note "Generated from your spreadsheet. Gets applied during sync." Columns filled by a spill from another cell (all 16 Seminar columns in Kankaku V19) store the literal text `COMPUTED_VALUE` instead of a formula; that this marks spill-filled columns is inference, not documented.
+
+Sources, with their strength:
+
+- The editor's own wording, quoted above. Platform text, but it describes the field rather than when the copy is written or refreshed.
+- Google's documentation, "Configure column properties" (https://support.google.com/appsheet/answer/10106509?hl=en): a spreadsheet formula is calculated, and its result shown in the app, once the user clicks Save (or Sync if the app uses Delayed Sync). It does not say what happens to existing rows.
+- Kirk's test, 2026-09-27. After he changed the Finished cram card formula (Main data column AN) in his master copy and regenerated the Kankaku table, a new card added in the app (row 554) received the new formula. Direct observation.
+- Ordinary use, observed 2026-10-04. A card created in the app at 2026-10-04 05:47 JST (row 555 of the master copy) holds the corrected AN formula. Independent of the test above and consistent with it.
+- Kirk's test, 2026-10-04. In the editor, he changed Archive[Count]'s stored formula from `counta(R2C[-30]:RC[-30])` to `counta(R2C[-30]:RC[-29])`. The editor accepted it without any error and kept it; he then reverted it. Direct observation.
+- Indirect evidence that the copy goes stale without regeneration: in the Kankaku V19 export of 2026-09-26, the Overall table's stored formulas are `0.23` for DW 5min ratio, `now()` for Latest update, and an INDIRECT formula over Collate column AP for Daily record, while the sheet holds different formulas in all three. Consistent with the table not having been regenerated after those formulas changed; not observed as such.
+- AppSheet's error-message reference (https://www.appsheet.com/support/errormessages) lists an error for a column definition that specifies both a sheet formula and an app formula. An older page; its current wording has not been checked.
+
+Not established:
+
+- That new rows receive the OLD stored formula when the sheet's formula has changed but the table has not been regenerated. This follows from the rule but has not been directly observed.
+- Whether an app edit to an EXISTING row rewrites that row's formula with the stored copy. If it does, a table whose rows deliberately hold different formulas (Kankaku's two-row Overall table) could have a row's formula replaced by a stale stored one.
+- Whether regeneration picks up a formula newly added to a column that previously had none, and clears the stored copy when a column's formulas are removed. Very likely, since it is the same mechanism, but not observed.
+- Whether new rows receive a hand-edited stored formula, and whether a later regeneration overwrites a hand edit.
+
 ## Scope decisions — deliberate exclusions
 
 Source: Kirk's decision, 2026-08-30. Recorded so these are not re-litigated.
