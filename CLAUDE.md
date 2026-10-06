@@ -72,6 +72,8 @@ These rules are not stylistic. Each was learned by getting a wrong answer withou
 
 **Say when the data does not answer the question.** These CSVs are incomplete in known ways, recorded in STATUS.md. An explicit "the parse does not record this" is more useful than an inference presented as a finding.
 
+**When a spreadsheet formula behind an app column changes, remind the user to regenerate the table.** AppSheet keeps its own copy of the formula of each column filled by a spreadsheet formula (the export's `spreadsheet_formula` field; the editor shows it with the note "Generated from your spreadsheet. Gets applied during sync.") and writes that stored copy into every new row the app adds. The copy is refreshed from the sheet only when the table's structure is regenerated in the AppSheet editor. It can also be edited by hand in the editor without causing the editing interface to issue an error, so it may differ from the sheet for that reason too. So whenever you propose or make a change to a formula in a column that belongs to an app table, tell the user to regenerate that table afterwards. Otherwise new rows keep receiving the old formula, and nothing in the app shows it. Formulas on sheets that no app table reads need no regeneration. See APPSHEET_BEHAVIOR.md for the source of this rule.
+
 The code uses the word "snapshot" — the module `sheet_derivation.snapshot`, the `<snapshot>` path token — but Kirk does not want it in anything he or his users read. Use plain descriptions instead: "the folder of files to be parsed", "the captured data", "the app's files". Use the word only when naming the module or command itself.
 
 ## Where to look
@@ -558,6 +560,19 @@ When looking for where a rule or threshold is applied in a workbook, a literal-t
 This has already produced a wrong answer once. A cell computed a threshold of 300 seconds by summing separate seconds, minutes, hours and days columns, with a 5 sitting in the minutes column; its own text contained neither "300" nor "5 minutes". Its row carried a label, and on the order of twenty thousand formulas on another sheet looked values up against the small table that row belonged to, never referencing the number directly. A literal search for the number found nothing, and an investigation that relied on that search wrongly concluded no second threshold existed.
 
 State the practical consequence: when asking where a rule is applied, enumerate the routes by which a constant can reach a formula, and include lookup tables consumed by reference among them, not as a special case to remember separately. A search that finds nothing has narrowed the question. It has not answered it.
+
+### Answering "where is this used?"
+
+When asked where a column, action, view or slice is used, search in this order and report what each step covered.
+
+1. Search the raw export for the bracketed name, for example [Min]. Every use inside an expression is written this way, so this search catches all expression-based uses.
+2. Search the raw export for the bare name too, and account for every occurrence. Some settings name a column without brackets. Use a case-sensitive, whole-word search, so that a search for Min does not count the MIN() function or longer names that contain "Min".
+3. On the sheet side, trace dependents at cell level. Find the cells that read the column, then the cells that read those, and continue until no further formula reads the chain.
+4. Say what lies outside the export and the capture: other workbooks that read this one, bots, and bound scripts. Neither file can rule these out.
+
+End with a coverage statement: each search you ran, what it rules out, and every occurrence accounted for, with the arithmetic shown. For example: "14 bare-name occurrences: 9 inside bracketed uses already counted, 3 in column lists, 2 in display names; 9 + 3 + 2 = 14." A list of uses without this statement cannot be told apart from an incomplete search.
+
+This method answered the question of what the Min column on Kankaku's Main data is for (2026-09-27).
 
 ### The tool does not evaluate
 
