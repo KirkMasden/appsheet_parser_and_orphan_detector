@@ -76,6 +76,20 @@ These rules are not stylistic. Each was learned by getting a wrong answer withou
 
 The code uses the word "snapshot" — the module `sheet_derivation.snapshot`, the `<snapshot>` path token — but Kirk does not want it in anything he or his users read. Use plain descriptions instead: "the folder of files to be parsed", "the captured data", "the app's files". Use the word only when naming the module or command itself.
 
+## The sketch after a parse
+
+After you parse a new set of the app's files, give the user a brief sketch of what the run found. In a later session that works on an existing parse, give the sketch only when asked.
+
+Judge what matters most and lead with it. As a rough guide, not a fixed order:
+
+1. Problems with the run itself, in one line and only when there are any. Examples are columns skipped because their settings could not be read, an export and a capture that do not belong to the same app, and navigation targets the parser could not resolve. These tell the user how far to trust the rest.
+2. Findings that affect what the app does for its users, such as an action that navigates to a view that does not exist, or an action whose conditions mean it can never display.
+3. Everything else, largest group first, such as orphan views, actions, and columns.
+
+Give exact counts. Name the items when there are only a few, and describe the pattern when there are many. When more than three categories have findings, give each no more than a sentence or two. Present findings as mild heads-ups, not as errors, since many will turn out to be intended. Where STATUS.md records a known false positive that bears on a count, say so in a short clause.
+
+End with this question: "Would you like to look at any of them in more detail, or go on to some other matter?"
+
 ## Where to look
 
 - `STATUS.md` — known defects, recently-fixed entries with commit hashes, and remaining work. Read this before trusting any output.
