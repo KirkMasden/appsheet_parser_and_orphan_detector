@@ -1044,10 +1044,15 @@ build follows.
 - A data checkup (blanks in Required, Yes/No and initial-value columns, and values of the wrong kind) will follow the same pattern later; on hold. It supersedes the initial-value idea above. Kirk confirmed on 2026-10-04 that an Enum can be left blank only when Required is off. First question for it: does the suite parse the plain Required setting?
 - Next step: a short written plan for Kirk's review before anything is built.
 - Final step, once the checkup report exists: add an instruction to CLAUDE.md and AGENTS.md telling the AI to read the report at the start of a session and open with the summary as designed above. Not before, or the AI would be told to summarise a report that does not exist.
+- Post-parse sketch, decided 2026-10-21, superseding the bullet above: after every parse of new files, the AI gives a brief sketch of what the run found, following the design outline above; a later session on an existing parse gives the sketch only when asked. The suite already produces findings worth sketching (orphan outputs, phantom view references, unsatisfiable conditions, unparseable navigation targets, parse warnings), so the CLAUDE.md and AGENTS.md instruction can be added before the checkup is built, and the checkup joins the sketch once it exists.
 
 ### Idea: a "where used" module
 
 - It would take a column, action, view or slice and report every reference on the app side and the sheet side, classified, with the coverage statement described in CLAUDE.md ("Answering "where is this used?"") built in. First step: check how much `column_dependency_analyzer.py` already covers. Idea only, not decided.
+
+### Idea: AI help in planning a change to the app or its sheet
+
+- Raised 2026-10-06. Before a change such as adding a column, the AI would use the "where is this used?" method plus checks to say what the change would affect: references written as text, as inside INDIRECT, which Sheets does not adjust when columns are inserted; app tables that would need regenerating; and readers outside the capture, such as other workbooks that read cells by address, and scripts. It would share most of its machinery with the "where used" module above. Idea only, not decided.
 
 ## Private working notes
 
