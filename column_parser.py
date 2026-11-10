@@ -31,6 +31,10 @@ class ColumnParser(BaseParser):
         self.system_generated_tables = []
         self.total_tables_found = 0
 
+        # One entry per table block in the export (every table, including the
+        # native-source ones kept out of columns_data): table_name, update_mode
+        self.table_settings = []
+
         # Load slice mapping if available
         self.load_slice_mapping() 
 
@@ -79,6 +83,65 @@ class ColumnParser(BaseParser):
         if self.system_generated_tables:
             for table in sorted(self.system_generated_tables):
                 print(f"      - {table}")
+
+    def extract_table_update_settings(self):
+        """Read each table's "Are updates allowed?" row (HTML for="UpdateMode").
+
+        One entry per table block in the export, ALL tables, including the
+        native-source ones that parse() leaves out of columns_data. The value
+        is recorded exactly as exported (never translated or interpreted).
+        A table with no such row gets an empty value and a warning; a value
+        outside the four known ones is still recorded as exported, with a
+        warning (the export might one day show an expression).
+        """
+        known_values = ('ALL_CHANGES', 'UPDATES_ONLY', 'ADDS_ONLY', 'READ_ONLY')
+        self.table_settings = []
+
+        tables = self.soup.find_all('h5', id=lambda x: x and x.startswith('table_') and not x.endswith('_Schema'))
+
+        for table_header in tables:
+            table_name = None
+            text_content = table_header.get_text(strip=True)
+            if text_content.startswith('Table name'):
+                table_name = text_content.replace('Table name', '').strip()
+            else:
+                table_id = table_header.get('id', '')
+                if table_id.startswith('table_'):
+                    table_name = table_id[6:]
+
+            if not table_name:
+                continue
+
+            update_mode = None
+            data_table = table_header.find_next_sibling('table', class_='react-bridge-group')
+            if data_table:
+                for row in data_table.find_all('tr'):
+                    cells = row.find_all('td')
+                    if len(cells) == 2:
+                        label = cells[0].find('label')
+                        if label is not None and label.get('for') == 'UpdateMode':
+                            update_mode = cells[1].get_text().strip()
+                            break
+
+            if update_mode is None:
+                print(f"  ⚠️  Table '{table_name}': no 'Are updates allowed?' row found; update_mode left empty")
+                update_mode = ''
+            elif update_mode not in known_values:
+                print(f"  ⚠️  Table '{table_name}': unrecognized update_mode '{update_mode}' (recorded as exported)")
+
+            self.table_settings.append({'table_name': table_name, 'update_mode': update_mode})
+
+        return self.table_settings
+
+    def save_tables_to_csv(self, output_path='appsheet_tables.csv'):
+        """Save the table-level settings to CSV (one row per table)."""
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=['table_name', 'update_mode'],
+                                   quoting=csv.QUOTE_ALL)
+            writer.writeheader()
+            writer.writerows(self.table_settings)
+
+        print(f"  ✅ Table settings saved to: {output_path} ({len(self.table_settings)} tables)")
 
     def load_slice_mapping(self, csv_path='appsheet_slices.csv'):
         """Load slice-to-table mapping from the slices CSV."""
@@ -359,6 +422,9 @@ class ColumnParser(BaseParser):
         # First, identify system-generated tables
         self.identify_system_generated_tables()
 
+        # Record every table's update setting (including the filtered ones)
+        self.extract_table_update_settings()
+
         # Find the schema section
         schema_section = self.soup.find('section', class_='schemaSection')
         
@@ -512,6 +578,7 @@ def main():
     try:
         parser.parse()
         parser.save_to_csv()
+        parser.save_tables_to_csv()
         
         print("\n✅ Column parsing complete!")
         

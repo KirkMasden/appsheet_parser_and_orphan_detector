@@ -155,6 +155,7 @@ def run_column_parser(html_path, output_dir, debug_mode=False):
         # Save results
         csv_path = 'appsheet_columns.csv'
         parser.save_to_csv(csv_path)
+        parser.save_tables_to_csv('appsheet_tables.csv')
         
         return len(columns), os.path.join(output_dir, csv_path)
     finally:

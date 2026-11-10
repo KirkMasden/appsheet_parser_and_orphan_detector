@@ -190,6 +190,18 @@ Fields: `slice_name`, `source_table`, `referenced_columns`, `row_filter_conditio
 - `update_mode`: closed vocabulary observed `ALL_CHANGES`, `READ_ONLY`, `ADDS_ONLY`, `UPDATES_ONLY`.
 - `visible`: only value observed in either app is `ALWAYS` — this field can plausibly carry a conditional expression in other apps; treat the single observed value as this pair of apps' data, not as the full vocabulary.
 
+### `appsheet_tables.csv`
+
+One row per table in the export, in export order, **including the native-source tables** (for Kankaku, the six bot process/output tables) that `appsheet_columns.csv` leaves out. Written by `column_parser.py` (`ColumnParser.save_tables_to_csv`), beside the other app-side CSVs.
+
+Rows: Kankaku 16 (checked on the V18 baseline and the V19 export of 2026-09-26; not yet run on Farmy).
+
+Fields: `table_name`, `update_mode`.
+
+- `update_mode`: the table's "Are updates allowed?" setting (HTML `for="UpdateMode"`), recorded **exactly as exported**, never translated or interpreted. Closed vocabulary observed `ALL_CHANGES`, `UPDATES_ONLY`, `ADDS_ONLY`, `READ_ONLY` (these are AppSheet's own pre-collapsed values, the same ones `appsheet_slices.csv` carries for slices). Kankaku V19: `ALL_CHANGES` Kankaku, Archive; `UPDATES_ONLY` Seminar, Settings, Options, Stats, `_Per User Settings`; `ADDS_ONLY` Progress; `READ_ONLY` Overall, Welcome and the six bot tables.
+- Empty when the table's block has no such row; the parse then prints a warning naming the table. A value outside the four known ones is still written as exported, with a warning — the export could in principle show an expression here, and none of the apps seen so far does. Treat an empty or unrecognized value as "not known", never as read-only.
+- Misuse trap: the setting says what the table allows in general; whether the app actually adds or edits rows still depends on its views and actions (and `appsheet_actions.csv` labels every add-row action `set_columns`; see `STATUS.md`).
+
 ### `appsheet_views.csv`
 
 One row per view in the app, as extracted from the HTML export. Written by `views_parser.py`.
@@ -361,7 +373,7 @@ Answers: *"What columns exist on every table, with their types and formulas?"*
 
 - Worth calling directly: `ColumnParser(html_path).parse()`, then `.save_to_csv(output_path='appsheet_columns.csv')`.
 - Requires: the HTML export; `load_slice_mapping(csv_path='appsheet_slices.csv')` expects `appsheet_slices.csv` to already exist (run `slice_parser.py` first).
-- Reads: the HTML export, `appsheet_slices.csv`. Writes: `appsheet_columns.csv`.
+- Reads: the HTML export, `appsheet_slices.csv`. Writes: `appsheet_columns.csv` and `appsheet_tables.csv` (one row per table, every table in the export; `save_tables_to_csv(output_path='appsheet_tables.csv')`, filled by `extract_table_update_settings()` during `parse()`).
 - Carries the `show_if`/`required_if`/`editable_if`/`valid_if`/`reset_if` never-populated defect described in the CSV reference above.
 
 #### `format_rules_parser.py` — `FormatRulesParser(BaseParser)`
