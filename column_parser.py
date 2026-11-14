@@ -91,10 +91,11 @@ class ColumnParser(BaseParser):
         native-source ones that parse() leaves out of columns_data. The value
         is recorded exactly as exported (never translated or interpreted).
         A table with no such row gets an empty value and a warning; a value
-        outside the four known ones is still recorded as exported, with a
+        outside the eight known ones is still recorded as exported, with a
         warning (the export might one day show an expression).
         """
-        known_values = ('ALL_CHANGES', 'UPDATES_ONLY', 'ADDS_ONLY', 'READ_ONLY')
+        known_values = ('ALL_CHANGES', 'ADDS_ONLY', 'ADDS_AND_UPDATES', 'ADDS_AND_DELETES',
+                        'UPDATES_ONLY', 'UPDATES_AND_DELETES', 'DELETES_ONLY', 'READ_ONLY')
         self.table_settings = []
 
         tables = self.soup.find_all('h5', id=lambda x: x and x.startswith('table_') and not x.endswith('_Schema'))

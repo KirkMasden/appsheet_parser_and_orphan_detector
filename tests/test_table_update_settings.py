@@ -75,6 +75,16 @@ class TestTableUpdateSettings(unittest.TestCase):
         )
         self.assertNotIn("update_mode", printed)
 
+    def test_four_help_page_values_are_recognized_without_warning(self):
+        values = ["ADDS_AND_UPDATES", "ADDS_AND_DELETES", "UPDATES_AND_DELETES", "DELETES_ONLY"]
+        html = _html(*[_table_block(f"T{i}", v) for i, v in enumerate(values)])
+        settings, printed, _ = _parse_settings(html)
+        self.assertEqual(
+            settings,
+            [{"table_name": f"T{i}", "update_mode": v} for i, v in enumerate(values)],
+        )
+        self.assertNotIn("update_mode", printed)
+
     def test_native_source_table_is_included(self):
         html = _html(
             _table_block("Alpha", "ALL_CHANGES"),
