@@ -27,6 +27,97 @@ from slice_orphan_detector import SliceOrphanDetector
 from phantom_view_reference_detector import find_phantoms, write_results
 from unsatisfiable_condition_detector import UnsatisfiableConditionDetector
 
+# ---------------------------------------------------------------------------
+# The files a run can write into its output folder -- the ONE place they are
+# listed. A new output file of any parser or detector is added here, once.
+#
+# Several detectors write nothing when they find nothing (so that "no file"
+# means "nothing found"). Because the output folder takes the input folder's
+# name, a second run on the same input folder writes into the same folder,
+# and a file from the first run would survive as stale. So a run first
+# deletes the files ITS MODE writes (and only those) from the output folder,
+# then writes fresh. Nothing else is ever deleted: no other file, no
+# subfolder, nothing outside the output folder.
+# ---------------------------------------------------------------------------
+
+PARSER_OUTPUT_FILES = {
+    'slices': ('appsheet_slices.csv',),
+    'columns': ('appsheet_columns.csv', 'appsheet_tables.csv'),
+    'format_rules': ('appsheet_format_rules.csv',),
+    'actions': ('appsheet_actions.csv',),
+    'views': ('appsheet_views.csv',),
+    'targets': ('action_targets.csv', 'action_targets_unparseable.csv'),
+}
+NAVIGATION_EDGES_FILE = 'navigation_edges.csv'
+DETECTOR_OUTPUT_FILES = {
+    'view_orphans': ('potential_view_orphans.csv', 'unused_system_views.csv'),
+    'column_orphans': (
+        'potential_virtual_column_orphans.csv',
+        'potential_usersettings_orphans.csv',
+        'broken_usersettings_references.csv',
+    ),
+    'action_orphans': ('potential_action_orphans.csv',),
+    'format_rule_orphans': ('potential_format_rule_orphans.csv',),
+    'slice_orphans': ('potential_slice_orphans.csv',),
+    'phantom_views': ('potential_phantom_view_references.csv',),
+    'unsatisfiable_conditions': ('potential_unsatisfiable_conditions.csv',),
+}
+
+
+def _all_output_files():
+    names = []
+    for group in list(PARSER_OUTPUT_FILES.values()) + [(NAVIGATION_EDGES_FILE,)] + list(DETECTOR_OUTPUT_FILES.values()):
+        names.extend(group)
+    return tuple(names)
+
+
+# mode -> the files that mode writes (and therefore clears first). 'full' is
+# the whole pipeline: every parser, the navigation edges and every detector.
+MODE_OUTPUT_FILES = dict(
+    {'full': _all_output_files()},
+    **{key: PARSER_OUTPUT_FILES[key] for key in PARSER_OUTPUT_FILES},
+    **{key: DETECTOR_OUTPUT_FILES[key] for key in
+       ('view_orphans', 'column_orphans', 'action_orphans', 'format_rule_orphans', 'slice_orphans', 'phantom_views')},
+)
+
+
+def run_mode(args):
+    """The mode main() will run, mirroring main()'s own order of precedence:
+    the orphan-detector flags first, then the single-parser flags, else the
+    full pipeline."""
+    for flag, mode in (
+        ('column_orphans', 'column_orphans'), ('action_orphans', 'action_orphans'),
+        ('view_orphans', 'view_orphans'), ('format_rule_orphans', 'format_rule_orphans'),
+        ('slice_orphans', 'slice_orphans'), ('phantom_views', 'phantom_views'),
+        ('slice_only', 'slices'), ('column_only', 'columns'), ('format_rules_only', 'format_rules'),
+        ('actions_only', 'actions'), ('views_only', 'views'), ('targets_only', 'targets'),
+    ):
+        if getattr(args, flag, False):
+            return mode
+    return 'full'
+
+
+def clear_previous_outputs(output_dir, mode):
+    """Deletes from `output_dir` the files `mode` is about to write, if they
+    exist there, printing one line per file deleted. Returns the names
+    deleted. Touches nothing else. If a deletion fails it raises OSError
+    naming the file, so the caller can stop instead of parsing on top of
+    stale files."""
+    deleted = []
+    if not os.path.isdir(output_dir):
+        return deleted
+    for name in MODE_OUTPUT_FILES[mode]:
+        path = os.path.join(output_dir, name)
+        if os.path.islink(path) or os.path.isfile(path):
+            try:
+                os.remove(path)
+            except OSError as exc:
+                raise OSError(f"could not delete {path}: {exc}") from exc
+            print(f"   🗑️  Deleted the previous run's {name}")
+            deleted.append(name)
+    return deleted
+
+
 def print_header(title):
     """Print a formatted section header."""
     print(f"\n{'=' * 60}")
@@ -716,6 +807,16 @@ def main():
     if args.debug:
         print(f"   🐛 {YELLOW}Debug mode: ENABLED{RESET}")
         
+    # Clear what this mode is about to write, so that a file from an earlier run on the same
+    # input folder cannot survive as stale when this run finds nothing (see MODE_OUTPUT_FILES).
+    try:
+        clear_previous_outputs(actual_output_dir, run_mode(args))
+    except OSError as exc:
+        print(f"❌ Error: {exc}")
+        print("   Stopping rather than parsing on top of the previous run's files. Close whatever is using the "
+              "file, or delete it by hand, and run again.")
+        sys.exit(1)
+
     # Check if running orphan detectors only
     if args.column_orphans:
         run_column_orphan_detector(actual_output_dir)
