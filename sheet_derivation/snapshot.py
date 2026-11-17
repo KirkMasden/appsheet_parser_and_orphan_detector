@@ -65,6 +65,11 @@ APP_SIDE_FILES: Tuple[str, ...] = (
     "views1.txt",
     "views2.txt",
 )
+# An optional app-side file: written by hand, listing the actions the user's
+# bots call (see CLAUDE.md). Recognized, and reported as found or "not found
+# (optional)", but never counted in the required totals and never a reason
+# for the folder to be called incomplete.
+OPTIONAL_APP_SIDE_FILES: Tuple[str, ...] = ("bot_actions.txt",)
 # Two logical slots, not two fixed filenames -- each is recognized by
 # glob pattern (see FORMULAS_GLOB_PATTERN/VALUES_GLOB_PATTERN's own
 # docstring in loader.py), the same pattern discover_capture_files() uses,
@@ -109,6 +114,8 @@ class SnapshotContents:
     app_side_missing: Tuple[str, ...]
     capture_slots: Tuple[CaptureSlotResult, ...]
     unrecognized: Tuple[str, ...]
+    optional_found: Tuple[str, ...] = ()
+    optional_missing: Tuple[str, ...] = ()
 
     @property
     def app_side_complete(self) -> bool:
@@ -144,15 +151,18 @@ def inspect_snapshot(snapshot_dir: str) -> SnapshotContents:
     for slot in capture_slots:
         recognized_capture.update(slot.matches)
 
-    unrecognized = tuple(
-        sorted(f for f in entries if f not in frozenset(APP_SIDE_FILES) and f not in recognized_capture)
-    )
+    optional_found = tuple(f for f in OPTIONAL_APP_SIDE_FILES if f in entries_set)
+    optional_missing = tuple(f for f in OPTIONAL_APP_SIDE_FILES if f not in entries_set)
+    known = frozenset(APP_SIDE_FILES) | frozenset(OPTIONAL_APP_SIDE_FILES)
+    unrecognized = tuple(sorted(f for f in entries if f not in known and f not in recognized_capture))
     return SnapshotContents(
         snapshot_dir=snapshot_dir,
         app_side_found=app_side_found,
         app_side_missing=app_side_missing,
         capture_slots=capture_slots,
         unrecognized=unrecognized,
+        optional_found=optional_found,
+        optional_missing=optional_missing,
     )
 
 
@@ -163,6 +173,9 @@ def format_report(contents: SnapshotContents) -> str:
     for f in APP_SIDE_FILES:
         status = "found" if f in contents.app_side_found else "MISSING"
         lines.append(f"  - {f}: {status}")
+
+    for f in OPTIONAL_APP_SIDE_FILES:
+        lines.append(f"optional: {f}: " + ("found" if f in contents.optional_found else "not found (optional)"))
 
     found_slots = sum(1 for slot in contents.capture_slots if slot.state == "found")
     lines.append(f"capture files: {found_slots}/{len(contents.capture_slots)} found")

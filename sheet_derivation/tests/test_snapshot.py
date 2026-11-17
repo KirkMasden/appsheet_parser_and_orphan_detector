@@ -3,6 +3,7 @@ listing plus the export/capture pairing check."""
 
 import contextlib
 import io
+import os
 import tempfile
 import unittest
 
@@ -55,6 +56,44 @@ class TestInputFolderPairing(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             _, out = _main([_folder(tmp, [("Ledger", "Ledger", "google")])])
         self.assertNotIn("snapshot", out.lower().replace("sheet_derivation.snapshot", ""))
+
+
+class TestOptionalBotActionsFile(unittest.TestCase):
+    def _app_folder(self, tmp, with_bot_file):
+        _folder(tmp, [("Ledger", "Ledger", "google")])
+        for name in ("actions.txt", "views1.txt", "views2.txt"):
+            with open(os.path.join(tmp, name), "w", encoding="utf-8") as fh:
+                fh.write("x\n")
+        if with_bot_file:
+            with open(os.path.join(tmp, "bot_actions.txt"), "w", encoding="utf-8") as fh:
+                fh.write("\nSome action\n")
+        return tmp
+
+    def test_found_is_reported_and_not_counted_or_called_unrecognized(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, out = _main([self._app_folder(tmp, True)])
+        self.assertEqual(code, 0)
+        self.assertIn("optional: bot_actions.txt: found", out)
+        self.assertIn("app-side files: 4/4 found", out)
+        self.assertIn("present but not recognized: none", out)
+        self.assertNotIn("not found (optional)", out)
+
+    def test_absent_is_reported_as_optional_and_does_not_make_the_folder_incomplete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, out = _main([self._app_folder(tmp, False)])
+        self.assertEqual(code, 0)
+        self.assertIn("optional: bot_actions.txt: not found (optional)", out)
+        self.assertIn("app-side files: 4/4 found", out)
+        self.assertIn("Complete: both the app-side export and the sheet capture are present.", out)
+
+    def test_inspection_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            found = snapshot.inspect_snapshot(self._app_folder(tmp, True))
+        self.assertEqual(found.optional_found, ("bot_actions.txt",))
+        self.assertEqual(found.optional_missing, ())
+        self.assertTrue(found.app_side_complete)
+        self.assertEqual(found.unrecognized, ())
+        self.assertNotIn("bot_actions.txt", snapshot.APP_SIDE_FILES)
 
 
 if __name__ == "__main__":

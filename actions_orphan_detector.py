@@ -20,8 +20,14 @@ from action_visibility import is_visible_in_views_aod
 
 
 class ActionOrphanDetector:
-    def __init__(self, parse_directory):
+    def __init__(self, parse_directory, input_directory=None):
+        """`input_directory`, when given, is the folder holding the
+        Application Documentation.html being parsed -- where the
+        documentation tells users to put bot_actions.txt. The master script
+        passes it; run on its own against a parse folder, the detector does
+        not know it and uses only the fallback locations."""
         self.parse_dir = Path(parse_directory)
+        self.input_dir = Path(input_directory) if input_directory else None
         self.all_actions = []
         self.user_actions = []
         self.referenced_actions = set()
@@ -60,8 +66,14 @@ class ActionOrphanDetector:
         self.bot_actions = set()
         bot_actions_file = None
         
-        # Try multiple locations for bot_actions.txt
-        possible_locations = [
+        # Try multiple locations for bot_actions.txt, in this order; the first
+        # one found is used. The input folder comes first: it is the documented
+        # place (beside Application Documentation.html). The rest are fallbacks
+        # for older layouts.
+        possible_locations = []
+        if self.input_dir is not None:
+            possible_locations.append(self.input_dir / 'bot_actions.txt')  # In the input folder
+        possible_locations += [
             self.parse_dir / 'bot_actions.txt',  # In parse output directory
             self.parse_dir.parent / 'bot_actions.txt',  # In parent directory
         ]
@@ -91,7 +103,7 @@ class ActionOrphanDetector:
                     if action_name:  # Skip empty lines
                         self.bot_actions.add(action_name.lower())
             print(f"  ✓ Loaded {len(self.bot_actions)} bot-used actions to exclude")
-            print(f"    (from: {bot_actions_file.name})")
+            print(f"    (from: {bot_actions_file})")
         else:
             print("  ℹ️ No bot_actions.txt file found - bot detection disabled")
             
@@ -580,19 +592,21 @@ class ActionOrphanDetector:
         return orphan_candidates
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python actions_orphan_detector.py '/path/to/parse/directory/'")
+    if len(sys.argv) not in (2, 3):
+        print("Usage: python actions_orphan_detector.py '/path/to/parse/directory/' ['/path/to/input/folder/']")
+        print("  (the optional input folder is where bot_actions.txt is looked for first)")
         print("\nExample:")
         print("python actions_orphan_detector.py '/path/to/20260907_111603_MyApp_parse/'")
         sys.exit(1)
     
     parse_directory = sys.argv[1]
+    input_directory = sys.argv[2] if len(sys.argv) == 3 else None
     
     if not os.path.exists(parse_directory):
         print(f"ERROR: Directory does not exist: {parse_directory}")
         sys.exit(1)
     
-    detector = ActionOrphanDetector(parse_directory)
+    detector = ActionOrphanDetector(parse_directory, input_directory)
     orphan_candidates = detector.run_analysis()
     
     if orphan_candidates is not None:

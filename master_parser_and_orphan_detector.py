@@ -531,10 +531,11 @@ def run_column_orphan_detector(output_dir):
     detector = VirtualColumnOrphanDetector(output_dir)
     detector.run_analysis()  
 
-def run_action_orphan_detector(output_dir):
-    """Run the action orphan detector on parsed CSV files."""
+def run_action_orphan_detector(output_dir, input_dir=None):
+    """Run the action orphan detector on parsed CSV files. `input_dir` is the
+    folder holding the HTML export, where bot_actions.txt is looked for first."""
     print_header("PHASE 10: Action Orphan Detection")
-    detector = ActionOrphanDetector(output_dir)
+    detector = ActionOrphanDetector(output_dir, input_dir)
     detector.run_analysis()
 
 def run_format_rule_orphan_detector(output_dir):
@@ -721,7 +722,7 @@ def main():
         return
 
     if args.action_orphans:
-        run_action_orphan_detector(actual_output_dir)
+        run_action_orphan_detector(actual_output_dir, os.path.dirname(os.path.abspath(args.html_file)))
         return
 
     if args.view_orphans:
@@ -772,7 +773,7 @@ def main():
             # MUST run view orphan detector FIRST - it creates unused_system_views.csv
             run_view_orphan_detector(parse_dir)
             run_column_orphan_detector(parse_dir)
-            run_action_orphan_detector(parse_dir)
+            run_action_orphan_detector(parse_dir, os.path.dirname(os.path.abspath(args.html_file)))
             run_format_rule_orphan_detector(parse_dir)
             run_slice_orphan_detector(parse_dir)
             phantom_count = run_phantom_view_detector(parse_dir)
