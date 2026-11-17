@@ -48,6 +48,14 @@ from .appside_parse import AppSideParseError, discover_appside_columns_csv, hash
 from .artifact import ArtifactBase
 from .coordinates import col_to_letters, letters_to_col
 from .counts import is_nonempty
+from .intended import (
+    KIND_ORPHAN,
+    RecordUnreadable,
+    checkup_fingerprint,
+    derive_app_name,
+    read_record,
+    record_path,
+)
 from .loader import discover_capture_files
 from .r1c1 import (
     PLACEHOLDER_STORED_TEXT,
@@ -200,6 +208,16 @@ STORED_PLACEHOLDER = "placeholder"
 STORED_FORMULA = "formula"
 
 # ---------------------------------------------------------------------------
+# The intended-items record: what became of the file this run
+# ---------------------------------------------------------------------------
+
+RECORD_NOT_READ = "not read"
+RECORD_READ = "read"
+RECORD_NO_FILE = "no file"
+RECORD_NO_APP_NAME = "app name not derivable"
+RECORD_UNREADABLE = "unreadable"
+
+# ---------------------------------------------------------------------------
 # Result records
 # ---------------------------------------------------------------------------
 
@@ -218,6 +236,15 @@ class DifferingGroup:
     converted: Optional[str]
     by_convention: Tuple[str, ...]
     note: str
+
+
+@dataclass(frozen=True)
+class IntendedMark:
+    """A declaration from the intended-items record: when it was made and
+    the user's note."""
+
+    date_declared: str
+    note: Optional[str]
 
 
 @dataclass(frozen=True)
@@ -269,6 +296,8 @@ class ColumnFinding:
     finding: str
     advice: str
     notes: Tuple[str, ...]
+    intended: Optional[IntendedMark] = None  # a declaration whose fingerprint still matches
+    lapsed: Optional[IntendedMark] = None  # a declaration that existed and no longer matches
 
 
 @dataclass(frozen=True)
@@ -291,6 +320,14 @@ class CheckupArtifact(ArtifactBase):
     input_file_hashes: Tuple[Tuple[str, str], ...]
     findings: Tuple[ColumnFinding, ...]
     not_examined: Tuple[NotExaminedColumn, ...]
+    # The intended-items record (see intended.py).
+    app_name: Optional[str] = None
+    record_state: str = RECORD_NOT_READ
+    record_file: Optional[str] = None
+    record_note: str = ""
+    lapsed_entries: Tuple[Tuple[str, str, str, Optional[str]], ...] = ()  # table, column, date, note
+    not_applied_entries: Tuple[Tuple[str, str, str, str], ...] = ()  # table, column, date, reason
+    orphan_entry_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -817,6 +854,88 @@ def _absent(reason: str, capture_date: str = "absent") -> CheckupArtifact:
     )
 
 
+@dataclass(frozen=True)
+class _RecordOutcome:
+    findings: List[ColumnFinding]
+    app_name: Optional[str]
+    state: str
+    path: Optional[str]
+    note: str
+    lapsed: Tuple[Tuple[str, str, str, Optional[str]], ...]
+    not_applied: Tuple[Tuple[str, str, str, str], ...]
+    orphan_count: int
+
+
+def _apply_intended_record(
+    findings: List[ColumnFinding],
+    not_examined: List[NotExaminedColumn],
+    default_app_folder: Optional[str],
+    intended_dir: Optional[str],
+) -> _RecordOutcome:
+    """Reads the app's intended-items record and applies its formula-checkup
+    entries: a matching fingerprint marks the column intended, a different
+    one marks the declaration lapsed (the finding counts as new), and an
+    entry for a column that is not examined is listed as not applied. Reads
+    only. Orphan entries are counted and left alone."""
+    from .stage6_artifacts import column_line  # here, not at the top: stage6_artifacts imports this module
+
+    app_name = derive_app_name(default_app_folder)
+    if app_name is None:
+        return _RecordOutcome(
+            findings, None, RECORD_NO_APP_NAME, None,
+            "the app's name could not be derived from the export (no usable DefnFolderName), so no intended-items record was read",
+            (), (), 0,
+        )
+    path = record_path(app_name, intended_dir)
+    try:
+        data = read_record(path)
+    except RecordUnreadable as exc:
+        return _RecordOutcome(findings, app_name, RECORD_UNREADABLE, path, f"the intended-items record could not be used: {exc}", (), (), 0)
+    if data is None:
+        return _RecordOutcome(findings, app_name, RECORD_NO_FILE, path, f"no intended-items record exists for app {app_name!r} (would be {path})", (), (), 0)
+
+    by_key = {(f.table, f.column): f for f in findings}
+    not_examined_by_key = {(n.table, n.column): n for n in not_examined}
+    updated: Dict[Tuple[str, str], ColumnFinding] = {}
+    lapsed: List[Tuple[str, str, str, Optional[str]]] = []
+    not_applied: List[Tuple[str, str, str, str]] = []
+    orphan_count = 0
+    for entry in sorted(data["entries"], key=lambda e: (e["kind"], e.get("table", ""), e.get("column", ""), e.get("orphanKind", ""), e.get("name", ""))):
+        if entry["kind"] == KIND_ORPHAN:
+            orphan_count += 1
+            continue
+        key = (entry["table"], entry["column"])
+        date, note = entry.get("declared") or "", entry.get("note")
+        f = by_key.get(key)
+        if f is None:
+            if key in not_examined_by_key:
+                reason = "the column is listed as not examined: " + not_examined_by_key[key].reason
+            else:
+                reason = (
+                    "the column is not among the examined columns (it has no stored formula and no formula "
+                    "below its header row, or it does not exist in this run)"
+                )
+            not_applied.append((key[0], key[1], date, reason))
+            continue
+        if entry["fingerprint"] == checkup_fingerprint(column_line(f)):
+            updated[key] = dataclasses.replace(f, intended=IntendedMark(date, note))
+        else:
+            lapsed.append((key[0], key[1], date, note))
+            updated[key] = dataclasses.replace(
+                f,
+                lapsed=IntendedMark(date, note),
+                notes=f.notes + (
+                    f"A declaration of {date} said this finding was intended; it has lapsed because the finding "
+                    "has changed since, so the finding counts as new.",
+                ),
+            )
+    return _RecordOutcome(
+        [updated.get((f.table, f.column), f) for f in findings], app_name, RECORD_READ, path,
+        f"the intended-items record {path} was read",
+        tuple(lapsed), tuple(not_applied), orphan_count,
+    )
+
+
 def run_stage6(
     formulas_path: str,
     values_path: str,
@@ -824,10 +943,13 @@ def run_stage6(
     app_export_html_path: Optional[str] = None,
     declarations_path: Optional[str] = None,
     stage5_result: Optional[Stage5Result] = None,
+    intended_dir: Optional[str] = None,
 ) -> Stage6Result:
     """Runs the checkup. `stage5_result`, when given, is used as it is (run.py
     passes the result of the stage 5 it has just run); otherwise stage 5 is
-    run here with the same arguments."""
+    run here with the same arguments. `intended_dir` is the folder holding
+    the intended-items records (default: <workspace>/intended); it is only
+    read here, never written."""
     if stage5_result is None:
         if appside_parse_dir is None:
             return Stage6Result(stage5=None, checkup=_absent("no app-side parse directory was given"))
@@ -993,14 +1115,20 @@ def run_stage6(
     findings.sort(key=lambda f: (f.table, letters_to_col(f.sheet_column), f.column))
     not_examined.sort(key=lambda n: (n.table, n.column))
 
-    # Rank the raised findings.
+    record = _apply_intended_record(
+        findings, not_examined, join.provenance.app_identity.default_app_folder if join.provenance else None,
+        intended_dir,
+    )
+    findings = record.findings
+
+    # Rank the raised findings that are not intended.
     raised = [
-        f for f in findings if f.tier == TIER_RAISED
+        f for f in findings if f.tier == TIER_RAISED and f.intended is None
     ]
     raised.sort(key=lambda f: (JUDGMENT_TABLE[(f.allows, f.situation)].priority, f.table, letters_to_col(f.sheet_column), f.column))
     ranks = {(f.table, f.column): i + 1 for i, f in enumerate(raised)}
     findings = [
-        dataclasses.replace(f, rank=ranks[(f.table, f.column)]) if f.tier == TIER_RAISED else f
+        dataclasses.replace(f, rank=ranks[(f.table, f.column)]) if (f.table, f.column) in ranks else f
         for f in findings
     ]
 
@@ -1054,6 +1182,13 @@ def run_stage6(
         input_file_hashes=tuple(hashes),
         findings=tuple(findings),
         not_examined=tuple(not_examined),
+        app_name=record.app_name,
+        record_state=record.state,
+        record_file=record.path,
+        record_note=record.note,
+        lapsed_entries=record.lapsed,
+        not_applied_entries=record.not_applied,
+        orphan_entry_count=record.orphan_count,
     )
     return Stage6Result(stage5=stage5_result, checkup=checkup)
 

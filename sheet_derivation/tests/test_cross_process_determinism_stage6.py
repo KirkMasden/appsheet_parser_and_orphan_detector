@@ -61,6 +61,42 @@ class TestStage6SyntheticCrossProcessDeterminism(CrossProcessDeterminismTestCase
                 self.assertIn('"situation"', fh.read())  # the run produced real findings, not an absent artifact
 
 
+class TestStage6WithARecordCrossProcessDeterminism(CrossProcessDeterminismTestCase):
+    def test_output_with_a_record_present_is_byte_identical_across_hash_seeds(self):
+        from .. import intended
+        from ..stage6_artifacts import write_stage6_artifacts
+        from .stage6_support import run_checkup
+
+        tabs, cols = _busy_workbook()
+        app_folder = "/appsheet/data/TestApp-123"
+        with tempfile.TemporaryDirectory() as tmp:
+            first = run_checkup(tabs, cols, [("T", "ALL_CHANGES")], app_folder=app_folder)
+            sheet = os.path.join(tmp, "sheet")
+            write_stage6_artifacts(first, sheet)
+            idir = os.path.join(tmp, "intended")
+            declared = [f for f in first.checkup.findings if f.tier in ("raised", "minor")]
+            self.assertGreaterEqual(len(declared), 2)
+            for f in declared[:2]:
+                intended.cmd_add(sheet, f.table, f.column, "declared in test", idir)
+            intended.cmd_add_orphan("TestApp", "view", "Some view", None, idir)
+            fpath, vpath, app_dir, html = make_inputs(
+                os.path.join(tmp, "in"), tabs, cols, [("T", "ALL_CHANGES")], app_folder=app_folder
+            ) if os.makedirs(os.path.join(tmp, "in")) is None else (None, None, None, None)
+            capture_dir = os.path.dirname(fpath)
+            outs = []
+            for seed in ("0", "1"):
+                out = os.path.join(tmp, f"out{seed}.json")
+                r = run_with_hash_seed(
+                    "sheet_derivation.serialize_stage6", [capture_dir, out, app_dir, html, idir], seed=seed
+                )
+                self.assertEqual(r.returncode, 0, msg=f"seed={seed} subprocess failed: {r.stderr}")
+                outs.append(out)
+            self.assert_files_byte_identical(outs[0], outs[1], context="synthetic workbook with a record, Stage 6")
+            with open(outs[0], encoding="utf-8") as fh:
+                text = fh.read()
+            self.assertIn('"intendedCount":2', text)
+
+
 class TestStage6RealCrossProcessDeterminism(CrossProcessDeterminismTestCase):
     def test_real_checkup_is_byte_identical_across_process_and_hash_seed(self):
         capture_dir = find_real_capture_dir()

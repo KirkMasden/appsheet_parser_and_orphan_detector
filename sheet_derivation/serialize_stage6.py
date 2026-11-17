@@ -14,7 +14,7 @@ from typing import Any, Dict
 from .loader import discover_capture_files
 from .serialize import write_canonical_json
 from .stage6 import Stage6Result, run_stage6
-from .stage6_artifacts import column_line, tier_counts
+from .stage6_artifacts import column_line, intended_meta, tier_counts
 
 
 def build_canonical_structure(result: Stage6Result) -> Dict[str, Any]:
@@ -25,6 +25,7 @@ def build_canonical_structure(result: Stage6Result) -> Dict[str, Any]:
         "appsheetTablesCsvFound": checkup.tables_csv_found,
         "appsheetTablesCsvNote": checkup.tables_csv_note,
         "counts": tier_counts(checkup),
+        "intended": intended_meta(checkup),
         "columns": [column_line(f) for f in checkup.findings],
         "notExamined": [
             {
@@ -43,20 +44,22 @@ def build_canonical_structure(result: Stage6Result) -> Dict[str, Any]:
 
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    if len(argv) not in (2, 3, 4):
+    if len(argv) not in (2, 3, 4, 5):
         print(
             "usage: python -m sheet_derivation.serialize_stage6 <capture_directory> <output_path> "
-            "[appside_parse_dir] [app_export_html]",
+            "[appside_parse_dir] [app_export_html] [intended_dir]",
             file=sys.stderr,
         )
         return 2
 
     capture_dir, output_path = argv[0], argv[1]
     appside_parse_dir = argv[2] if len(argv) >= 3 else None
-    app_export_html = argv[3] if len(argv) == 4 else None
+    app_export_html = argv[3] if len(argv) >= 4 else None
+    intended_dir = argv[4] if len(argv) == 5 else None
     formulas_path, values_path = discover_capture_files(capture_dir)
     result = run_stage6(
-        formulas_path, values_path, appside_parse_dir=appside_parse_dir, app_export_html_path=app_export_html
+        formulas_path, values_path, appside_parse_dir=appside_parse_dir, app_export_html_path=app_export_html,
+        intended_dir=intended_dir,
     )
     write_canonical_json(output_path, build_canonical_structure(result))
     return 0

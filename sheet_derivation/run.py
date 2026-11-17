@@ -155,6 +155,14 @@ def main(argv=None) -> int:
         help="Path to a declarations JSON file. Read by stages 4 and 5. Optional.",
     )
     parser.add_argument(
+        "--intended-dir",
+        default=None,
+        help=(
+            "Folder holding the intended-items records, one <app name>.json per app. Read by stage 6. "
+            "Optional: the default is the 'intended' folder in the workspace, beside apps/ and output/."
+        ),
+    )
+    parser.add_argument(
         OVERRIDE_OPTION,
         action="store_true",
         help=(
@@ -270,6 +278,7 @@ def main(argv=None) -> int:
                 app_export_html_path=app_export_html,
                 declarations_path=args.declarations,
                 stage5_result=stage5_result,
+                intended_dir=args.intended_dir,
             )
             paths = write_stage6_artifacts(result, args.output_dir)
             print("stage 6: wrote")
@@ -277,6 +286,7 @@ def main(argv=None) -> int:
                 print(f"  {path}")
             if result.checkup.present:
                 print(f"stage 6: {result.checkup.tables_csv_note}")
+                print(f"stage 6: {result.checkup.record_note}")
             else:
                 print(
                     f"WARNING: stage 6's formula checkup is ABSENT: {result.checkup.absent_reason}",

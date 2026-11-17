@@ -45,9 +45,13 @@ CSV_NAME = "stage6_formula_checkup.csv"
 
 def tier_counts(checkup: CheckupArtifact) -> Dict[str, Any]:
     """Counts of the examined columns by tier, with the raised ones also by
-    grade. Every examined column is in exactly one tier."""
+    grade. Every examined column is in exactly one tier. A column marked
+    intended (its declaration still matches) is counted in intendedCount and
+    NOT in raised, raisedLikely, raisedPossible or minor; `examined` still
+    counts it."""
     counts = {
         "examined": len(checkup.findings),
+        "intendedCount": 0,
         "raised": 0,
         "raisedLikely": 0,
         "raisedPossible": 0,
@@ -56,7 +60,9 @@ def tier_counts(checkup: CheckupArtifact) -> Dict[str, Any]:
         "runProblem": 0,
     }
     for f in checkup.findings:
-        if f.tier == TIER_RAISED:
+        if f.intended is not None:
+            counts["intendedCount"] += 1
+        elif f.tier == TIER_RAISED:
             counts["raised"] += 1
             if f.grade == GRADE_LIKELY:
                 counts["raisedLikely"] += 1
@@ -92,6 +98,29 @@ def _group_out(g) -> Dict[str, Any]:
         "canonicalConverted": g.canonical,
         "byConvention": list(g.by_convention),
         "note": g.note,
+    }
+
+
+def _mark_out(mark):
+    return None if mark is None else {"dateDeclared": mark.date_declared, "note": mark.note}
+
+
+def intended_meta(checkup: CheckupArtifact) -> Dict[str, Any]:
+    """What became of the intended-items record in this run."""
+    return {
+        "appName": checkup.app_name,
+        "intendedRecord": {
+            "state": checkup.record_state,
+            "file": checkup.record_file,
+            "note": checkup.record_note,
+        },
+        "intendedLapsed": [
+            {"table": t, "column": c, "dateDeclared": d, "note": n} for t, c, d, n in checkup.lapsed_entries
+        ],
+        "intendedNotApplied": [
+            {"table": t, "column": c, "dateDeclared": d, "reason": r} for t, c, d, r in checkup.not_applied_entries
+        ],
+        "orphanEntryCount": checkup.orphan_entry_count,
     }
 
 
@@ -147,6 +176,8 @@ def column_line(f: ColumnFinding) -> Dict[str, Any]:
         "finding": f.finding,
         "advice": f.advice,
         "notes": list(f.notes),
+        "intended": _mark_out(f.intended),
+        "intendedLapsed": _mark_out(f.lapsed),
     }
 
 
@@ -167,6 +198,7 @@ def _checkup_lines(checkup: CheckupArtifact) -> Iterable[Dict[str, Any]]:
         "notExaminedCount": len(checkup.not_examined),
         "residueCount": len(checkup.residue),
     }
+    meta.update(intended_meta(checkup))
     meta.update(tier_counts(checkup))
     yield meta
     for f in checkup.findings:
@@ -187,7 +219,7 @@ def _checkup_lines(checkup: CheckupArtifact) -> Iterable[Dict[str, Any]]:
 _CSV_FIELDS: Tuple[str, ...] = (
     "table", "column", "tab", "sheetColumn", "updateModeAsExported", "addsAllowed", "editsAllowed",
     "settingAssumed", "rowBasis", "countedRowCount", "matchingRowCount", "differingRowCount",
-    "noFormulaRowCount", "uncomparedRowCount", "situation", "tier", "grade", "rank",
+    "noFormulaRowCount", "uncomparedRowCount", "situation", "tier", "grade", "rank", "intended",
     "byConvention", "storedFormula", "finding", "advice",
 )
 
@@ -195,7 +227,8 @@ _CSV_FIELDS: Tuple[str, ...] = (
 def _csv_rows(checkup: CheckupArtifact) -> Iterable[Dict[str, Any]]:
     for f in checkup.findings:
         line = column_line(f)
-        row = {k: line[k] for k in _CSV_FIELDS if k not in ("byConvention", "grade", "rank", "updateModeAsExported")}
+        row = {k: line[k] for k in _CSV_FIELDS if k not in ("byConvention", "grade", "rank", "updateModeAsExported", "intended")}
+        row["intended"] = "yes" if f.intended is not None else ("lapsed declaration" if f.lapsed is not None else "")
         row["updateModeAsExported"] = "" if f.update_mode is None else f.update_mode
         row["grade"] = "" if f.grade is None else f.grade
         row["rank"] = "" if f.rank is None else f.rank

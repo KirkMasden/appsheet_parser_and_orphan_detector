@@ -218,6 +218,30 @@ class TestRunStage6(unittest.TestCase):
         self.assertIn("appsheet_tables.csv is absent", meta["appsheetTablesCsvNote"])
         self.assertIn("appsheet_tables.csv is absent", out)
 
+    def test_intended_dir_option_is_read_by_stage_6(self):
+        from .. import intended
+        with tempfile.TemporaryDirectory() as tmp:
+            input_dir, app_dir, sheet_dir = _checkup_workspace(tmp)
+            # give the export a folder name so that the app's name can be derived
+            html_path = os.path.join(input_dir, "Application Documentation.html")
+            with open(html_path, encoding="utf-8") as fh:
+                html = fh.read()
+            row = ('<tr><td><label class="" for="DefnFolderName" title="x">Default app folder</label></td>'
+                   '<td>/appsheet/data/RunApp-9</td></tr>\n')
+            with open(html_path, "w", encoding="utf-8") as fh:
+                fh.write(html.replace("<html><body>\n", "<html><body>\n" + row, 1))
+            idir = os.path.join(tmp, "my-intended")
+            code, out, err = _main([input_dir, sheet_dir, "--stages", "5,6", "--intended-dir", idir])
+            self.assertEqual(code, 0, msg=err)
+            self.assertIn("no intended-items record exists", out)
+            self.assertFalse(os.path.exists(idir))
+            intended.cmd_add(sheet_dir, "T", "F", "kept", idir)
+            code, out, err = _main([input_dir, sheet_dir, "--stages", "5,6", "--intended-dir", idir])
+            meta = next(iter(read_jsonl(os.path.join(sheet_dir, "stage6_formula_checkup.jsonl"))))
+        self.assertEqual(code, 0, msg=err)
+        self.assertIn("was read", out)
+        self.assertEqual((meta["intendedCount"], meta["raised"], meta["appName"]), (1, 0, "RunApp"))
+
     def test_stage_numbers_up_to_6_are_accepted_and_7_is_not(self):
         self.assertEqual(run._parse_stages("6,5"), (5, 6))
         with self.assertRaises(ValueError):

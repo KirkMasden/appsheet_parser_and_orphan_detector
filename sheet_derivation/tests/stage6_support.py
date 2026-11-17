@@ -83,6 +83,7 @@ def make_inputs(
     worksheets: Optional[Dict[str, Optional[str]]] = None,
     export_columns: bool = True,
     columns_fields=None,
+    app_folder: Optional[str] = None,
 ):
     """Writes capture, app-side files and export under `tmp`; returns
     (formulas_path, values_path, appside_dir, export_html_path). `tables` is
@@ -114,25 +115,27 @@ def make_inputs(
             t: [(r["column_name"], r["is_virtual"] == "Yes", False) for r in column_rows_ if r["table_name"] == t]
             for t in table_names
         }
-    html = write_export_html(capture_dir, export_tables, columns=columns)
+    html = write_export_html(capture_dir, export_tables, columns=columns, app_folder=app_folder)
     return fpath, vpath, app_dir, html
 
 
 def run_checkup(
-    tabs, column_rows_, tables=None, worksheets=None, export_columns=True, columns_fields=None, **kwargs
+    tabs, column_rows_, tables=None, worksheets=None, export_columns=True, columns_fields=None,
+    app_folder=None, **kwargs
 ):
     with tempfile.TemporaryDirectory() as tmp:
         fpath, vpath, app_dir, html = make_inputs(
-            tmp, tabs, column_rows_, tables, worksheets, export_columns, columns_fields
+            tmp, tabs, column_rows_, tables, worksheets, export_columns, columns_fields, app_folder
         )
         return stage6.run_stage6(fpath, vpath, appside_parse_dir=app_dir, app_export_html_path=html, **kwargs)
 
 
-def scenario(codes: List[str], stored: str = STORED, mode: Optional[str] = "ALL_CHANGES", key_flag: bool = True):
+def scenario(codes: List[str], stored: str = STORED, mode: Optional[str] = "ALL_CHANGES", key_flag: bool = True,
+             **kwargs):
     """Runs the single-column scenario; `mode` None means no appsheet_tables.csv."""
     cols = column_rows("T", ["Key", "F"], key="Key" if key_flag else None, formulas={"F": stored})
     tables = None if mode is None else [("T", mode)]
-    return run_checkup({"T": scenario_rows(codes)}, cols, tables)
+    return run_checkup({"T": scenario_rows(codes)}, cols, tables, **kwargs)
 
 
 def finding(result, table: str, column: str):

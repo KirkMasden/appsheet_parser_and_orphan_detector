@@ -553,7 +553,7 @@ def write_appside_columns_csv(tmpdir: str, rows: List[dict], include_is_virtual:
 
 def write_export_html(tmpdir: str, tables: List[Tuple[str, str, str]], include_qualifier: bool = True,
                       filename: str = "Application Documentation.html", columns: dict = None,
-                      views: List[str] = None, actions: List[str] = None) -> str:
+                      views: List[str] = None, actions: List[str] = None, app_folder: str = None) -> str:
     """Writes a minimal HTML export holding one table block per
     `(table, worksheet, data_source)` entry, in the row format AppSheet's
     own export uses. A worksheet of None writes no "Worksheet
@@ -569,6 +569,8 @@ def write_export_html(tmpdir: str, tables: List[Tuple[str, str, str]], include_q
                 f'</label></td><td>{value}</td></tr>\n')
 
     parts = ["<html><body>\n"]
+    if app_folder is not None:
+        parts.append(row("DefnFolderName", "Default app folder", app_folder))
     for i, (table, worksheet, data_source) in enumerate(tables):
         parts.append(f'<table class="react-bridge-group" data-type="DataSets" data-index="{i}">\n<tbody>\n')
         parts.append(row("Name", "Table name", table))
