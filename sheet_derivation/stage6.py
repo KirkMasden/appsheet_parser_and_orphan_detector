@@ -328,6 +328,8 @@ class CheckupArtifact(ArtifactBase):
     lapsed_entries: Tuple[Tuple[str, str, str, Optional[str]], ...] = ()  # table, column, date, note
     not_applied_entries: Tuple[Tuple[str, str, str, str], ...] = ()  # table, column, date, reason
     orphan_entry_count: int = 0
+    # Each stored orphan entry as (orphan kind, name, date declared, note), so a summary can carry them.
+    orphan_entries: Tuple[Tuple[str, str, str, Optional[str]], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -864,6 +866,7 @@ class _RecordOutcome:
     lapsed: Tuple[Tuple[str, str, str, Optional[str]], ...]
     not_applied: Tuple[Tuple[str, str, str, str], ...]
     orphan_count: int
+    orphans: Tuple[Tuple[str, str, str, Optional[str]], ...] = ()
 
 
 def _apply_intended_record(
@@ -900,9 +903,11 @@ def _apply_intended_record(
     lapsed: List[Tuple[str, str, str, Optional[str]]] = []
     not_applied: List[Tuple[str, str, str, str]] = []
     orphan_count = 0
+    orphans: List[Tuple[str, str, str, Optional[str]]] = []
     for entry in sorted(data["entries"], key=lambda e: (e["kind"], e.get("table", ""), e.get("column", ""), e.get("orphanKind", ""), e.get("name", ""))):
         if entry["kind"] == KIND_ORPHAN:
             orphan_count += 1
+            orphans.append((entry["orphanKind"], entry["name"], entry.get("declared") or "", entry.get("note")))
             continue
         key = (entry["table"], entry["column"])
         date, note = entry.get("declared") or "", entry.get("note")
@@ -932,7 +937,7 @@ def _apply_intended_record(
     return _RecordOutcome(
         [updated.get((f.table, f.column), f) for f in findings], app_name, RECORD_READ, path,
         f"the intended-items record {path} was read",
-        tuple(lapsed), tuple(not_applied), orphan_count,
+        tuple(lapsed), tuple(not_applied), orphan_count, tuple(orphans),
     )
 
 
@@ -1189,6 +1194,7 @@ def run_stage6(
         lapsed_entries=record.lapsed,
         not_applied_entries=record.not_applied,
         orphan_entry_count=record.orphan_count,
+        orphan_entries=record.orphans,
     )
     return Stage6Result(stage5=stage5_result, checkup=checkup)
 

@@ -58,7 +58,9 @@ class TestStage6SyntheticCrossProcessDeterminism(CrossProcessDeterminismTestCase
             self.assertEqual(r1.returncode, 0, msg=f"seed=1 subprocess failed: {r1.stderr}")
             self.assert_files_byte_identical(out0, out1, context="synthetic workbook, Stage 6")
             with open(out0, encoding="utf-8") as fh:
-                self.assertIn('"situation"', fh.read())  # the run produced real findings, not an absent artifact
+                text = fh.read()
+            self.assertIn('"situation"', text)  # the run produced real findings, not an absent artifact
+            self.assertIn('"formula-checkup-summary"', text)  # and the summary is part of what was compared
 
 
 class TestStage6WithARecordCrossProcessDeterminism(CrossProcessDeterminismTestCase):

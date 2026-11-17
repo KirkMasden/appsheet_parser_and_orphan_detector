@@ -15,6 +15,7 @@ from .loader import discover_capture_files
 from .serialize import write_canonical_json
 from .stage6 import Stage6Result, run_stage6
 from .stage6_artifacts import column_line, intended_meta, tier_counts
+from .stage6_summary import build_summary
 
 
 def build_canonical_structure(result: Stage6Result) -> Dict[str, Any]:
@@ -26,6 +27,7 @@ def build_canonical_structure(result: Stage6Result) -> Dict[str, Any]:
         "appsheetTablesCsvNote": checkup.tables_csv_note,
         "counts": tier_counts(checkup),
         "intended": intended_meta(checkup),
+        "summary": build_summary(result),
         "columns": [column_line(f) for f in checkup.findings],
         "notExamined": [
             {

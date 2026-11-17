@@ -250,7 +250,11 @@ def write_stage6_artifacts(result: Stage6Result, output_dir: str) -> Dict[str, s
     paths = {
         "checkup": os.path.join(output_dir, JSONL_NAME),
         "checkup_csv": os.path.join(output_dir, CSV_NAME),
+        "summary": os.path.join(output_dir, "stage6_formula_checkup_summary.json"),
     }
     write_jsonl(paths["checkup"], _checkup_lines(result.checkup))
     write_csv(paths["checkup_csv"], _CSV_FIELDS, _csv_rows(result.checkup))
+    from .stage6_summary import build_summary, write_summary  # here: stage6_summary imports this module
+
+    write_summary(paths["summary"], build_summary(result))
     return paths
