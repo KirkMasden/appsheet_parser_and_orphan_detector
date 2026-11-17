@@ -602,3 +602,66 @@ def write_export_html(tmpdir: str, tables: List[Tuple[str, str, str]], include_q
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("".join(parts))
     return path
+
+
+# ---------------------------------------------------------------------------
+# Formula checkup (stage 6) fixtures. A tab is a list of rows; row 1 is the
+# header. A cell is a plain value, None for an empty cell, or a tuple
+# (formula, value) for a formula cell, where the formula is written in A1
+# notation with its leading "=".
+# ---------------------------------------------------------------------------
+
+
+def build_capture_from_tabs(tabs: dict) -> Tuple[dict, dict]:
+    formula_sheets = []
+    value_sheets = []
+    for name, rows in tabs.items():
+        width = max(len(r) for r in rows)
+        formulas = []
+        values = []
+        for r in rows:
+            frow, vrow = [], []
+            for c in range(width):
+                cell = r[c] if c < len(r) else None
+                if isinstance(cell, tuple):
+                    frow.append(cell[0])
+                    vrow.append(cell[1])
+                else:
+                    frow.append("")
+                    vrow.append("" if cell is None else cell)
+            formulas.append(frow)
+            values.append(vrow)
+        formula_sheets.append(_minimal_formulas_sheet(name, formulas))
+        value_sheets.append(_minimal_values_sheet(name, values))
+    formulas_doc = {
+        "captureDate": CAPTURE_DATE, "spreadsheetName": "Stage6 Test Workbook", "triggerIds": [],
+        "sheets": formula_sheets,
+    }
+    values_doc = {"captureDate": CAPTURE_DATE, "spreadsheetName": "Stage6 Test Workbook", "sheets": value_sheets}
+    return formulas_doc, values_doc
+
+
+FORMULA_COLUMNS_FIELDS = ["table_name", "column_name", "is_virtual", "key", "spreadsheet_formula"]
+
+
+def write_formula_columns_csv(tmpdir: str, rows: List[dict], fieldnames=None) -> str:
+    """A minimal `appsheet_columns.csv` with the fields the formula checkup
+    reads (and the ones stage 5 reads). `fieldnames` may leave one out."""
+    fields = list(fieldnames) if fieldnames is not None else FORMULA_COLUMNS_FIELDS
+    path = os.path.join(tmpdir, "appsheet_columns.csv")
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fields)
+        writer.writeheader()
+        for r in rows:
+            writer.writerow({k: r.get(k, "") for k in fields})
+    return path
+
+
+def write_tables_csv(tmpdir: str, rows: List[Tuple[str, str]]) -> str:
+    path = os.path.join(tmpdir, "appsheet_tables.csv")
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh, quoting=csv.QUOTE_ALL)
+        writer.writerow(["table_name", "update_mode"])
+        for name, mode in rows:
+            writer.writerow([name, mode])
+    return path

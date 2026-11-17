@@ -1,4 +1,4 @@
-"""User-facing entry point: runs sheet-derivation stages 0-5 against a
+"""User-facing entry point: runs sheet-derivation stages 0-6 against a
 capture and writes each stage's own artifacts to disk.
 
 Invoked as:
@@ -15,11 +15,11 @@ wrote no file. A user who only has this repository could not produce the
 sheet-side artifacts at all.
 
 This module fixes exactly that. It computes nothing itself: it calls the
-existing run_stageN functions (stage0.py through stage5.py) for the
+existing run_stageN functions (stage0.py through stage6.py) for the
 computation and the existing write_stageN_artifacts functions
 (stage2_artifacts.py/stage3_artifacts.py/stage4_artifacts.py/
-stage5_artifacts.py) for the writing, unchanged, in the same way the
-untracked gate-check scripts already do.
+stage5_artifacts.py/stage6_artifacts.py) for the writing, unchanged, in
+the same way the untracked gate-check scripts already do.
 
 Stages 0 and 1 have no artifact writer -- neither produces a standalone
 artifact of its own (see their own module docstrings). They still run
@@ -32,7 +32,9 @@ compares the worksheet names the app's HTML export gives for its Google
 tables with the capture's sheet names, and stops the run when none of
 them match, unless --allow-mismatch is given.
 
-Stage 5 needs the app-side results. When --appside-parse-dir is not
+Stages 5 and 6 need the app-side results (stage 6, the formula checkup,
+reads appsheet_columns.csv and, when present, appsheet_tables.csv from the
+same folder). When --appside-parse-dir is not
 given and the output folder follows the documented layout
 (output/<name>/sheet, with output/<name>/app beside it), the app-side
 results are taken from that app folder, and a line says so. When none
@@ -59,15 +61,17 @@ from .stage4 import run_stage4
 from .stage4_artifacts import write_stage4_artifacts
 from .stage5 import run_stage5
 from .stage5_artifacts import write_stage5_artifacts
+from .stage6 import run_stage6
+from .stage6_artifacts import write_stage6_artifacts
 
-ALL_STAGES = (0, 1, 2, 3, 4, 5)
+ALL_STAGES = (0, 1, 2, 3, 4, 5, 6)
 
 
 def _parse_stages(raw: str):
     """'3,4,5' -> (3, 4, 5); always returned in ascending order regardless
     of the order written, since later stages depend on earlier ones.
     Raises ValueError, naming the bad token, on anything not an integer in
-    range(0, 6)."""
+    range(0, 7)."""
     stages = set()
     for token in raw.split(","):
         token = token.strip()
@@ -78,7 +82,7 @@ def _parse_stages(raw: str):
         except ValueError:
             raise ValueError(f"not an integer: {token!r}")
         if stage not in ALL_STAGES:
-            raise ValueError(f"not a known stage (0-5): {stage}")
+            raise ValueError(f"not a known stage (0-6): {stage}")
         stages.add(stage)
     if not stages:
         raise ValueError("no stages given")
@@ -110,7 +114,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m sheet_derivation.run",
         description=(
-            "Runs sheet-derivation stages 0-5 against a capture and writes "
+            "Runs sheet-derivation stages 0-6 against a capture and writes "
             "each stage's own JSONL/CSV artifacts to disk."
         ),
     )
@@ -124,14 +128,14 @@ def main(argv=None) -> int:
     )
     parser.add_argument(
         "--stages",
-        default="0,1,2,3,4,5",
-        help="Comma-separated subset of stages to run, e.g. '3,4,5'. Default: all stages, 0 through 5.",
+        default="0,1,2,3,4,5,6",
+        help="Comma-separated subset of stages to run, e.g. '3,4,5'. Default: all stages, 0 through 6.",
     )
     parser.add_argument(
         "--appside-parse-dir",
         default=None,
         help=(
-            "Directory holding the app-side parse's appsheet_columns.csv. Read by stage 5. Optional: "
+            "Directory holding the app-side parse's appsheet_columns.csv (and appsheet_tables.csv). Read by stages 5 and 6. Optional: "
             "when omitted and the output folder is output/<name>/sheet, output/<name>/app is used "
             "if it holds app-side results."
         ),
@@ -184,14 +188,14 @@ def main(argv=None) -> int:
         return EXIT_PAIRING_STOPPED
 
     appside_parse_dir = args.appside_parse_dir
-    if 5 in stages and appside_parse_dir is None:
+    if (5 in stages or 6 in stages) and appside_parse_dir is None:
         appside_parse_dir = find_appside_results_beside(args.output_dir)
         if appside_parse_dir is not None:
             print(f"app-side results: using {appside_parse_dir} (found beside the output folder)")
         else:
             print(
                 "WARNING: no app-side results found, so stage 5's join will be ABSENT (its CSVs "
-                "will hold headers only). To fix: parse the app first so that its results are in "
+                "will hold headers only) and stage 6 (the formula checkup) will be ABSENT too. To fix: parse the app first so that its results are in "
                 "the 'app' folder beside this 'sheet' output folder (output/<name>/app next to "
                 "output/<name>/sheet), or pass --appside-parse-dir <folder holding "
                 "appsheet_columns.csv>.",
@@ -202,6 +206,7 @@ def main(argv=None) -> int:
     # never create it, contradicting this entry point's own contract.
     os.makedirs(args.output_dir, exist_ok=True)
 
+    stage5_result = None
     for stage in stages:
         print(f"stage {stage}: running...")
 
@@ -244,6 +249,7 @@ def main(argv=None) -> int:
                 app_export_html_path=app_export_html,
                 declarations_path=args.declarations,
             )
+            stage5_result = result
             paths = write_stage5_artifacts(result, args.output_dir)
             print("stage 5: wrote")
             for path in paths.values():
@@ -253,6 +259,27 @@ def main(argv=None) -> int:
             else:
                 print(
                     f"WARNING: stage 5's join is ABSENT: {result.join.reliability_condition}",
+                    file=sys.stderr,
+                )
+
+        elif stage == 6:
+            result = run_stage6(
+                formulas_path,
+                values_path,
+                appside_parse_dir=appside_parse_dir,
+                app_export_html_path=app_export_html,
+                declarations_path=args.declarations,
+                stage5_result=stage5_result,
+            )
+            paths = write_stage6_artifacts(result, args.output_dir)
+            print("stage 6: wrote")
+            for path in paths.values():
+                print(f"  {path}")
+            if result.checkup.present:
+                print(f"stage 6: {result.checkup.tables_csv_note}")
+            else:
+                print(
+                    f"WARNING: stage 6's formula checkup is ABSENT: {result.checkup.absent_reason}",
                     file=sys.stderr,
                 )
 
