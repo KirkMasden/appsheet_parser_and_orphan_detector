@@ -511,9 +511,10 @@ def _compose(
         if kind == KIND_ADDS:
             advice = (
                 "Rows the app adds will not get the formula, and a third-party report says a new row can erase it. "
-                "If the formula is meant to apply to new rows, make the formulas in the column agree and then "
-                "regenerate the table in the AppSheet editor so that the app stores it (AppSheet stores a "
-                "column's formula only when every cell agrees)."
+                "If the formula is meant to apply to new rows, put it in every row of the column and then "
+                "regenerate the table in the AppSheet editor, so that the app stores it. AppSheet assigns a "
+                "column the formula held by a high percentage of its cells, and it counts an empty cell as a "
+                "formula type of its own; Google's help gives no exact figure."
             )
         elif kind == KIND_EDITS_ONLY:
             advice = (
@@ -544,9 +545,10 @@ def _compose(
         elif kind == KIND_ADDS:
             advice = (
                 "Adding rows causes no trouble, since new rows get the normal formula. Advice: make the odd rows "
-                "match the rest before regenerating the table, because AppSheet stores a column's formula only "
-                "when every cell agrees; regenerating first could leave the column with no stored formula (a risk, "
-                "not a certainty)."
+                "match the rest, then regenerate the table, as Google's help recommends. Regenerating first would "
+                "probably keep the normal formula, since AppSheet assigns a column the formula held by a high "
+                "percentage of its cells, but the odd rows would stay as they are and the editor would show a "
+                "mismatch warning."
             )
         elif kind == KIND_EDITS_ONLY:
             advice = (

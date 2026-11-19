@@ -70,7 +70,7 @@ class TestFields(unittest.TestCase):
             (1, "T", "F", "T", "B", "S2B", "likely", "5", None),
         )
         self.assertIn("matches 3 of the 4 counted rows", item["finding"])
-        self.assertIn("only when every cell agrees", item["advice"])
+        self.assertIn("as Google's help recommends", item["advice"])
 
     def test_rows_that_matter(self):
         s2a = build_summary(scenario(["same", "diff", "diff", "none"]))["raised"][0]
