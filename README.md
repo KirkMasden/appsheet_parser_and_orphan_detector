@@ -51,7 +51,7 @@ AppSheetAnalysis/
 └── output/
     └── MyApp_20260914_101500/
         ├── app/             # the app-side CSVs
-        ├── sheet/           # the stage 2-5 JSONL and CSV artifacts
+        ├── sheet/           # the stage 2-6 JSONL and CSV artifacts
         ├── gates/           # gate reports (maintainer use)
         └── investigations/  # agent-written reports
 ```
