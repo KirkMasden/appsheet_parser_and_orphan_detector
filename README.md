@@ -1,5 +1,7 @@
 # AppSheet Parser and Orphan Detector Suite
 
+**Project status (2026-11-19).** This release closes the edits and improvements I have planned for now. I'm stepping back from the project for a while, and I'm not sure when I'll have the time or inclination to do more. Known next steps are listed in `STATUS.md`. Forking and improvements from others are welcome.
+
 The **AppSheet Parser Suite** reads an AppSheet app's documentation export and the Google Sheets workbook behind it, and turns both into structured files that an AI coding agent can read. Rather than running the scripts and interpreting CSV files yourself, you ask your agent questions about your app in ordinary language and it does the work.
 
 Finding orphaned components — views, actions, columns, slices and format rules that nothing uses any more — is still there, and is now one use among many.
@@ -10,6 +12,7 @@ The relationships that matter in an AppSheet app — which action attaches to wh
 
 - Structured CSVs of every view, action, column, slice and format rule in your app, with the navigation paths, grouped action chains and dependencies between them
 - A formula inventory, a per-sheet schema, a column dependency graph and a dangling-reference list derived from your Google Sheets workbook, joined against the app's own column names
+- A formula checkup that compares each spreadsheet formula behind an app column with the copy AppSheet stores of it, taking into account whether the app can add or edit rows in that table, and gives a mild heads-up where the two have drifted apart or a formula could be overwritten
 - Orphan candidates — views, columns, actions, slices and format rules that nothing appears to use any more
 - Inline actions whose own condition contradicts the `Show_If` of the column they attach to, so the button can never appear whatever the data holds
 
